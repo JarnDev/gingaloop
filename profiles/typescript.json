@@ -1,0 +1,56 @@
+{
+  "id": "typescript",
+  "name": "TypeScript",
+  "aliases": [
+    "ts"
+  ],
+  "image": {
+    "tag": "gingaloop/typescript:node24-ts5",
+    "dockerfile": "FROM node:24-slim\nRUN npm install -g typescript@5 && npm cache clean --force\n"
+  },
+  "testCommand": "tsc --noEmit --strict --target es2022 --module nodenext --moduleResolution nodenext --allowImportingTsExtensions --erasableSyntaxOnly ../$TARGET/*.ts && node --test",
+  "successPattern": null,
+  "conventions": "TypeScript run natively by Node 24 (type stripping) and type-checked with `tsc --strict` against the target. Only ERASABLE syntax: no enum, no namespace, no constructor parameter properties (use `as const` objects and explicit fields). The code under test is `solution.ts` with named, explicitly typed exports, in starter/, solution/ and every bugs/<name>/. Imports between files use the `.ts` extension. Tests are `tests/*.test.ts` using `node:test` + `node:assert/strict`, loading the target with:\n\n    const { fn } = await import(`../${process.env.TARGET ?? \"starter\"}/solution.ts`);\n\nName tests descriptively: the name is what `bugs[].expect` matches. A starter stub must still type-check (e.g. `throw new Error(\"TODO\")` in a function with the right signature). Favor the type system: discriminated unions, narrowing, generics with constraints, readonly, satisfies. A bug variant may also be a TYPE bug that only `tsc` catches; then `expect` is the tsc error text (e.g. `error TS2322`).",
+  "levelNotes": {
+    "3": "Good topics: discriminated unions with exhaustive switch (never), readonly arrays, generic helpers.",
+    "5": "Good depth topics: generics with constraints, mapped/conditional types in a public API, type guards, branded types.",
+    "7": "Good depth topics: typed event emitters, builder APIs with accumulated generics, template literal types for parsers."
+  },
+  "areas": [
+    {
+      "id": "unions-narrowing",
+      "name": "Union types and narrowing",
+      "minLevel": 2
+    },
+    {
+      "id": "readonly",
+      "name": "readonly and immutability in types",
+      "minLevel": 2
+    },
+    {
+      "id": "generics",
+      "name": "Generics with constraints",
+      "minLevel": 3
+    },
+    {
+      "id": "type-guards",
+      "name": "Type guards and assertion functions",
+      "minLevel": 3
+    },
+    {
+      "id": "branded-types",
+      "name": "Branded and nominal types",
+      "minLevel": 5
+    },
+    {
+      "id": "mapped-conditional",
+      "name": "Mapped and conditional types",
+      "minLevel": 5
+    },
+    {
+      "id": "template-literal-types",
+      "name": "Template literal types",
+      "minLevel": 6
+    }
+  ]
+}

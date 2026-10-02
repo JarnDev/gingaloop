@@ -1,0 +1,56 @@
+{
+  "id": "javascript",
+  "name": "JavaScript",
+  "aliases": [
+    "js",
+    "ecmascript"
+  ],
+  "image": {
+    "pull": "node:24-slim"
+  },
+  "testCommand": "node --test",
+  "successPattern": null,
+  "conventions": "Plain modern JavaScript as ES modules (`.mjs`), focused on the LANGUAGE (not Node runtime APIs). The code under test is `solution.mjs` with named exports, in starter/, solution/ and every bugs/<name>/. Tests are `tests/*.test.mjs` using `node:test` and `node:assert/strict`, and load the target with:\n\n    const { fn } = await import(`../${process.env.TARGET ?? \"starter\"}/solution.mjs`);\n\nName tests descriptively: the name is what `bugs[].expect` matches. Pass a teaching message as the last assert argument. A starter stub throws `new Error(\"TODO\")`. Favor idiomatic JS: immutability, Map/Set, iterators, destructuring, closures, async/await, precise equality.",
+  "levelNotes": {
+    "5": "Good depth topics: closures and scope, prototype chain, iterators/generators, Promise ordering (microtasks vs macrotasks), WeakMap.",
+    "7": "Good depth topics: async concurrency limits, cancellation with AbortSignal, Proxy/Reflect, event-loop ordering puzzles.",
+    "8": "Good depth topics: tiny interpreters, reactive signals, virtual-DOM diff, scheduler with priorities."
+  },
+  "areas": [
+    {
+      "id": "immutability",
+      "name": "Immutability and copying (spread, structuredClone)",
+      "minLevel": 2
+    },
+    {
+      "id": "closures-scope",
+      "name": "Closures and scope",
+      "minLevel": 2
+    },
+    {
+      "id": "prototypes-classes",
+      "name": "Prototypes and classes",
+      "minLevel": 3
+    },
+    {
+      "id": "iterators-generators",
+      "name": "Iterators and generators",
+      "minLevel": 4
+    },
+    {
+      "id": "promises-async",
+      "name": "Promises and async/await",
+      "minLevel": 4
+    },
+    {
+      "id": "event-loop",
+      "name": "Event loop ordering (microtasks vs macrotasks)",
+      "minLevel": 5
+    },
+    {
+      "id": "proxy-reflect",
+      "name": "Proxy and Reflect",
+      "minLevel": 6
+    }
+  ]
+}

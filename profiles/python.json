@@ -1,0 +1,51 @@
+{
+  "id": "python",
+  "name": "Python",
+  "aliases": [
+    "py",
+    "python3"
+  ],
+  "image": {
+    "pull": "python:3.12-slim"
+  },
+  "testCommand": "python3 -m unittest discover -s . -p \"test_*.py\" -v",
+  "successPattern": null,
+  "conventions": "Tests use the standard library `unittest` only (no pytest). The code under test is `solution.py` (plus extra modules if needed) inside starter/, solution/ and every bugs/<name>/. Each test file starts with:\n\n    import os, sys\n    sys.path.insert(0, os.path.join(os.path.dirname(__file__), \"..\", os.environ.get(\"TARGET\", \"starter\")))\n    from solution import <names>\n\nName tests descriptively (`test_last_run_is_kept`): the name is what `bugs[].expect` matches. Use `self.assertEqual(got, want, msg)` with a teaching msg. Type hints on public functions. A starter stub raises `NotImplementedError` or returns a wrong placeholder. Favor idiomatic Python: comprehensions, itertools/collections, generators, dataclasses, exceptions for errors.",
+  "levelNotes": {
+    "5": "Good depth topics: generators/iterators protocol, context managers, dataclasses with invariants, functools caching, descriptors.",
+    "7": "Good depth topics: asyncio ordering and cancellation, heapq/bisect-based structures, memory via __slots__, typing.Protocol.",
+    "8": "Good depth topics: small interpreters, metaclass-free plugin systems, persistent structures, asyncio schedulers."
+  },
+  "areas": [
+    {
+      "id": "iterators-generators",
+      "name": "Iterators and generators",
+      "minLevel": 3
+    },
+    {
+      "id": "functools-itertools",
+      "name": "functools, itertools and collections",
+      "minLevel": 2
+    },
+    {
+      "id": "dataclasses-protocols",
+      "name": "Dataclasses, protocols and typing",
+      "minLevel": 4
+    },
+    {
+      "id": "context-managers",
+      "name": "Context managers and resource cleanup",
+      "minLevel": 4
+    },
+    {
+      "id": "decorators",
+      "name": "Decorators and closures",
+      "minLevel": 4
+    },
+    {
+      "id": "asyncio",
+      "name": "asyncio (tasks, cancellation, ordering)",
+      "minLevel": 6
+    }
+  ]
+}

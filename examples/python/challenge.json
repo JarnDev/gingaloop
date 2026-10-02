@@ -1,0 +1,13 @@
+{
+  "slug": "run-length-encoding",
+  "title": "Run-length encoding",
+  "type": "implement",
+  "level": 1,
+  "topics": ["strings", "run-length encoding", "parsing"],
+  "estMinutes": 20,
+  "test": { "command": "python3 -m unittest discover -s . -p \"test_*.py\" -v", "successPattern": null, "timeoutSeconds": 60 },
+  "bugs": [
+    { "name": "drops-last-run", "expect": "test_encode_keeps_the_last_run" },
+    { "name": "single-digit-decode", "expect": "test_decode_multi_digit_counts" }
+  ]
+}

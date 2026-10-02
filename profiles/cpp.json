@@ -1,0 +1,68 @@
+{
+  "id": "cpp",
+  "name": "C++",
+  "aliases": [
+    "c++",
+    "cxx",
+    "cplusplus"
+  ],
+  "image": {
+    "tag": "gingaloop/cc:trixie-gcc14",
+    "dockerfile": "FROM debian:trixie-slim\nRUN apt-get update && apt-get install -y --no-install-recommends gcc g++ make libc6-dev && rm -rf /var/lib/apt/lists/*\n"
+  },
+  "testCommand": "make -s TARGET=$TARGET",
+  "successPattern": "ALL TESTS PASSED",
+  "conventions": "C++20 compiled with `-std=c++20 -Wall -Wextra -Wpedantic -Werror -g -fsanitize=address,undefined -fno-sanitize-recover=all`. The code under test is `solution.hpp` + `solution.cpp` in starter/, solution/ and every bugs/<name>/ (the header is identical in all). `tests/Makefile` compiles `test.cpp` with `-I../$(TARGET) ../$(TARGET)/*.cpp` into a binary under /tmp and runs it (copy the Makefile from the example). `tests/test.cpp` uses the CHECK helpers from the example: each check prints `[ok]   <name>` or `[FAIL] <name>` with expected/got, and main prints `ALL TESTS PASSED` only when there are zero failures (exit 1 otherwise). `bugs[].expect` is the failing check's name. The starter must COMPILE under -Werror and return a wrong placeholder. Favor modern C++: RAII, value semantics, std::string_view/span, algorithms over raw loops, move semantics, constexpr where natural.",
+  "levelNotes": {
+    "3": "Good topics: std::vector/std::unordered_map usage, string_view pitfalls (dangling), const-correctness.",
+    "5": "Good depth topics: rule of 0/3/5, move semantics, RAII wrappers, templates with concepts, iterators for a custom container.",
+    "7": "Good depth topics: allocator-aware containers, variant/visit state machines, exception safety guarantees, small-buffer optimization."
+  },
+  "areas": [
+    {
+      "id": "stl-containers",
+      "name": "STL containers",
+      "minLevel": 1
+    },
+    {
+      "id": "algorithms-ranges",
+      "name": "<algorithm> and ranges",
+      "minLevel": 2
+    },
+    {
+      "id": "string-view",
+      "name": "std::string_view and lifetimes",
+      "minLevel": 2
+    },
+    {
+      "id": "raii",
+      "name": "RAII and ownership (unique_ptr, rule of zero)",
+      "minLevel": 3
+    },
+    {
+      "id": "move-semantics",
+      "name": "Move semantics and the rule of five",
+      "minLevel": 4
+    },
+    {
+      "id": "templates-concepts",
+      "name": "Templates and concepts",
+      "minLevel": 5
+    },
+    {
+      "id": "custom-iterators",
+      "name": "Custom iterators for a container",
+      "minLevel": 5
+    },
+    {
+      "id": "variant-visit",
+      "name": "std::variant and visit",
+      "minLevel": 5
+    },
+    {
+      "id": "exception-safety",
+      "name": "Exception safety guarantees",
+      "minLevel": 7
+    }
+  ]
+}

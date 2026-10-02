@@ -1,0 +1,13 @@
+{
+  "slug": "word-frequencies",
+  "title": "Top word frequencies",
+  "type": "implement",
+  "level": 1,
+  "topics": ["Map", "sorting with tie-breaks", "tuple types"],
+  "estMinutes": 20,
+  "test": { "command": "tsc --noEmit --strict --target es2022 --module nodenext --moduleResolution nodenext --allowImportingTsExtensions --erasableSyntaxOnly ../$TARGET/*.ts && node --test", "successPattern": null, "timeoutSeconds": 90 },
+  "bugs": [
+    { "name": "ties-unsorted", "expect": "ties are ordered alphabetically" },
+    { "name": "case-sensitive", "expect": "counts words case-insensitively" }
+  ]
+}

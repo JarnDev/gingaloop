@@ -1,0 +1,56 @@
+{
+  "id": "nodejs",
+  "name": "Node.js",
+  "aliases": [
+    "node",
+    "node.js"
+  ],
+  "image": {
+    "pull": "node:24-slim"
+  },
+  "testCommand": "node --test",
+  "successPattern": null,
+  "conventions": "Challenges about the Node.js RUNTIME: streams and backpressure, EventEmitter, fs/promises, path, buffers/encodings, AbortController, timers and the event loop, child_process, worker_threads, readline. ES modules (`.mjs`). The code under test is `solution.mjs` with named exports, in starter/, solution/ and every bugs/<name>/. Tests are `tests/*.test.mjs` with `node:test` + `node:assert/strict`, loading the target with:\n\n    const { fn } = await import(`../${process.env.TARGET ?? \"starter\"}/solution.mjs`);\n\nTests that need files create them under `os.tmpdir()` with `fs.mkdtemp` and remove them in `after`/`afterEach`. Give each async test `{ timeout: 5000 }`. No network (the sandbox has none). Name tests descriptively: the name is what `bugs[].expect` matches. A starter stub throws `new Error(\"TODO\")`.",
+  "levelNotes": {
+    "1": "Use one runtime API in a simple way (fs/promises, path, Buffer, events).",
+    "5": "Good depth topics: stream backpressure, pipeline() error propagation, EventEmitter error semantics, AbortSignal plumbing.",
+    "7": "Good depth topics: custom Transform streams, worker_threads pools, graceful shutdown, async_hooks-free context passing."
+  },
+  "areas": [
+    {
+      "id": "fs",
+      "name": "fs/promises and paths",
+      "minLevel": 1
+    },
+    {
+      "id": "buffers-encoding",
+      "name": "Buffers and encodings",
+      "minLevel": 2
+    },
+    {
+      "id": "events",
+      "name": "EventEmitter",
+      "minLevel": 2
+    },
+    {
+      "id": "streams",
+      "name": "Streams and backpressure",
+      "minLevel": 3
+    },
+    {
+      "id": "timers-abort",
+      "name": "Timers, AbortController and cancellation",
+      "minLevel": 4
+    },
+    {
+      "id": "child-processes",
+      "name": "child_process",
+      "minLevel": 5
+    },
+    {
+      "id": "worker-threads",
+      "name": "worker_threads",
+      "minLevel": 6
+    }
+  ]
+}

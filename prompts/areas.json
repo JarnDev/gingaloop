@@ -1,0 +1,27 @@
+{
+  "comment": "Language-agnostic practice areas. minLevel: lowest level where the area makes sense. Profiles add language-specific areas.",
+  "areas": [
+    { "id": "strings", "name": "Strings and text processing", "minLevel": 1 },
+    { "id": "arrays", "name": "Arrays and lists", "minLevel": 1 },
+    { "id": "hashing", "name": "Hash maps and sets (counting, grouping, dedupe)", "minLevel": 1 },
+    { "id": "math-bits", "name": "Math, number handling and bit tricks", "minLevel": 1 },
+    { "id": "sorting-searching", "name": "Sorting, searching and binary search", "minLevel": 2 },
+    { "id": "parsing", "name": "Parsing and validating structured input", "minLevel": 2 },
+    { "id": "stacks-queues", "name": "Stacks, queues and deques", "minLevel": 2 },
+    { "id": "recursion", "name": "Recursion and backtracking", "minLevel": 2 },
+    { "id": "simulation", "name": "Simulation and state machines", "minLevel": 2 },
+    { "id": "error-handling", "name": "Error handling and robust contracts", "minLevel": 2 },
+    { "id": "windows-pointers", "name": "Two pointers and sliding windows", "minLevel": 3 },
+    { "id": "intervals", "name": "Intervals and ranges", "minLevel": 3 },
+    { "id": "heaps", "name": "Heaps and priority queues", "minLevel": 3 },
+    { "id": "trees", "name": "Trees and tree traversal", "minLevel": 3 },
+    { "id": "api-design", "name": "Stateful API and data-structure design", "minLevel": 4 },
+    { "id": "graphs", "name": "Graphs (BFS, DFS, shortest paths, topological order)", "minLevel": 4 },
+    { "id": "dynamic-programming", "name": "Dynamic programming", "minLevel": 4 },
+    { "id": "caching", "name": "Caching and memoization", "minLevel": 4 },
+    { "id": "concurrency", "name": "Concurrency and async coordination", "minLevel": 6 },
+    { "id": "performance", "name": "Performance under a budget", "minLevel": 6 },
+    { "id": "interpreters", "name": "Interpreters, evaluators and compilers", "minLevel": 7 },
+    { "id": "systems", "name": "Mini-systems (schedulers, codecs, storage, diff)", "minLevel": 8 }
+  ]
+}

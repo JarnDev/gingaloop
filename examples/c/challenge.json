@@ -1,0 +1,13 @@
+{
+  "slug": "count-words",
+  "title": "Count words in a C string",
+  "type": "implement",
+  "level": 1,
+  "topics": ["C strings", "ctype.h", "state machines"],
+  "estMinutes": 20,
+  "test": { "command": "make -s TARGET=$TARGET", "successPattern": "ALL TESTS PASSED", "timeoutSeconds": 90 },
+  "bugs": [
+    { "name": "leading-space", "expect": "[FAIL] leading and trailing whitespace" },
+    { "name": "space-only-separator", "expect": "[FAIL] tabs and newlines separate words" }
+  ]
+}

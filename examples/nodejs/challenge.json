@@ -1,0 +1,13 @@
+{
+  "slug": "count-lines-streaming",
+  "title": "Count lines with a stream",
+  "type": "implement",
+  "level": 1,
+  "topics": ["fs streams", "buffers", "async iteration"],
+  "estMinutes": 20,
+  "test": { "command": "node --test", "successPattern": null, "timeoutSeconds": 60 },
+  "bugs": [
+    { "name": "misses-last-line", "expect": "counts a last line without a trailing newline" },
+    { "name": "empty-file-counts-one", "expect": "an empty file has zero lines" }
+  ]
+}

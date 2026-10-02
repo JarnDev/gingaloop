@@ -1,0 +1,63 @@
+{
+  "id": "c",
+  "name": "C",
+  "aliases": [
+    "c17",
+    "ansi-c"
+  ],
+  "image": {
+    "tag": "gingaloop/cc:trixie-gcc14",
+    "dockerfile": "FROM debian:trixie-slim\nRUN apt-get update && apt-get install -y --no-install-recommends gcc g++ make libc6-dev && rm -rf /var/lib/apt/lists/*\n"
+  },
+  "testCommand": "make -s TARGET=$TARGET",
+  "successPattern": "ALL TESTS PASSED",
+  "conventions": "C17 compiled with `-std=c17 -Wall -Wextra -Wpedantic -Werror -g -fsanitize=address,undefined -fno-sanitize-recover=all`, so memory errors and UB fail the run. The code under test is `solution.h` + `solution.c` in starter/, solution/ and every bugs/<name>/ (the header is identical in all). `tests/Makefile` compiles `test.c` with `-I../$(TARGET) ../$(TARGET)/*.c` into a binary under /tmp and runs it (copy the Makefile from the example). `tests/test.c` uses the CHECK macros from the example: each check prints `[ok]   <name>` or `[FAIL] <name>` with expected/got, and main prints `ALL TESTS PASSED` only when there are zero failures (exit 1 otherwise). `bugs[].expect` is the failing check's name. The starter must COMPILE under -Werror (silence unused parameters with `(void)param;`) and return a wrong placeholder. Teach ownership: document who frees what in solution.h.",
+  "levelNotes": {
+    "1": "Strings and arrays with explicit lengths; no dynamic allocation needed yet.",
+    "3": "Introduce malloc/free with clear ownership, struct APIs, size_t arithmetic.",
+    "5": "Good depth topics: dynamic arrays with growth strategy, intrusive linked lists, parsing with strtol and errno, bit manipulation.",
+    "7": "Good depth topics: arena/pool allocators, hash tables with open addressing, function pointers for generic containers."
+  },
+  "areas": [
+    {
+      "id": "c-strings",
+      "name": "C strings and char buffers",
+      "minLevel": 1
+    },
+    {
+      "id": "pointers-arrays",
+      "name": "Pointers and arrays",
+      "minLevel": 1
+    },
+    {
+      "id": "structs-ownership",
+      "name": "Structs and ownership rules",
+      "minLevel": 2
+    },
+    {
+      "id": "bit-manipulation",
+      "name": "Bit manipulation",
+      "minLevel": 2
+    },
+    {
+      "id": "dynamic-memory",
+      "name": "malloc/realloc/free and growth strategies",
+      "minLevel": 3
+    },
+    {
+      "id": "file-io",
+      "name": "File I/O and errno",
+      "minLevel": 3
+    },
+    {
+      "id": "function-pointers",
+      "name": "Function pointers and callbacks",
+      "minLevel": 4
+    },
+    {
+      "id": "allocators",
+      "name": "Arena and pool allocators",
+      "minLevel": 6
+    }
+  ]
+}

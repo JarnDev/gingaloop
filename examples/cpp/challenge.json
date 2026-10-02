@@ -1,0 +1,13 @@
+{
+  "slug": "reverse-words",
+  "title": "Reverse the words of a sentence",
+  "type": "implement",
+  "level": 1,
+  "topics": ["std::string_view", "std::vector", "algorithms"],
+  "estMinutes": 20,
+  "test": { "command": "make -s TARGET=$TARGET", "successPattern": "ALL TESTS PASSED", "timeoutSeconds": 120 },
+  "bugs": [
+    { "name": "keeps-extra-spaces", "expect": "[FAIL] collapses repeated spaces" },
+    { "name": "reverses-letters", "expect": "[FAIL] letters inside words keep their order" }
+  ]
+}
