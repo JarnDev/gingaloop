@@ -12,6 +12,8 @@ import { loadConfig, today } from "./workspace.mjs";
 export const START = "<!-- gingaloop:start -->";
 export const END = "<!-- gingaloop:end -->";
 const WEEKS = 12;
+// Absolute URL: the dashboard lives in the user's (often private) workspace repo, the logo in ours.
+export const LOGO_URL = "https://raw.githubusercontent.com/JarnDev/gingaloop/main/docs/logo-128.png";
 
 const fmt = (n) => n.toLocaleString("en-US");
 
@@ -115,7 +117,7 @@ export function renderDashboard(ws, config, date = today()) {
 
   return [
     START,
-    "# 🥋 gingaloop",
+    `# <img src="${LOGO_URL}" alt="" width="40" height="40" align="top"> gingaloop`,
     "",
     head,
     "",

@@ -43,4 +43,5 @@ test("dashboard replaces only the marked block and keeps the user's text", () =>
   assert.ok(text.includes("Keep me, edited.") && text.includes("Footer."));
   assert.ok(text.indexOf(END) < text.indexOf("# My notes"));
   assert.ok(text.includes("| Python | L1 |"));
+  assert.match(text, /^# <img src="https:\/\/raw\.githubusercontent\.com\/JarnDev\/gingaloop\/main\/docs\/logo-128\.png"/m, "logo in the header");
 });
