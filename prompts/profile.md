@@ -52,6 +52,8 @@ command on a throwaway copy of ./example):
 {{SANDBOX}} --cwd tests --target solution -- '<your test command>'
 ```
 
+Type the prefix exactly as shown, from this directory (do not `cd`), and give each option only once.
+
 Verify: solution passes, starter fails, every bug fails on its expected test. If the image lacks
 something you need, change the image (still official) rather than installing packages.
 

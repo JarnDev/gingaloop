@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
 import { isLocked, lockChallenge, readHints, unlockChallenge } from "../src/challenges.mjs";
-import { VaultKeyError, decryptBundle, encryptBundle, parseHints } from "../src/vault.mjs";
+import { VaultKeyError, decryptBundle, decryptBundleTolerant, encryptBundle, normalizeReadme, parseHints, writeFiles } from "../src/vault.mjs";
 
 const tmp = mkdtempSync(join(tmpdir(), "gingaloop-vault-"));
 after(() => rmSync(tmp, { recursive: true, force: true }));
@@ -16,6 +16,7 @@ function makeChallenge(name) {
   mkdirSync(join(dir, "solution"), { recursive: true });
   mkdirSync(join(dir, "bugs", "b1"), { recursive: true });
   writeFileSync(join(dir, "README.md"), "# Problem\nDo the thing.\n");
+  writeFileSync(join(dir, "challenge.json"), JSON.stringify({ slug: name, bugs: [{ name: "b1", expect: "SPOILER_TEST_NAME" }] }));
   writeFileSync(join(dir, "solution", "solution.py"), `# ${MARKER}\n`);
   writeFileSync(join(dir, "solution", "EXPLANATION.md"), "## Approach\n");
   writeFileSync(join(dir, "bugs", "b1", "solution.py"), "# buggy\n");
@@ -62,16 +63,20 @@ test("lock removes every plaintext copy; unlock restores it", () => {
   assert.ok(isLocked(dir));
   for (const p of ["solution", "bugs", "hints.md"]) assert.ok(!existsSync(join(dir, p)), `${p} must be gone`);
   assert.deepEqual(grepTree(dir, MARKER), [], "no plaintext solution may remain after locking");
+  assert.deepEqual(grepTree(dir, "SPOILER_TEST_NAME"), [], "the bug list moves out of challenge.json into the lock");
+  assert.equal(statSync(join(dir, "README.md")).mode & 0o222, 0, "README (the key) becomes read-only");
   assert.deepEqual(readHints(dir), ["one", "two", "three"]);
   assert.ok(unlockChallenge(dir));
   assert.ok(!isLocked(dir));
   assert.ok(readFileSync(join(dir, "solution", "solution.py"), "utf8").includes(MARKER));
   assert.equal(readFileSync(join(dir, "bugs", "b1", "solution.py"), "utf8"), "# buggy\n");
+  assert.ok(readFileSync(join(dir, "bugs", "bugs.json"), "utf8").includes("SPOILER_TEST_NAME"));
 });
 
 test("editing the README after locking blocks unlock with a helpful message", () => {
   const dir = makeChallenge("c2");
   lockChallenge(dir);
+  chmodSync(join(dir, "README.md"), 0o644);
   writeFileSync(join(dir, "README.md"), "# Problem\nDo the thing, edited.\n");
   assert.throws(() => unlockChallenge(dir), /README\.md changed/);
   assert.ok(isLocked(dir), "a failed unlock keeps the lock file");
@@ -79,4 +84,31 @@ test("editing the README after locking blocks unlock with a helpful message", ()
 
 test("parseHints splits on '## Hint N' headings", () => {
   assert.deepEqual(parseHints("intro\n## Hint 1\na\n## Hint 2 (approach)\nb\nmore\n## hint 3\nc"), ["a", "b\nmore", "c"]);
+});
+
+test("unlock survives editor whitespace/line-ending changes, not content edits", () => {
+  const readme = Buffer.from(normalizeReadme("# Title  \r\n\r\nSome text.  \nMore.\n\n\n"));
+  assert.equal(readme.toString(), "# Title\n\nSome text.\nMore.\n", "published READMEs are canonical");
+  const blob = encryptBundle({ a: Buffer.from("x") }, readme);
+  for (const variant of [
+    "# Title\r\n\r\nSome text.\r\nMore.\r\n", // CRLF
+    "# Title \n\nSome text.   \nMore.\n", // trailing spaces added
+    "# Title\n\nSome text.\nMore.", // final newline removed
+    "# Title\n\nSome text.\nMore.\n\n", // extra newline added
+  ]) {
+    assert.deepEqual(decryptBundleTolerant(blob, Buffer.from(variant)).a, Buffer.from("x"), JSON.stringify(variant));
+  }
+  assert.throws(() => decryptBundleTolerant(blob, Buffer.from("# Title\n\nOther text.\nMore.\n")), VaultKeyError);
+});
+
+test("writeFiles refuses absolute paths, '..' and symlinks", () => {
+  const root = join(tmp, "wf");
+  mkdirSync(root, { recursive: true });
+  assert.throws(() => writeFiles(root, { "/etc/x": Buffer.from("") }), /unsafe/);
+  assert.throws(() => writeFiles(root, { "a/../../x": Buffer.from("") }), /unsafe/);
+  const outside = join(tmp, "outside");
+  mkdirSync(outside, { recursive: true });
+  symlinkSync(outside, join(root, "solution"));
+  assert.throws(() => writeFiles(root, { "solution/s.py": Buffer.from("pwn") }), /symlink/);
+  assert.ok(!existsSync(join(outside, "s.py")));
 });

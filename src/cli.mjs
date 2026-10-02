@@ -1,8 +1,8 @@
 // Command implementations for `ginga`.
 import { spawn, spawnSync } from "node:child_process";
-import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { join, resolve } from "node:path";
+import { delimiter, isAbsolute, join, resolve, sep } from "node:path";
 import { createInterface } from "node:readline/promises";
 import {
   isLocked, listChallenges, pickChallenge, readHints, unlockChallenge,
@@ -72,6 +72,22 @@ async function profileFor(ws, config, lang, { yes = false } = {}) {
 
 // ---------------------------------------------------------------- init
 
+export function validTime(time) {
+  const m = /^(\d{2}):(\d{2})$/.exec(time ?? "");
+  if (!m || Number(m[1]) > 23 || Number(m[2]) > 59) throw new UserError(`Time must be HH:MM (00:00–23:59), got "${time}".`);
+  return time;
+}
+
+/** Append the lines a file is missing (creating it if needed); never rewrites what is there. */
+function ensureLines(path, lines) {
+  const current = existsSync(path) ? readFileSync(path, "utf8") : "";
+  const have = new Set(current.split(/\r?\n/).map((l) => l.trim()));
+  const missing = lines.filter((l) => !have.has(l));
+  if (!missing.length) return;
+  const sepNl = current && !current.endsWith("\n") ? "\n" : "";
+  writeFileSync(path, current + sepNl + missing.join("\n") + "\n");
+}
+
 export async function cmdInit(positionals, opts) {
   const builtins = allProfiles(null).map((p) => p.id);
   const dir = resolve(positionals[0] ?? (await ask("Workspace directory:", join(homedir(), "gingaloop"))));
@@ -83,7 +99,7 @@ export async function cmdInit(positionals, opts) {
   const rotation = rotationRaw.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
   if (!rotation.length) throw new UserError("Rotation needs at least one language.");
   const time = opts.time ?? (await ask("Daily generation time (HH:MM):", DEFAULT_CONFIG.schedule.time));
-  if (!/^\d{2}:\d{2}$/.test(time)) throw new UserError(`Time must be HH:MM, got "${time}".`);
+  validTime(time);
 
   const rotationMode = opts.mode ?? (await ask("Daily order: random (each language once per cycle, shuffled) or ordered?", "random"));
   if (!ROTATION_MODES.includes(rotationMode)) throw new UserError(`Order must be one of: ${ROTATION_MODES.join(", ")}.`);
@@ -91,17 +107,28 @@ export async function cmdInit(positionals, opts) {
   if (opts.engine) config.sandbox.engine = opts.engine;
   mkdirSync(join(dir, "challenges"), { recursive: true });
   saveConfig(dir, config);
-  writeFileSync(join(dir, ".gitignore"), ".staging/\n.logs/\n");
+  // Existing files are never overwritten: missing lines are appended instead.
+  ensureLines(join(dir, ".gitignore"), [".staging/", ".logs/"]);
   // The README is the decryption key: never let git rewrite its line endings.
-  writeFileSync(join(dir, ".gitattributes"), "challenges/**/README.md -text\n");
-  writeFileSync(
-    join(dir, "README.md"),
-    "My daily coding practice with [gingaloop](https://github.com/JarnDev/gingaloop). " +
-      "The dashboard above updates itself; write anything you like below it.\n",
-  );
+  ensureLines(join(dir, ".gitattributes"), ["challenges/**/README.md -text"]);
+  if (!existsSync(join(dir, "README.md"))) {
+    writeFileSync(
+      join(dir, "README.md"),
+      "My daily coding practice with [gingaloop](https://github.com/JarnDev/gingaloop). " +
+        "The dashboard above updates itself; write anything you like below it.\n",
+    );
+  }
   refreshViews(dir);
-  writeGlobalConfig({ ...readGlobalConfig(), workspace: dir });
-  console.log(`\nCreated workspace ${dir} (set as your default).`);
+  console.log(`\nCreated workspace ${dir}.`);
+  // Only take over the default workspace when asked, or when there is no valid one yet.
+  const current = readGlobalConfig().workspace;
+  const hasDefault = current && current !== dir && existsSync(join(current, CONFIG_FILE));
+  if (!hasDefault || opts.default || (isTTY() && (await confirm(`Make it your default workspace instead of ${current}?`, false)))) {
+    writeGlobalConfig({ ...readGlobalConfig(), workspace: dir });
+    console.log("It is now your default workspace.");
+  } else {
+    console.log(`Your default workspace stays ${current} (re-run init with --default, or use --workspace).`);
+  }
   const unknown = rotation.filter((l) => !findProfile(dir, l));
   if (unknown.length) console.log(`No profile yet for: ${unknown.join(", ")}; run \`ginga lang add <name>\` or let the first challenge bootstrap it.`);
   await cmdDoctor([], { workspace: dir });
@@ -114,12 +141,10 @@ export async function cmdInit(positionals, opts) {
 
 // ---------------------------------------------------------------- new / daily
 
-function printNew({ id, dir, manifest }, ws) {
+function printNew({ dir, manifest }) {
   console.log(`\n✔ ${manifest.title}  (${manifest.lang}, level ${manifest.level}, ~${manifest.estMinutes} min, ${manifest.type})`);
   console.log(`  ${dir}`);
-  console.log(`  Read README.md, edit starter/, then: ginga test  →  ginga done   (stuck? ginga hint)`);
-  void ws;
-  void id;
+  console.log(`  ginga open  →  edit starter/  →  ginga test  →  ginga done   (stuck? ginga hint)`);
 }
 
 export async function cmdNew(positionals, opts) {
@@ -138,18 +163,21 @@ export async function cmdNew(positionals, opts) {
     area = pickArea(profile, level, readEvents(ws));
   }
   const result = await generateChallenge({ ws, config, profile, level, area, source: "manual" });
-  printNew(result, ws);
+  printNew(result);
 }
 
-/** Give-ups from exactly N days ago (per reviewAfterDays) that haven't been reviewed yet. */
+/**
+ * The oldest give-up with a review due: one review per `reviewAfterDays` entry the give-up's age
+ * has reached, so a day the machine was off only delays a review, never skips it.
+ */
 export function dueReview(events, reviewAfterDays, date) {
   const generated = new Map(events.filter((e) => e.type === "generated").map((e) => [e.id, e]));
-  const reviewedToday = new Set(
-    events.filter((e) => e.type === "generated" && e.reviewOf && eventDate(e) === date).map((e) => e.reviewOf),
-  );
+  const reviews = new Map();
+  for (const e of events) if (e.type === "generated" && e.reviewOf) reviews.set(e.reviewOf, (reviews.get(e.reviewOf) ?? 0) + 1);
   for (const e of events.filter((x) => x.type === "gaveup")) {
-    if (!reviewAfterDays.includes(daysBetween(eventDate(e), date))) continue;
-    if (reviewedToday.has(e.id)) continue;
+    const age = daysBetween(eventDate(e), date);
+    const due = reviewAfterDays.filter((n) => age >= n).length;
+    if ((reviews.get(e.id) ?? 0) >= due) continue;
     const g = generated.get(e.id);
     return { id: e.id, lang: e.lang, level: e.level, title: g?.title ?? e.id, topics: g?.topics ?? e.topics ?? [], ...(g?.area ? { area: g.area } : {}) };
   }
@@ -380,13 +408,7 @@ async function validateOne(config, profile, dir) {
 }
 
 export async function cmdValidate(positionals, opts) {
-  let config;
-  let ws = null;
-  try {
-    ({ ws, config } = ctx(opts));
-  } catch {
-    config = structuredClone(DEFAULT_CONFIG);
-  }
+  const { ws, config } = ctxOrDefaults(opts);
   const targets = [];
   if (opts.examples) {
     for (const p of allProfiles(ws)) if (existsSync(p.exampleDir)) targets.push({ profile: p, dir: p.exampleDir });
@@ -408,24 +430,73 @@ export async function cmdValidate(positionals, opts) {
   if (failed) process.exitCode = 1;
 }
 
+/**
+ * Jail for `sandbox run --jail` (what Claude gets during generation): the nearest
+ * `<workspace>/.staging/<run>` dir containing the current directory. Everything the run may
+ * touch must resolve (after symlinks) inside it.
+ */
+export function jailRoot(cwd) {
+  const parts = realpathSync(cwd).split(sep);
+  const i = parts.lastIndexOf(".staging");
+  if (i < 1 || i === parts.length - 1) {
+    throw new UserError("--jail only works from inside a generation staging directory (<workspace>/.staging/<run>).");
+  }
+  const ws = parts.slice(0, i).join(sep) || sep;
+  if (!existsSync(join(ws, CONFIG_FILE))) throw new UserError(`--jail: ${ws} is not a gingaloop workspace.`);
+  return { root: parts.slice(0, i + 2).join(sep), ws };
+}
+
+export function insideJail(root, path) {
+  const abs = resolve(root, path);
+  if (!existsSync(abs)) throw new UserError(`${path} does not exist.`);
+  const real = realpathSync(abs);
+  if (real !== root && !real.startsWith(root + sep)) throw new UserError(`${path} is outside the staging directory.`);
+  return real;
+}
+
+/** Workspace + config, or the defaults when there is no workspace at all (config errors still surface). */
+function ctxOrDefaults(opts) {
+  let ws;
+  try {
+    ws = findWorkspace(opts.workspace);
+  } catch (e) {
+    if (e instanceof UserError && !opts.workspace) return { ws: null, config: structuredClone(DEFAULT_CONFIG) };
+    throw e;
+  }
+  return { ws, config: loadConfig(ws) };
+}
+
 export async function cmdSandbox(positionals, opts) {
   if (positionals[0] !== "run") throw new UserError("Usage: ginga sandbox run --lang <id>|--profile-file <f> [--dir D] [--cwd C] [--target T] -- <command>");
   const command = positionals.slice(1).join(" ");
   if (!command) throw new UserError("Nothing to run. Put the command after `--`.");
+  if (opts.lang && opts["profile-file"]) throw new UserError("Use either --lang or --profile-file, not both.");
+  let ws;
   let config;
-  let ws = null;
-  try {
-    ({ ws, config } = ctx(opts));
-  } catch {
-    config = structuredClone(DEFAULT_CONFIG);
+  let dir;
+  let profileFile = opts["profile-file"] ? resolve(opts["profile-file"]) : null;
+  if (opts.jail) {
+    if (opts.workspace) throw new UserError("--workspace cannot be combined with --jail.");
+    const jail = jailRoot(process.cwd());
+    ws = jail.ws;
+    config = loadConfig(ws);
+    dir = insideJail(jail.root, opts.dir ?? ".");
+    if (opts["profile-file"]) profileFile = insideJail(jail.root, opts["profile-file"]);
+  } else {
+    ({ ws, config } = ctxOrDefaults(opts));
+    dir = resolve(opts.dir ?? ".");
   }
-  const profile = opts["profile-file"]
-    ? JSON.parse(readFileSync(resolve(opts["profile-file"]), "utf8"))
-    : requireProfile(ws, opts.lang ?? "");
-  if (opts["profile-file"] && (profile.image?.dockerfile || String(profile.image?.pull ?? "").includes("/"))) {
-    throw new UserError('Draft profiles may only use Docker Official Images via "pull" (no "/" and no dockerfile).');
+  let profile;
+  if (profileFile) {
+    // A draft profile (written by Claude): official images only, never extra docker flags.
+    profile = { ...JSON.parse(readFileSync(profileFile, "utf8")), source: "draft" };
+    if (profile.image?.dockerfile || String(profile.image?.pull ?? "").includes("/")) {
+      throw new UserError('Draft profiles may only use Docker Official Images via "pull" (no "/" and no dockerfile).');
+    }
+  } else {
+    profile = requireProfile(ws, opts.lang ?? "");
   }
-  const { tmp, work } = materialize(resolve(opts.dir ?? "."), null);
+  const { tmp, work } = materialize(dir, null);
   try {
     const r = await runInSandbox({
       sandbox: config.sandbox, profile, workDir: work, cwd: opts.cwd ?? ".", command,
@@ -563,7 +634,7 @@ export async function cmdSchedule(positionals, opts) {
   if (sub === "install") {
     const { ws, config } = ctx(opts);
     if (opts.time) {
-      config.schedule.time = opts.time;
+      config.schedule.time = validTime(opts.time);
       saveConfig(ws, config);
     }
     return console.log(installSchedule({ ws, config }));
@@ -572,15 +643,12 @@ export async function cmdSchedule(positionals, opts) {
 }
 
 function hasBin(bin) {
-  return (process.env.PATH ?? "").split(":").some((d) => d && existsSync(join(d, bin)));
+  if (isAbsolute(bin)) return existsSync(bin);
+  return (process.env.PATH ?? "").split(delimiter).some((d) => d && existsSync(join(d, bin)));
 }
 
 export async function cmdDoctor(_positionals, opts) {
-  let ws = null;
-  let config = structuredClone(DEFAULT_CONFIG);
-  try {
-    ({ ws, config } = ctx(opts));
-  } catch {}
+  const { ws, config } = ctxOrDefaults(opts);
   const line = (ok, label, detail = "") => console.log(`${ok ? "✔" : "✘"} ${label}${detail ? `: ${detail}` : ""}`);
   const [major, minor] = process.versions.node.split(".").map(Number);
   line(major > 22 || (major === 22 && minor >= 18), "node", process.versions.node);

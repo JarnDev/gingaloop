@@ -44,9 +44,10 @@ const commands = {
   doctor: cli.cmdDoctor, review: cli.cmdReview,
 };
 
-const { values, positionals } = parseArgs({
+const { values, positionals, tokens } = parseArgs({
   allowPositionals: true,
   strict: true,
+  tokens: true,
   options: {
     workspace: { type: "string", short: "w" },
     level: { type: "string", short: "l" },
@@ -65,10 +66,24 @@ const { values, positionals } = parseArgs({
     cwd: { type: "string" },
     target: { type: "string" },
     "profile-file": { type: "string" },
+    jail: { type: "boolean" },
+    default: { type: "boolean" },
     help: { type: "boolean", short: "h" },
     version: { type: "boolean", short: "v" },
   },
 });
+
+// Each option at most once: with "last one wins", an appended `--dir /` could silently widen a
+// command that was granted with a fixed prefix (see `sandbox run --jail`).
+const seen = new Set();
+for (const t of tokens) {
+  if (t.kind !== "option") continue;
+  if (seen.has(t.name)) {
+    console.error(`ginga: option --${t.name} was given more than once`);
+    process.exit(2);
+  }
+  seen.add(t.name);
+}
 
 const [name, ...rest] = positionals;
 if (values.version) {

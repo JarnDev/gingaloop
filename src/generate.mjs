@@ -50,12 +50,30 @@ export function levelRubric(level) {
   return m ? m[1].trim() : "";
 }
 
-/** Shell prefix Claude must use to run code (absolute paths, so it never depends on PATH). */
-export function sandboxPrefix(ws, dir, { lang, profileFile } = {}) {
-  const parts = [process.execPath, join(PKG_ROOT, "bin", "ginga.mjs"), "sandbox", "run", "--workspace", ws, "--dir", dir];
-  if (lang) parts.push("--lang", lang);
-  if (profileFile) parts.push("--profile-file", profileFile);
+/** Quote a word for sh only when needed, so the permission rule stays exactly what Claude types. */
+export function shq(word) {
+  return /^[\w@%+=:,./-]+$/.test(word) ? word : `'${word.replace(/'/g, `'\\''`)}'`;
+}
+
+/**
+ * Shell prefix Claude must use to run code. `--jail` confines the run to the staging dir Claude
+ * is working in (see cmdSandbox), and options can't be given twice, so Claude cannot widen it.
+ * No workspace paths are in it: only the absolute node and ginga paths.
+ */
+export function sandboxPrefix({ lang, profileFile, dir } = {}) {
+  const parts = [shq(process.execPath), shq(join(PKG_ROOT, "bin", "ginga.mjs")), "sandbox", "run", "--jail"];
+  if (lang) parts.push("--lang", shq(lang));
+  if (profileFile) parts.push("--profile-file", shq(profileFile));
+  if (dir) parts.push("--dir", shq(dir));
   return parts.join(" ");
+}
+
+function lastLines(file, n = 8) {
+  try {
+    return readFileSync(file, "utf8").trimEnd().split("\n").slice(-n).join("\n");
+  } catch {
+    return "";
+  }
 }
 
 function pickType(events, lang) {
@@ -66,8 +84,9 @@ function pickType(events, lang) {
 
 /** Run `claude -p` in `cwd`; output goes to `logFile`. Kills the whole process group on timeout. */
 export function runClaude({ config, cwd, prompt, allowedTools, logFile, cont = false }) {
-  const args = ["-p", prompt, "--permission-mode", "acceptEdits", "--allowedTools", allowedTools.join(","),
-    "--disallowedTools", "WebFetch,WebSearch"];
+  // Tools as separate arguments: a path with a comma or space must not split a rule.
+  const args = ["-p", prompt, "--permission-mode", "acceptEdits", "--allowedTools", ...allowedTools,
+    "--disallowedTools", "WebFetch", "WebSearch"];
   if (cont) args.push("--continue");
   if (config.claude.model) args.push("--model", config.claude.model);
   const log = createWriteStream(logFile, { flags: "a" });
@@ -88,14 +107,18 @@ export function runClaude({ config, cwd, prompt, allowedTools, logFile, cont = f
     }, config.claude.timeoutMinutes * 60_000);
     const onSignal = () => { killGroup(); process.exit(130); };
     process.once("SIGINT", onSignal);
-    child.on("error", (err) => {
+    process.once("SIGTERM", onSignal);
+    const done = () => {
       clearTimeout(timer);
       process.off("SIGINT", onSignal);
+      process.off("SIGTERM", onSignal);
+    };
+    child.on("error", (err) => {
+      done();
       reject(new UserError(`Could not run "${config.claude.command}": ${err.message}. Is Claude Code installed?`));
     });
     child.on("close", (code) => {
-      clearTimeout(timer);
-      process.off("SIGINT", onSignal);
+      done();
       log.end();
       resolvePromise(code);
     });
@@ -151,22 +174,30 @@ export async function generateChallenge({ ws, config, profile, level, area, sour
       ? `This is a REVIEW challenge: the user gave up on "${reviewOf.title}" (topics: ${(reviewOf.topics ?? []).join(", ")}). ` +
         "Write a NEW problem that exercises the same core idea from a different angle. Do not reuse its statement."
       : "Not a review challenge.",
-    SANDBOX: sandboxPrefix(ws, staging, { lang: profile.id }),
+    SANDBOX: sandboxPrefix({ lang: profile.id }),
   });
-  const allowedTools = ["Read", "Write", "Edit", "Glob", "Grep", `Bash(${sandboxPrefix(ws, staging, { lang: profile.id })}:*)`];
+  const allowedTools = ["Read", "Write", "Edit", "Glob", "Grep", `Bash(${sandboxPrefix({ lang: profile.id })}:*)`];
 
   log(`Generating a level-${level} ${profile.name} challenge${area ? ` on ${area.name}` : ""} with Claude (log: ${logFile}) …`);
   ensureImage(config.sandbox, profile);
-  await runClaude({ config, cwd: staging, prompt, allowedTools, logFile });
+  const failFast = (code) => {
+    if (code === 0) return;
+    const dest = moveToFailed(ws, staging);
+    throw new UserError(
+      `Claude exited with code ${code ?? "(killed: timeout)"}; is it installed and logged in? ` +
+        `Attempt kept in ${dest}. Last lines of ${logFile}:\n${lastLines(logFile)}`,
+    );
+  };
+  failFast(await runClaude({ config, cwd: staging, prompt, allowedTools, logFile }));
 
   let result = { ok: false, problems: ["no output"] };
   for (let attempt = 0; attempt <= config.claude.retries; attempt++) {
     if (attempt > 0) {
       log(`Validation failed; asking Claude to fix (retry ${attempt}/${config.claude.retries}) …`);
-      await runClaude({
+      failFast(await runClaude({
         config, cwd: staging, logFile, allowedTools, cont: true,
         prompt: `The gingaloop validator rejected the challenge. Fix the files in place (same directory) so every check passes. Problems:\n${formatProblems(result.problems)}`,
-      });
+      }));
     }
     log("Validating in the sandbox …");
     result = await validateTree({ config, profile, dir: staging, log: (m) => log(`  ${m}`) });
@@ -237,20 +268,25 @@ export async function bootstrapProfile({ ws, config, name, log = console.error }
     REFERENCE_PROFILE: JSON.stringify({ ...reference, source: undefined, exampleDir: undefined }, null, 2),
     REFERENCE_EXAMPLE: dumpDir(reference.exampleDir),
     LEVEL_RUBRIC: Array.from({ length: 10 }, (_, i) => i + 1).map((l) => `### Level ${l}\n${levelRubric(l)}`).join("\n\n"),
-    SANDBOX: sandboxPrefix(ws, join(staging, "example"), { profileFile }),
+    SANDBOX: sandboxPrefix({ profileFile: "profile.json", dir: "example" }),
   });
-  const allowedTools = ["Read", "Write", "Edit", "Glob", "Grep", `Bash(${sandboxPrefix(ws, join(staging, "example"), { profileFile })}:*)`];
+  const allowedTools = ["Read", "Write", "Edit", "Glob", "Grep", `Bash(${sandboxPrefix({ profileFile: "profile.json", dir: "example" })}:*)`];
   log(`Bootstrapping a "${name}" profile with Claude (log: ${logFile}) …`);
-  await runClaude({ config, cwd: staging, prompt, allowedTools, logFile });
+  const failFast = (code) => {
+    if (code === 0) return;
+    const dest = moveToFailed(ws, staging);
+    throw new UserError(`Claude exited with code ${code ?? "(killed: timeout)"}; attempt kept in ${dest}.\n${lastLines(logFile)}`);
+  };
+  failFast(await runClaude({ config, cwd: staging, prompt, allowedTools, logFile }));
 
   let problems = ["no output"];
   for (let attempt = 0; attempt <= config.claude.retries; attempt++) {
     if (attempt > 0) {
       log(`Profile check failed; asking Claude to fix (retry ${attempt}/${config.claude.retries}) …`);
-      await runClaude({
+      failFast(await runClaude({
         config, cwd: staging, logFile, allowedTools, cont: true,
         prompt: `The gingaloop validator rejected the profile or example. Fix the files in place. Problems:\n${formatProblems(problems)}`,
-      });
+      }));
     }
     problems = [];
     let profile = null;

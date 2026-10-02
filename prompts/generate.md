@@ -121,7 +121,8 @@ For example, to run the test suite against the solution, then the starter, then 
 {{SANDBOX}} --cwd tests --target starter -- '{{TEST_COMMAND}}'
 {{SANDBOX}} --cwd tests --target bugs/<name> -- '{{TEST_COMMAND}}'
 ```
-Use `--cwd .` to run scratch experiments from the root. Iterate until: solution passes, starter fails,
+Type the prefix exactly as shown, from this directory (do not `cd`), and give each option only
+once: anything else is refused. Use `--cwd .` to run scratch experiments from the root. Iterate until: solution passes, starter fails,
 every bug fails on its expected test. Do not finish before verifying all three.
 
 # Reference example (a complete, validated challenge in this language; match its structure and quality, NOT its topic)

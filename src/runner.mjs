@@ -1,12 +1,24 @@
 // Generic test runner + validator. Knows no languages: everything comes from
 // challenge.json (test.command, successPattern) and the profile (image).
 import { cpSync, existsSync, readFileSync, readdirSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve, sep } from "node:path";
+import { tmpdir } from "node:os";
+import { UserError } from "./workspace.mjs";
 import { makeTempDir, removeDir, runInSandbox } from "./sandbox.mjs";
 import { LOCK_FILE, parseHints, writeFiles } from "./vault.mjs";
 
 export const CHALLENGE_TYPES = ["implement", "fix-the-bug", "refactor", "extend"];
 const SKIP = new Set([LOCK_FILE, "NOTES.md", ".git", "node_modules"]);
+
+/** Where a locked challenge keeps its bug list (inside the encrypted bugs/ dir). */
+export const BUGS_FILE = "bugs/bugs.json";
+
+/** Bug variants: from challenge.json (staging/examples) or bugs/bugs.json (published). */
+export function bugList(dir, manifest) {
+  if (Array.isArray(manifest.bugs)) return manifest.bugs;
+  const p = join(dir, BUGS_FILE);
+  return existsSync(p) ? JSON.parse(readFileSync(p, "utf8")) : [];
+}
 
 export function readManifest(dir) {
   const path = join(dir, "challenge.json");
@@ -16,6 +28,10 @@ export function readManifest(dir) {
 
 /** Throwaway copy of a challenge (plus unlocked bundle files, if any). */
 export function materialize(challengeDir, bundle) {
+  const src = resolve(challengeDir);
+  if (resolve(tmpdir()).startsWith(src + sep) || resolve(tmpdir()) === src) {
+    throw new UserError(`Refusing to copy ${src}: it contains the temp directory. Point --dir at the challenge folder.`);
+  }
   const tmp = makeTempDir();
   const work = join(tmp, "work");
   cpSync(challengeDir, work, {
@@ -29,7 +45,12 @@ export function materialize(challengeDir, bundle) {
 export function passed(result, manifest) {
   if (result.timedOut || result.code !== 0) return false;
   const pattern = manifest.test?.successPattern;
-  return pattern ? new RegExp(pattern).test(result.output) : true;
+  if (!pattern) return true;
+  try {
+    return new RegExp(pattern).test(result.output);
+  } catch {
+    return false; // an invalid pattern can never confirm success
+  }
 }
 
 /** Run the tests against one target dir: "starter", "solution" or "bugs/<name>". */
@@ -75,7 +96,15 @@ export function staticProblems(dir) {
   if (!Array.isArray(m.topics) || m.topics.length === 0) problems.push("challenge.json: topics[] is required");
   if (!Number.isInteger(m.estMinutes)) problems.push("challenge.json: estMinutes must be an integer");
   if (!m.test?.command) problems.push("challenge.json: test.command is required");
-  if (!Array.isArray(m.bugs) || m.bugs.length < 2) problems.push("challenge.json: at least 2 bugs[] are required");
+  const bugs = bugList(dir, m);
+  if (bugs.length < 2) problems.push("challenge.json: at least 2 bugs[] are required");
+  if (m.test?.successPattern) {
+    try {
+      new RegExp(m.test.successPattern);
+    } catch {
+      problems.push("challenge.json: test.successPattern is not a valid regular expression");
+    }
+  }
 
   const readme = join(dir, "README.md");
   if (!existsSync(readme)) problems.push("README.md is missing");
@@ -100,7 +129,7 @@ export function staticProblems(dir) {
   for (const d of ["starter", "tests", "solution"]) {
     if (!nonEmptyDir(join(dir, d))) problems.push(`${d}/ is missing or empty`);
   }
-  for (const b of m.bugs ?? []) {
+  for (const b of bugs) {
     if (!b.name || !b.expect) problems.push("bugs[]: each entry needs name and expect");
     else if (!nonEmptyDir(join(dir, "bugs", b.name))) problems.push(`bugs/${b.name}/ is missing or empty`);
   }
@@ -130,7 +159,7 @@ export async function validateTree({ config, profile, dir, log = () => {} }) {
   const st = await run("starter");
   if (st.passed) problems.push("starter PASSES the tests (it must fail before the user solves it)");
 
-  for (const bug of manifest.bugs) {
+  for (const bug of bugList(dir, manifest)) {
     log(`bugs/${bug.name} …`);
     const r = await run(`bugs/${bug.name}`);
     if (r.passed) problems.push(`bugs/${bug.name} passes the tests: the tests do not catch this bug`);

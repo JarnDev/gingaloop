@@ -12,11 +12,13 @@ level from 1 to 10, and you level up by earning points with verified solves.
 > Everything else is built on it. This is a loop of that daily practice, for code.
 
 ```
-$ ginga new python
-Generating a level-1 Python challenge with Claude …
+$ ginga daily       # today's challenge: next language from your rotation, at your level
+Generating a level-1 Python challenge on Strings and text processing with Claude …
 Validating in the sandbox …
 ✔ Run-length encoding  (python, level 1, ~20 min, implement)
   ~/gingaloop/challenges/2026-10-02-python-run-length-encoding
+
+$ ginga new c       # or any language you like, any time (--level N up to yours)
 
 $ ginga open        # README + starter in your $EDITOR
 $ ginga test        # run the tests against your starter/ (in a container)
@@ -44,15 +46,24 @@ container image.
 npx gingaloop init ~/gingaloop    # or: npm i -g gingaloop && ginga init ~/gingaloop
 ```
 
-`init` asks for your **rotation** (any languages, e.g. `python,typescript,c,rust`), the order and the
+`init` never overwrites existing files (point it at an existing repo and it only adds what's
+missing), and it only becomes your default workspace if you have none yet or pass `--default`.
+It asks for your **rotation** (any languages, e.g. `python,typescript,c,rust`), the order and the
 daily time. By default the order is **random without repeats**: each cycle draws every language once
 in a shuffled order, then the bag refills. Choose `ordered` to follow your list instead
 (`ginga rotation mode random|ordered`). Then:
 
 ```sh
 ginga doctor --pull          # check everything and pre-pull the language images
-ginga schedule install       # systemd user timer: one challenge a day
-ginga new rust               # or generate one right now
+ginga daily                  # today's challenge, whenever you sit down to practice
+ginga new rust               # an extra one in any language
+```
+
+Scheduling is optional. `ginga daily` is the whole daily habit: run it yourself when you start
+practicing (it makes at most one challenge per day), or let a timer have it ready for you:
+
+```sh
+ginga schedule install       # systemd user timer: today's challenge waits for you at 08:00
 ```
 
 ## Workspace
@@ -71,6 +82,10 @@ The workspace is a plain folder, separate from the tool (make it a git repo if y
 ```
 
 Levels, streak and the daily bag are all computed from `progress.jsonl`, so there is no other state.
+
+![Workspace dashboard: streak, levels per language, a 12-week activity grid, coverage and recent challenges](docs/dashboard-preview.png)
+
+<sub>The workspace README after ten weeks of practice (sample data from `node scripts/sample-dashboard.mjs`).</sub>
 
 **Make it a git repo** to keep a history of your practice: `.gitignore` and `.gitattributes` are
 already set up, and `ginga` never commits or pushes for you. Its `README.md` is a **progress
@@ -133,7 +148,8 @@ That's 6 clean solves for L2, 9 more for L3, then 15, 25, 40… L10 is a multi-y
   to** yours, never above.
 - Solving easier challenges still counts a little, but farming them is slow: at 5 points, two or
   more levels below is 20× slower than playing at your level.
-- A give-up comes back as a **review** (a new problem on the same idea) 3 and 7 days later.
+- A give-up comes back as a **review** (a new problem on the same idea) 3 and 7 days later, or on
+  the first daily after that if the machine was off.
 - Levels are recomputed from `progress.jsonl`, so tuning `leveling` in `gingaloop.json` re-scores
   your history.
 
@@ -175,24 +191,34 @@ the key. There are no keys to store or carry between machines, and editing the R
 This is **friction, not security**. Anyone can derive the key from the README. It exists so you don't
 spoil the solution by accident, or "just glance" at it. It won't stop you if you decide to cheat.
 
-The workspace's `.gitattributes` marks READMEs as `-text` so git never rewrites their line endings,
-which would otherwise change the key.
+To keep the key from breaking by accident:
+
+- each challenge README is **read-only** once published (your editor will warn before writing);
+- READMEs are normalized at publish (LF, no trailing spaces, one final newline), and unlocking
+  tries that normal form too, so editors that strip whitespace or switch line endings don't matter;
+- the workspace's `.gitattributes` marks READMEs as `-text`, so git never rewrites them;
+- the list of bug variants lives inside the lock too, so `challenge.json` doesn't spoil the
+  common mistakes.
 
 ## Sandbox
 
 All generated code runs in a container, never on your machine. That includes your `ginga test` runs,
 validation, and every experiment Claude runs while writing a challenge. Each run:
 
-- works on a **throwaway copy** of the challenge (your workspace is never mounted);
+- works on a **throwaway copy** of the challenge folder (the original is never mounted);
 - has **no network**, runs as your uid with **all capabilities dropped**, `no-new-privileges`, a
   **read-only** root filesystem and a small `/tmp`;
 - is limited to 1 GB of memory, 2 CPUs and 256 processes, with a timeout (configurable in `gingaloop.json`).
 
-While generating, Claude may only write files in a staging directory and run commands through
-`ginga sandbox run`. Its Bash access is limited to that one command.
+While generating, Claude may only write files in its staging directory, and its only shell command
+is `ginga sandbox run --jail …`. With `--jail`, every folder or profile it names must resolve (after
+symlinks) inside that staging directory, and no option can be given twice, so the command can't be
+widened. Profiles written by Claude can't add `docker run` flags; only built-in profiles may, from
+a short whitelist.
 
 Membership in the `docker` group is root-equivalent on the host. For stronger isolation use rootless
-Docker or Podman (`"sandbox": { "engine": "podman" }`).
+Docker or Podman (`"sandbox": { "engine": "podman" }`; gingaloop adds `--userns=keep-id` and an
+SELinux `:z` label for it).
 
 ## Languages
 

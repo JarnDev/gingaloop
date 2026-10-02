@@ -9,12 +9,39 @@ import { UserError } from "./workspace.mjs";
 
 const OUTPUT_CAP = 256 * 1024;
 
+// Temp dirs are removed even when a run is interrupted (Ctrl+C, SIGTERM, timeout).
+const liveTempDirs = new Set();
+process.on("exit", () => {
+  for (const d of liveTempDirs) rmSync(d, { recursive: true, force: true });
+});
+
 export function makeTempDir(prefix = "gingaloop-") {
-  return mkdtempSync(join(tmpdir(), prefix));
+  const dir = mkdtempSync(join(tmpdir(), prefix));
+  liveTempDirs.add(dir);
+  return dir;
 }
 
 export function removeDir(dir) {
   rmSync(dir, { recursive: true, force: true });
+  liveTempDirs.delete(dir);
+}
+
+/**
+ * Extra `docker run` flags a profile may add. Only built-in (reviewed) profiles may use them, and
+ * only these harmless ones: anything else (--privileged, -v, --network, --cap-add …) would open
+ * the sandbox, and workspace/draft profiles are written by Claude.
+ */
+const SAFE_EXTRA_FLAGS = /^--(ulimit|shm-size|tmpfs)=[\w.:=,/-]+$/;
+export function profileExtraFlags(profile) {
+  const flags = profile.sandbox?.extraFlags ?? [];
+  if (!flags.length) return [];
+  if (profile.source !== "builtin") {
+    console.error(`ginga: ignoring sandbox.extraFlags from the ${profile.id} profile (only built-in profiles may set them)`);
+    return [];
+  }
+  const bad = flags.filter((f) => !SAFE_EXTRA_FLAGS.test(f));
+  if (bad.length) throw new UserError(`Profile ${profile.id}: sandbox.extraFlags not allowed: ${bad.join(" ")}`);
+  return flags;
 }
 
 function engineBin(sandbox) {
@@ -23,6 +50,13 @@ function engineBin(sandbox) {
     throw new UserError(`Unknown sandbox engine "${sandbox.engine}" (use docker, podman or none).`);
   }
   return sandbox.engine;
+}
+
+function engineMissing(bin, err) {
+  return new UserError(
+    `Cannot run "${bin}" (${err.code ?? err.message}). gingaloop runs all generated code in a ` +
+      `container: install Docker or Podman, or set "sandbox.engine" in gingaloop.json. Check with \`ginga doctor\`.`,
+  );
 }
 
 export function engineAvailable(sandbox) {
@@ -43,7 +77,9 @@ export function imageRef(profile) {
 export function imagePresent(sandbox, profile) {
   const bin = engineBin(sandbox);
   if (!bin) return true;
-  return spawnSync(bin, ["image", "inspect", imageRef(profile)], { stdio: "ignore" }).status === 0;
+  const r = spawnSync(bin, ["image", "inspect", imageRef(profile)], { stdio: "ignore" });
+  if (r.error) throw engineMissing(bin, r.error);
+  return r.status === 0;
 }
 
 /** Pull or build the profile image if missing. Network is used here, never during test runs. */
@@ -66,8 +102,9 @@ export function ensureImage(sandbox, profile, { quiet = false } = {}) {
   } else {
     throw new UserError(`Profile ${profile.id}: image needs "pull" or "tag"+"dockerfile".`);
   }
+  if (r.error) throw engineMissing(bin, r.error);
   if (r.status !== 0) {
-    throw new UserError(`Could not get image ${imageRef(profile)}: ${(r.stderr || "").trim()}`);
+    throw new UserError(`Could not get image ${imageRef(profile)}: ${(r.stderr || "").trim() || `exit code ${r.status}`}`);
   }
 }
 
@@ -100,11 +137,14 @@ export function runInSandbox({ sandbox, profile, workDir, cwd = ".", command, en
       "--cpus", String(sandbox.cpus),
       "--read-only",
       "--tmpfs", "/tmp:exec,size=256m",
-      "-v", `${workDir}:/work`,
+      // Podman: keep the user's uid inside (rootless would map it to a subuid and /work would be
+      // read-only) and relabel the mount for SELinux hosts.
+      ...(bin === "podman" ? ["--userns=keep-id"] : []),
+      "-v", `${workDir}:/work${bin === "podman" ? ":z" : ""}`,
       "-w", `/work/${cwd}`.replace(/\/\.$/, ""),
       "-e", "HOME=/tmp",
       ...Object.entries(env).flatMap(([k, v]) => ["-e", `${k}=${v}`]),
-      ...(profile.sandbox?.extraFlags ?? []),
+      ...profileExtraFlags(profile),
       imageRef(profile),
       "sh", "-c", command,
     ];

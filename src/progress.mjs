@@ -8,19 +8,25 @@ export function progressPath(ws) {
   return join(ws, "progress.jsonl");
 }
 
+const warned = new Set();
+
 export function readEvents(ws) {
   const path = progressPath(ws);
   if (!existsSync(path)) return [];
-  return readFileSync(path, "utf8")
-    .split("\n")
-    .filter((l) => l.trim())
-    .map((l, i) => {
-      try {
-        return JSON.parse(l);
-      } catch {
-        throw new Error(`progress.jsonl line ${i + 1} is not valid JSON`);
+  const events = [];
+  readFileSync(path, "utf8").split("\n").forEach((line, i) => {
+    if (!line.trim()) return;
+    try {
+      events.push(JSON.parse(line));
+    } catch {
+      // e.g. a crash mid-append; skipping beats bricking every command
+      if (!warned.has(`${path}:${i}`)) {
+        warned.add(`${path}:${i}`);
+        console.error(`ginga: skipping unreadable line ${i + 1} of ${path}`);
       }
-    });
+    }
+  });
+  return events;
 }
 
 export function appendEvent(ws, event) {

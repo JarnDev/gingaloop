@@ -2,13 +2,14 @@
 // no stored keys, and editing the description invalidates the lock.
 // This is anti-spoiler friction, not security: anyone with the README can derive the key.
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
-import { mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
-import { dirname, join, relative, sep } from "node:path";
+import { lstatSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { dirname, isAbsolute, join, relative, sep } from "node:path";
+import { UserError } from "./workspace.mjs";
 
 const MAGIC = Buffer.from("GLV1");
 export const LOCK_FILE = "locked.bin";
 
-export class VaultKeyError extends Error {}
+export class VaultKeyError extends UserError {}
 
 export function keyFromReadme(readmeBytes) {
   return createHash("sha256").update(readmeBytes).digest();
@@ -43,6 +44,34 @@ export function encryptBundle(files, readmeBytes) {
   return Buffer.concat([MAGIC, iv, cipher.getAuthTag(), body]);
 }
 
+/**
+ * Canonical README text: LF line endings, no trailing whitespace, exactly one final newline.
+ * READMEs are normalized at publish, so the usual editor "fixes" (strip trailing spaces, add a
+ * final newline, CRLF) can be undone at unlock time by normalizing again.
+ */
+export function normalizeReadme(text) {
+  return text.replace(/\r\n?/g, "\n").replace(/[ \t]+$/gm, "").replace(/\n*$/, "\n");
+}
+
+/** Keys to try when unlocking: the bytes as they are, then their canonical form. */
+export function readmeVariants(readmeBytes) {
+  const canon = Buffer.from(normalizeReadme(readmeBytes.toString("utf8")));
+  return canon.equals(readmeBytes) ? [readmeBytes] : [readmeBytes, canon];
+}
+
+export function decryptBundleTolerant(blob, readmeBytes) {
+  let last;
+  for (const variant of readmeVariants(readmeBytes)) {
+    try {
+      return decryptBundle(blob, variant);
+    } catch (e) {
+      if (!(e instanceof VaultKeyError)) throw e;
+      last = e;
+    }
+  }
+  throw last;
+}
+
 export function decryptBundle(blob, readmeBytes) {
   if (blob.length < 32 || !blob.subarray(0, 4).equals(MAGIC)) {
     throw new VaultKeyError("locked.bin is not a gingaloop lock file.");
@@ -65,7 +94,7 @@ export function decryptBundle(blob, readmeBytes) {
 }
 
 export function readBundle(challengeDir) {
-  return decryptBundle(
+  return decryptBundleTolerant(
     readFileSync(join(challengeDir, LOCK_FILE)),
     readFileSync(join(challengeDir, "README.md")),
   );
@@ -73,7 +102,15 @@ export function readBundle(challengeDir) {
 
 export function writeFiles(root, files) {
   for (const [rel, buf] of Object.entries(files)) {
-    if (rel.split("/").includes("..")) throw new Error(`Refusing unsafe path in bundle: ${rel}`);
+    const parts = rel.split("/");
+    if (isAbsolute(rel) || parts.includes("..") || parts.includes("")) throw new Error(`Refusing unsafe path in bundle: ${rel}`);
+    // Never write through a symlink (e.g. a cloned challenge with solution -> ~/somewhere).
+    let cur = root;
+    for (const part of parts) {
+      cur = join(cur, part);
+      const st = lstatSync(cur, { throwIfNoEntry: false });
+      if (st?.isSymbolicLink()) throw new UserError(`Refusing to write through symlink ${cur}`);
+    }
     const abs = join(root, rel);
     mkdirSync(dirname(abs), { recursive: true });
     writeFileSync(abs, buf);

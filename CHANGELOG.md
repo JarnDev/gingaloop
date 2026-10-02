@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.2.1
+
+Security and robustness fixes from a code review:
+
+- Sandbox: `sandbox run --jail` (the only command Claude may run while generating) is confined to
+  its staging directory; options can no longer be given twice; profiles written by Claude can't
+  add `docker run` flags (built-ins only, from a whitelist).
+- Paths with spaces or commas no longer break generation.
+- `init` never overwrites existing files and no longer takes over your default workspace silently
+  (`--default`); times are validated.
+- Podman: `--userns=keep-id` and an SELinux `:z` mount label.
+- Clear errors when Docker or Claude is missing/failing (a failing `claude` no longer burns retries).
+- A corrupt `progress.jsonl` line or `challenge.json` is skipped with a warning instead of breaking
+  every command.
+- Unlock tolerates editor whitespace/line-ending changes; challenge READMEs are read-only; the bug
+  list is locked with the solution; unlock refuses to write through symlinks.
+- Reviews missed while the machine was off still come back; "newest challenge" means most recently
+  created; an exact id beats a prefix match.
+
 ## 0.2.0 (unreleased)
 
 - Leveling is now point-based (Codewars-style): 100 points at your level, 30 one below, 5 two+

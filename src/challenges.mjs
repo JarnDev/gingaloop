@@ -1,10 +1,10 @@
 // Published challenges in a workspace: listing, locking, unlocking, index.
-import { existsSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { challengeStatus, readEvents } from "./progress.mjs";
-import { readManifest } from "./runner.mjs";
-import { LOCK_FILE, collectFiles, encryptBundle, parseHints, readBundle, writeFiles } from "./vault.mjs";
-import { UserError } from "./workspace.mjs";
+import { BUGS_FILE, readManifest } from "./runner.mjs";
+import { LOCK_FILE, collectFiles, encryptBundle, normalizeReadme, parseHints, readBundle, writeFiles } from "./vault.mjs";
+import { UserError, writeJson } from "./workspace.mjs";
 
 export const LOCKED_PARTS = ["solution", "bugs", "hints.md"];
 
@@ -15,23 +15,42 @@ export function challengesDir(ws) {
 export function listChallenges(ws) {
   const root = challengesDir(ws);
   if (!existsSync(root)) return [];
-  return readdirSync(root)
-    .filter((name) => existsSync(join(root, name, "challenge.json")))
-    .sort()
-    .map((name) => ({ dir: join(root, name), manifest: readManifest(join(root, name)) }));
+  const out = [];
+  for (const name of readdirSync(root).sort()) {
+    const dir = join(root, name);
+    if (!existsSync(join(dir, "challenge.json"))) continue;
+    try {
+      const manifest = readManifest(dir);
+      out.push({ dir, manifest: { ...manifest, id: manifest.id ?? name } });
+    } catch (e) {
+      console.error(`ginga: skipping ${name}: unreadable challenge.json (${e.message})`);
+    }
+  }
+  return out;
 }
 
-/** By id/prefix, or the newest still-open challenge, or the newest one. */
+/** Challenges in creation order (from the event log), unknown ones by name first. */
+export function byCreation(all, events) {
+  const order = new Map();
+  events.forEach((e, i) => {
+    if (e.type === "generated" && !order.has(e.id)) order.set(e.id, i);
+  });
+  return [...all].sort((a, b) => (order.get(a.manifest.id) ?? -1) - (order.get(b.manifest.id) ?? -1));
+}
+
+/** By exact id, unique prefix, or else the most recently created open challenge (or newest). */
 export function pickChallenge(ws, idOrPrefix) {
-  const all = listChallenges(ws);
+  const events = readEvents(ws);
+  const all = byCreation(listChallenges(ws), events);
   if (all.length === 0) throw new UserError("No challenges yet. Run `ginga new <lang>` or `ginga daily`.");
   if (idOrPrefix) {
-    const hits = all.filter((c) => c.manifest.id === idOrPrefix || c.manifest.id.startsWith(idOrPrefix) || c.dir.endsWith(idOrPrefix));
+    const exact = all.find((c) => c.manifest.id === idOrPrefix);
+    if (exact) return exact;
+    const hits = all.filter((c) => c.manifest.id.startsWith(idOrPrefix));
     if (hits.length === 1) return hits[0];
     if (hits.length === 0) throw new UserError(`No challenge matches "${idOrPrefix}".`);
     throw new UserError(`"${idOrPrefix}" is ambiguous: ${hits.map((h) => h.manifest.id).join(", ")}`);
   }
-  const events = readEvents(ws);
   const open = all.filter((c) => challengeStatus(events, c.manifest.id).status === "open");
   return (open.length ? open : all).at(-1);
 }
@@ -40,11 +59,25 @@ export function isLocked(dir) {
   return existsSync(join(dir, LOCK_FILE));
 }
 
-/** Encrypt solution/, bugs/ and hints.md with the README key, then delete the plaintext. */
+/**
+ * Encrypt solution/, bugs/ and hints.md with the README key, then delete the plaintext.
+ * The bug list (names + expected failing tests) moves from challenge.json into the bundle,
+ * since it spoils the common mistakes. README.md becomes read-only: it is the key.
+ */
 export function lockChallenge(dir) {
+  const manifest = readManifest(dir);
+  if (manifest.bugs) {
+    mkdirSync(join(dir, "bugs"), { recursive: true });
+    writeJson(join(dir, BUGS_FILE), manifest.bugs);
+    delete manifest.bugs;
+    writeJson(join(dir, "challenge.json"), manifest);
+  }
+  const readme = Buffer.from(normalizeReadme(readFileSync(join(dir, "README.md"), "utf8")));
+  writeFileSync(join(dir, "README.md"), readme);
   const files = collectFiles(dir, LOCKED_PARTS);
-  writeFileSync(join(dir, LOCK_FILE), encryptBundle(files, readFileSync(join(dir, "README.md"))));
+  writeFileSync(join(dir, LOCK_FILE), encryptBundle(files, readme));
   for (const part of LOCKED_PARTS) rmSync(join(dir, part), { recursive: true, force: true });
+  chmodSync(join(dir, "README.md"), 0o444);
 }
 
 /** Decrypt into the challenge dir and remove the lock file. */
