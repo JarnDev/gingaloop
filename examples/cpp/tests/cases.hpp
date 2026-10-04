@@ -1,0 +1,38 @@
+// Golden cases: inputs from a fixed seed, expected outputs from the reference.
+#pragma once
+
+struct GoldenCase { const char* text; const char* expected; };
+inline constexpr GoldenCase CASES[] = {
+    {"", ""},
+    {"   x\ny ", "x\ny"},
+    {" sky caf\xc3""\xa9""    is sky ", "sky is caf\xc3""\xa9"" sky"},
+    {"a\tb  C++  sky", "sky C++ a\tb"},
+    {"C++    C++ a\tb C++  x\ny", "x\ny C++ a\tb C++ C++"},
+    {" 42 ", "42"},
+    {"x\ny blue sky blue", "blue sky blue x\ny"},
+    {"a\tb is    sky    caf\xc3""\xa9"" C++    x\ny", "x\ny C++ caf\xc3""\xa9"" sky is a\tb"},
+    {"a\tb    a\tb", "a\tb a\tb"},
+    {"   caf\xc3""\xa9"" x\ny 42 blue is", "is blue 42 x\ny caf\xc3""\xa9"""},
+    {"a\tb  ", "a\tb"},
+    {"a\tb C++  ", "C++ a\tb"},
+    {" blue ", "blue"},
+    {"C++ sky  sky ", "sky sky C++"},
+    {"sky x\ny blue ", "blue x\ny sky"},
+    {"   caf\xc3""\xa9"" 42    caf\xc3""\xa9"" C++ is    ", "is C++ caf\xc3""\xa9"" 42 caf\xc3""\xa9"""},
+    {"   caf\xc3""\xa9""  blue", "blue caf\xc3""\xa9"""},
+    {"caf\xc3""\xa9""    x\ny", "x\ny caf\xc3""\xa9"""},
+    {" caf\xc3""\xa9""    sky sky    a\tb  ", "a\tb sky sky caf\xc3""\xa9"""},
+    {"a\tb is blue    is", "is blue is a\tb"},
+    {"is x\ny    sky  sky  a\tb  blue", "blue a\tb sky sky x\ny is"},
+    {"x\ny    sky caf\xc3""\xa9""  a\tb  sky C++", "C++ sky a\tb caf\xc3""\xa9"" sky x\ny"},
+    {"sky", "sky"},
+    {"C++  x\ny  C++  is C++  ", "C++ is C++ x\ny C++"},
+    {"", ""},
+    {"blue    a\tb 42", "42 a\tb blue"},
+    {"sky a\tb blue a\tb  is caf\xc3""\xa9"" ", "caf\xc3""\xa9"" is a\tb blue a\tb sky"},
+    {"   C++    C++ C++ ", "C++ C++ C++"},
+    {" 42    is", "is 42"},
+    {" ", ""},
+    {"is  sky sky  42    C++", "C++ 42 sky sky is"},
+    {"caf\xc3""\xa9""  C++    42 C++ 42 ", "42 C++ 42 C++ caf\xc3""\xa9"""},
+};

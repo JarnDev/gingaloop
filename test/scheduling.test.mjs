@@ -32,3 +32,18 @@ test("pass detection: exit code, timeout and success pattern", () => {
   assert.equal(passed({ code: null, output: "", timedOut: true }, {}), false);
   assert.equal(passed({ code: 0, output: "", timedOut: false }, {}), true);
 });
+
+test("timer: first open wins, 4-hour guard, nothing without an open", async () => {
+  const { timerMinutes } = await import("../src/cli.mjs");
+  const at = (iso) => Date.parse(iso);
+  const events = [
+    { type: "opened", id: "a", ts: "2026-10-03T10:00:00Z" },
+    { type: "opened", id: "a", ts: "2026-10-03T10:30:00Z" },
+    { type: "opened", id: "b", ts: "2026-10-03T08:00:00Z" },
+  ];
+  assert.deepEqual(timerMinutes(events, "a", at("2026-10-03T10:37:20Z")), { measured: 37, suggest: 37 });
+  assert.deepEqual(timerMinutes(events, "b", at("2026-10-03T19:02:00Z")), { measured: 662, suggest: null });
+  assert.deepEqual(timerMinutes(events, "b", at("2026-10-03T12:00:00Z")), { measured: 240, suggest: 240 });
+  assert.deepEqual(timerMinutes(events, "c", at("2026-10-03T12:00:00Z")), { measured: null, suggest: null });
+  assert.equal(timerMinutes(events, "a", at("2026-10-03T10:00:05Z")).measured, 1, "never 0 minutes");
+});

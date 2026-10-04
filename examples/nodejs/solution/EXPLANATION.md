@@ -29,6 +29,7 @@ O(n) time over the file's bytes, O(1) extra memory (one chunk at a time).
   Caught by "counts a last line without a trailing newline".
 - **Empty file counts as one line** (`bugs/empty-file-counts-one`): checking "last byte isn't `\n`"
   without checking that there *was* a last byte. Caught by "an empty file has zero lines".
+- **`split("\n").length`** (`bugs/split-length`): the classic one-liner counts an empty "line" after a final `\n` and returns 1 for an empty file, and it reads the whole file into memory. Caught by "counts newline-terminated lines".
 
 ## Idioms
 

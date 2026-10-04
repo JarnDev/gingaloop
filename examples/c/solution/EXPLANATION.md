@@ -32,6 +32,7 @@ O(n) time, a single pass; O(1) memory, with no allocation and no copies.
 - **`isspace(*s)` with a plain `char`**: on platforms where `char` is signed, bytes ≥ 0x80 become
   negative, and passing them to `isspace` is undefined behavior. Always cast to `unsigned char`. The
   UTF-8 test exercises those bytes.
+- **`strtok` with an incomplete delimiter list** (`bugs/strtok-partial-delims`): copying the string and tokenizing on `" \t\n"` works for common input but misses `\r`, `\v` and `\f`. Caught by `[FAIL] every isspace() character separates words`.
 
 ## Idioms
 

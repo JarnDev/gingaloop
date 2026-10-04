@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
 type WordCount = readonly [word: string, count: number];
@@ -24,6 +25,19 @@ test("apostrophes stay inside words, punctuation splits", () => {
 
 test("digits are separators", () => {
   assert.deepEqual(topWords("abc123abc", 5), [["abc", 2]]);
+});
+
+test("underscores and non-ASCII letters are separators too", () => {
+  assert.deepEqual(topWords("foo_bar café", 5), [["bar", 1], ["caf", 1], ["foo", 1]], 'only a-z and the apostrophe are word characters');
+});
+
+test("golden cases", () => {
+  const cases: { text: string; limit: number; expected: WordCount[] }[] = JSON.parse(
+    readFileSync(new URL("./cases.json", import.meta.url), "utf8"),
+  );
+  for (const { text, limit, expected } of cases) {
+    assert.deepEqual(topWords(text, limit), expected, `topWords(${JSON.stringify(text)}, ${limit})`);
+  }
 });
 
 test("respects the limit, including zero", () => {

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
 const { chunk } = await import(`../${process.env.TARGET ?? "starter"}/solution.mjs`);
@@ -29,7 +30,15 @@ test("does not mutate the input array", () => {
 
 test("rejects a non-positive or non-integer size", () => {
   for (const bad of [0, -1, 1.5, NaN]) {
-    assert.throws(() => chunk([1, 2], bad), RangeError, `size ${bad} must throw RangeError (and not loop forever)`);
+    assert.throws(() => chunk([1, 2], bad), { name: "RangeError", message: `size must be a positive integer, got ${bad}` },
+      `size ${bad} must throw the RangeError from the README (and not loop forever)`);
+  }
+});
+
+test("golden cases", () => {
+  const cases = JSON.parse(readFileSync(new URL("./cases.json", import.meta.url), "utf8"));
+  for (const { items, size, expected } of cases) {
+    assert.deepEqual(chunk(items, size), expected, `chunk(${JSON.stringify(items)}, ${size})`);
   }
 });
 

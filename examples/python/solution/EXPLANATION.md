@@ -33,6 +33,7 @@ avoids the quadratic cost of repeated string concatenation in a loop.
   character *changes*, so the final run is never written. Caught by `test_encode_keeps_the_last_run`.
 - **Reading one digit only** (`bugs/single-digit-decode`): treating `"a12"` as `a×1` then a stray `2`.
   Caught by `test_decode_multi_digit_counts`.
+- **A regex that skips what it can't parse** (`bugs/regex-skips-malformed`): `re.findall(r"(\D)(\d+)", s)` looks like a one-line decoder, but it silently ignores malformed parts, so `"a"` decodes to `""` instead of raising. Caught by `test_decode_rejects_missing_count`, which also checks the exact error message.
 
 ## Idioms
 

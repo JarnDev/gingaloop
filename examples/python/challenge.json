@@ -3,11 +3,32 @@
   "title": "Run-length encoding",
   "type": "implement",
   "level": 1,
-  "topics": ["strings", "run-length encoding", "parsing"],
+  "topics": [
+    "strings",
+    "run-length encoding",
+    "parsing"
+  ],
   "estMinutes": 20,
-  "test": { "command": "python3 -m unittest discover -s . -p \"test_*.py\" -v", "successPattern": null, "timeoutSeconds": 60 },
+  "test": {
+    "command": "python3 -m unittest discover -s . -p \"test_*.py\" -v",
+    "successPattern": null,
+    "timeoutSeconds": 60
+  },
   "bugs": [
-    { "name": "drops-last-run", "expect": "test_encode_keeps_the_last_run" },
-    { "name": "single-digit-decode", "expect": "test_decode_multi_digit_counts" }
+    {
+      "name": "drops-last-run",
+      "kind": "mutation",
+      "expect": "test_encode_keeps_the_last_run"
+    },
+    {
+      "name": "single-digit-decode",
+      "kind": "mutation",
+      "expect": "test_decode_multi_digit_counts"
+    },
+    {
+      "name": "regex-skips-malformed",
+      "kind": "alternative",
+      "expect": "test_decode_rejects_missing_count"
+    }
   ]
 }

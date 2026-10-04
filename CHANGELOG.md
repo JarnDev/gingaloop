@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.0
+
+- Timer: the first `ginga open` starts it; `ginga done` suggests the elapsed minutes (enter accepts,
+  or type your own; over 4 h it's only shown). Solves record where the minutes came from.
+- Stronger tests: the generator designs suites from a contract inventory (input classes, isolated
+  rules, exact error messages, a seeded golden table) and must include an "alternative" bug variant.
+  The validator now requires 3+ bug variants, at least one of kind `alternative`.
+- The built-in examples follow the new standard.
+- `ginga review` runs in a staging copy with the sandbox, so it verifies claims by running code and
+  lists missing tests.
+
 ## 0.2.1
 
 Security and robustness fixes from a code review:

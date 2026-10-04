@@ -1,13 +1,13 @@
 // Command implementations for `ginga`.
 import { spawn, spawnSync } from "node:child_process";
-import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, statSync, writeFileSync } from "node:fs";
+import { appendFileSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { delimiter, isAbsolute, join, resolve, sep } from "node:path";
 import { createInterface } from "node:readline/promises";
 import {
   isLocked, listChallenges, pickChallenge, readHints, unlockChallenge,
 } from "./challenges.mjs";
-import { bootstrapProfile, generateChallenge } from "./generate.mjs";
+import { bootstrapProfile, generateChallenge, sandboxPrefix } from "./generate.mjs";
 import { levelState, resolveLevel, streakState } from "./levels.mjs";
 import { notify } from "./notify.mjs";
 import { allProfiles, findProfile, requireProfile } from "./profiles.mjs";
@@ -283,6 +283,24 @@ function tryUnlock(dir) {
   }
 }
 
+/** Longest wall-clock time still trusted as a default; beyond it, breaks are likely included. */
+export const TIMER_CAP_MINUTES = 240;
+
+/**
+ * Minutes since the first `ginga open` of a challenge. `suggest` is null when there was no open,
+ * or when the time is over the cap (opened in the morning, solved at night).
+ */
+export function timerMinutes(events, id, now = Date.now(), cap = TIMER_CAP_MINUTES) {
+  const first = events.find((e) => e.type === "opened" && e.id === id);
+  if (!first) return { measured: null, suggest: null };
+  const measured = Math.max(1, Math.round((now - Date.parse(first.ts)) / 60_000));
+  return { measured, suggest: measured <= cap ? measured : null };
+}
+
+function humanMinutes(m) {
+  return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${m % 60} min`;
+}
+
 export async function cmdDone(positionals, opts) {
   const { ws, config } = ctx(opts);
   const c = pickChallenge(ws, positionals[0]);
@@ -303,14 +321,33 @@ export async function cmdDone(positionals, opts) {
     process.exitCode = 1;
     return;
   }
-  let minutes = opts.minutes != null ? Number(opts.minutes) : null;
-  if (minutes == null && isTTY()) {
-    const a = await ask("Minutes spent (enter to skip):", "");
-    minutes = a ? Number(a) : null;
+  const timer = timerMinutes(events, m.id);
+  let minutes = null;
+  let minutesSource = null;
+  if (opts.minutes != null) {
+    minutes = Number(opts.minutes);
+    minutesSource = "flag";
+  } else if (isTTY()) {
+    if (timer.measured != null && timer.suggest == null) {
+      console.log(`⏱️  The timer says ${humanMinutes(timer.measured)} since you opened it; that probably includes breaks.`);
+    }
+    const a = await ask(timer.suggest != null ? "Minutes spent (enter to accept, or type yours):" : "Minutes spent (enter to skip):",
+      timer.suggest != null ? String(timer.suggest) : "");
+    if (a) {
+      minutes = Number(a);
+      minutesSource = timer.suggest != null && Number(a) === timer.suggest ? "timer" : "typed";
+    }
+  } else if (timer.suggest != null) {
+    minutes = timer.suggest; // no one to ask: trust the timer only when it's plausible
+    minutesSource = "timer";
+  }
+  if (!Number.isFinite(minutes) || minutes < 0) {
+    minutes = null;
+    minutesSource = null;
   }
   appendEvent(ws, {
     type: "solved", id: m.id, lang: m.lang, level: m.level, topics: m.topics,
-    minutes: Number.isFinite(minutes) ? minutes : null, hints,
+    minutes, ...(minutesSource ? { minutesSource } : {}), hints,
     ...(status === "gaveup" ? { afterGiveup: true } : {}),
   });
   const after = levelState(readEvents(ws), m.lang, config.leveling);
@@ -592,6 +629,12 @@ export async function cmdOpen(positionals, opts) {
   };
   if (existsSync(join(c.dir, "starter"))) walk("starter");
   const quote = (s) => `'${s.replace(/'/g, `'\\''`)}'`;
+  // The first open starts the timer that `ginga done` suggests as "minutes spent".
+  const events = readEvents(ws);
+  if (!events.some((e) => e.type === "opened" && e.id === c.manifest.id)) {
+    appendEvent(ws, { type: "opened", id: c.manifest.id, lang: c.manifest.lang, level: c.manifest.level });
+    console.log("⏱️  Timer started; `ginga done` will suggest the time since now.");
+  }
   console.log(`Opening ${c.manifest.id} in ${editor} …`);
   // Through a shell so editor settings with arguments ("code -w", "nvim -p") work.
   const r = spawnSync(`${editor} ${["README.md", ...starter].map(quote).join(" ")}`, {
@@ -674,22 +717,43 @@ export async function cmdReview(positionals, opts) {
   const { ws, config } = ctx(opts);
   const c = pickChallenge(ws, positionals[0]);
   if (isLocked(c.dir)) throw new UserError("Review needs the reference solution: solve it (`ginga done`) or `ginga giveup` first.");
+  const profile = requireProfile(ws, c.manifest.lang);
+  // Work on a staging copy so Claude can run code through the jailed sandbox command.
+  const staging = join(ws, ".staging", `review-${c.manifest.id}-${Date.now().toString(36)}`);
+  cpSync(c.dir, staging, { recursive: true });
+  const prefix = sandboxPrefix({ lang: profile.id });
+  const testCmd = c.manifest.test?.command ?? profile.testCommand;
   const prompt =
-    "You are reviewing a practice solution. Compare starter/ (the user's solution) with solution/ (reference) " +
-    "and README.md (the problem). Give a short, direct code review in Markdown: correctness risks the tests miss, " +
-    "complexity, idiomatic improvements for this language, and one thing done well. No praise padding. " +
-    "Do not modify any file.";
-  console.log("Asking Claude for a review …");
-  const out = await new Promise((resolvePromise, reject) => {
-    const child = spawn(config.claude.command, ["-p", prompt, "--allowedTools", "Read,Glob,Grep",
-      ...(config.claude.model ? ["--model", config.claude.model] : [])], { cwd: c.dir, stdio: ["ignore", "pipe", "inherit"] });
-    let text = "";
-    child.stdout.on("data", (d) => (text += d));
-    child.on("error", reject);
-    child.on("close", () => resolvePromise(text.trim()));
-  });
+    "You are reviewing a practice solution. starter/ is the user's solution, solution/ the reference, " +
+    "README.md the problem, tests/ the suite. Write a short, direct code review in Markdown: correctness " +
+    "risks the tests miss, complexity, idiomatic improvements for this language, and one thing done well. " +
+    "No praise padding. Do not modify any file.\n\n" +
+    "VERIFY your claims by running code; do not guess. You can only run code in a sandbox with this exact " +
+    "prefix (type it exactly, from this directory, each option once):\n" +
+    `  ${prefix} --cwd tests --target starter -- '${testCmd}'\n` +
+    "Use --target solution for the reference. For edge-case probes, write a small script in a new folder " +
+    "(e.g. probes/) that loads ../starter and ../solution and prints both results, then run it with " +
+    `\`${prefix} --cwd probes -- '<command>'\`. Report the actual outputs you observed. ` +
+    "When the tests miss a real bug, end with a section '## Missing tests' listing the test cases to add.";
+  console.log("Asking Claude for a review (it can run the tests in the sandbox) …");
+  let out;
+  try {
+    out = await new Promise((resolvePromise, reject) => {
+      const child = spawn(config.claude.command, [
+        "-p", prompt, "--permission-mode", "acceptEdits",
+        "--allowedTools", "Read", "Glob", "Grep", "Write", `Bash(${prefix}:*)`,
+        "--disallowedTools", "WebFetch", "WebSearch",
+        ...(config.claude.model ? ["--model", config.claude.model] : []),
+      ], { cwd: staging, stdio: ["ignore", "pipe", "inherit"] });
+      let text = "";
+      child.stdout.on("data", (d) => (text += d));
+      child.on("error", (e) => reject(new UserError(`Could not run "${config.claude.command}": ${e.message}`)));
+      child.on("close", (code) => (code === 0 ? resolvePromise(text.trim()) : reject(new UserError(`Claude exited with code ${code}.`))));
+    });
+  } finally {
+    removeDir(staging);
+  }
   appendFileSync(join(c.dir, "NOTES.md"), `\n## Review (${today()})\n\n${out}\n`);
   console.log(out);
   console.log(`\n(appended to ${join(c.dir, "NOTES.md")})`);
 }
-

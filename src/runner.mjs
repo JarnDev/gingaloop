@@ -97,7 +97,10 @@ export function staticProblems(dir) {
   if (!Number.isInteger(m.estMinutes)) problems.push("challenge.json: estMinutes must be an integer");
   if (!m.test?.command) problems.push("challenge.json: test.command is required");
   const bugs = bugList(dir, m);
-  if (bugs.length < 2) problems.push("challenge.json: at least 2 bugs[] are required");
+  if (bugs.length < 3) problems.push("challenge.json: at least 3 bugs[] are required");
+  else if (!bugs.some((b) => b.kind === "alternative")) {
+    problems.push('challenge.json: at least one bug must be kind "alternative" (a plausible different approach that is subtly wrong)');
+  }
   if (m.test?.successPattern) {
     try {
       new RegExp(m.test.successPattern);

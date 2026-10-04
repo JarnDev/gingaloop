@@ -2,6 +2,7 @@
 #include <iostream>
 #include <string>
 
+#include "cases.hpp"
 #include "solution.hpp"
 
 static int failures = 0;
@@ -32,6 +33,14 @@ int main() {
     check_eq("only spaces gives empty string", reverse_words("   "), "");
     check_eq("empty input gives empty string", reverse_words(""), "");
     check_eq("single word is unchanged", reverse_words("solo"), "solo");
+    check_eq("only spaces separate words (tabs and newlines stay inside)", reverse_words("a\tb c\nd"), "c\nd a\tb");
+
+    for (const auto& c : CASES) {  // golden table: report the first mismatch with its input
+        if (reverse_words(c.text) != c.expected) {
+            check_eq((std::string("golden case \"") + c.text + "\"").c_str(), reverse_words(c.text), c.expected);
+            break;
+        }
+    }
 
     std::string big;
     for (int k = 0; k < 200000; ++k) big += "word ";

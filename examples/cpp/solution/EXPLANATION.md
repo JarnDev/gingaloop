@@ -32,6 +32,7 @@ O(w) views.
   string turns `"abc de"` into `"ed cba"`. Caught by `[FAIL] letters inside words keep their order`.
 - **Dangling views**: a `std::string_view` must not outlive the string it points into. Here every view
   points into the caller's `s`, which outlives the function call, so it is safe.
+- **`std::istringstream` with `>>`** (`bugs/istringstream-split`): the idiomatic tokenizer splits on *all* whitespace, but this spec only separates on `' '`, so `"a\tb"` wrongly becomes two words. Caught by `[FAIL] only spaces separate words`.
 
 ## Idioms
 

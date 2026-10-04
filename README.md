@@ -25,10 +25,10 @@ Validating in the sandbox …
 
 $ ginga new c       # or any language you like, any time (--level N up to yours)
 
-$ ginga open        # README + starter in your $EDITOR
+$ ginga open        # README + starter in your $EDITOR (starts the timer)
 $ ginga test        # run the tests against your starter/ (in a container)
 $ ginga hint        # reveal hint 1 of 3 (recorded)
-$ ginga done        # tests pass → solve recorded → solution unlocked
+$ ginga done        # tests pass → "Minutes spent [37]:" (enter accepts) → solution unlocked
 $ ginga rank
 🔥 Streak: 3 days  (next freeze in 4 solve days, max 2)
 
@@ -244,11 +244,22 @@ Nothing reaches your workspace unless it passes the validator:
 
 - the reference solution passes the tests;
 - your starter fails them;
-- every bug variant in `bugs/` (2–3 typical mistakes) fails, **on the test meant to catch it**;
+- every bug variant in `bugs/` fails, **on the test meant to catch it**. There are 3–5: realistic
+  slips in the reference, plus at least one *alternative* approach a learner would plausibly take
+  that is subtly wrong (a regex instead of a loop, a different data structure);
 - the README, hints and explanation have all their sections;
 - it isn't a repeat: the slug and title are compared with **every** past challenge in that language
   (exact and near-exact matches, ignoring plurals, word order and filler words). The generator also
   sees that full list up front. Review challenges are exempt, since they revisit a topic on purpose.
+
+Beyond what the validator can check, the generator designs each test suite from the contract:
+
+- it covers every input class the spec allows;
+- it tests each rule where no other rule could produce the same output;
+- it asserts exact error messages;
+- it adds a **golden table**: 30+ inputs from a fixed seed, with outputs computed by the reference.
+
+These rules come from real misses, where the tests passed but the solution was still wrong.
 
 If validation fails, Claude gets the validator output and one retry. After that, the attempt is
 kept in `.staging/_failed/` for inspection.
@@ -263,9 +274,9 @@ kept in `.staging/_failed/` for inspection.
 | `ginga open [id]` | open README + starter files in your editor (`editor` in config, else `$VISUAL`/`$EDITOR`, else `vi`) |
 | `ginga test [id]` | run the tests against your starter |
 | `ginga hint [id]` | next hint (recorded) |
-| `ginga done [id] [--minutes N]` | verify, record the solve, unlock the solution |
+| `ginga done [id] [--minutes N]` | verify, record the solve, unlock the solution; suggests the minutes since your first `ginga open` (over 4 h it only shows them, since breaks are likely) |
 | `ginga giveup [id]` | record a give-up, unlock the solution |
-| `ginga review [id]` | Claude reviews your solution against the reference (after unlock) |
+| `ginga review [id]` | Claude reviews your solution against the reference (after unlock), running the tests and its own edge-case probes in the sandbox |
 | `ginga rank` / `ginga list` | levels, streak, weak topics / all challenges |
 | `ginga coverage [lang…]` | practice areas per language and how often you've had each |
 | `ginga rotation [list\|set\|add\|remove\|mode]` | the daily's languages and order, e.g. `ginga rotation add typescript cpp`, `ginga rotation mode ordered` |

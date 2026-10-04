@@ -39,7 +39,7 @@ hints.md
 starter/            # what the user edits; MUST FAIL the tests
 solution/           # reference solution; MUST PASS; same file names as starter/
 solution/EXPLANATION.md
-bugs/<name>/        # 2–3 dirs, each a full copy of the solution files with ONE typical bug
+bugs/<name>/        # 3–5 dirs, each a full copy of the solution files with ONE typical bug
 tests/              # the test suite; it loads the code under test from ../$TARGET/
 ```
 
@@ -57,12 +57,17 @@ The tests pick the implementation from the TARGET environment variable: `starter
   "estMinutes": 30,
   "test": { "command": "<see profile>", "successPattern": null, "timeoutSeconds": 60 },
   "bugs": [
-    { "name": "off-by-one-end", "expect": "<substring of the FAILING test's name/output>" }
+    { "name": "off-by-one-end", "kind": "mutation", "expect": "<substring of the FAILING test's name/output>" },
+    { "name": "dict-insertion-order", "kind": "alternative", "expect": "<…>" }
   ]
 }
 ```
 `expect` must be text that appears in the test output only when the right test fails (usually the
 test's name). The validator checks each bug fails on the test it is meant to break.
+
+`kind` is `mutation` (the reference with one realistic slip: off-by-one, wrong comparison, missing
+final flush, wrong error type) or `alternative` (a DIFFERENT, plausible way a learner would solve it
+that is subtly wrong; see "Test design"). At least one bug must be `alternative`.
 
 ## README.md (this file is also the decryption key; it is final once you finish)
 Sections, in this order, with these exact headings:
@@ -85,6 +90,39 @@ Sections with these exact headings:
 - `## Common bugs`: the mistakes people make here (these match bugs/), and which test catches each.
 - `## Idioms`: language-specific techniques used and worth remembering.
 - `## Level up`: two follow-up variations to try.
+
+# Test design (this is where challenges usually fail)
+
+Past challenges passed every test while user solutions were still wrong: a JS counter built on a
+plain object reordered digit keys (inputs never contained digits); an error message printed
+literally as `got f{n}` (the test only checked the exception type); `"Tips&Tricks"` became
+`tipstricks` (every punctuation case sat next to a space, so another rule hid the bug). Design the
+suite so that cannot happen:
+
+1. **Contract inventory first.** Before writing tests, list every rule and promise in README.md
+   (each input class, each output rule, each error and its exact message/type, each ordering or
+   stability promise, each boundary). Every item gets at least one test, and the test name says
+   which rule it checks.
+2. **Input classes.** For each input, enumerate its equivalence classes from the spec (e.g. for
+   characters: lowercase, uppercase, digits, punctuation, whitespace kinds, non-ASCII/emoji; for
+   numbers: 0, 1, negative, max/min, overflow edge; for collections: empty, one, duplicates, all
+   equal, sorted, reverse-sorted). Cover every class the spec allows, and the ones it forbids.
+3. **Isolate each rule.** Test each rule in a case where no other rule could produce the same
+   output: a separator between two letters, not next to a space; a tie that is not also first in
+   input order; a boundary value that is not also the only element.
+4. **Assert the whole contract, exactly.** If README promises an error type AND message, assert both
+   (message as an exact string or a precise pattern). Assert return types/shapes, ordering, and
+   that inputs are not mutated when the spec says so.
+5. **Golden table.** For pure functions, add a data-driven test over a fixture in tests/ (e.g.
+   `cases.json`) with at least 30 input → expected-output pairs. Build the inputs with a FIXED seed
+   so they span every input class (mix classes inside the same input too), and compute the expected
+   outputs by running the REFERENCE in the sandbox. The table must not reveal the algorithm, only
+   inputs and outputs. Report the first failing case with its input in the failure message.
+6. **Adversarial review of your own tests.** Before finishing, write the 2–3 most plausible WRONG
+   implementations a learner at this level would write with a different approach than the
+   reference (another data structure, a regex instead of a loop, a negated condition, a library
+   call with different semantics). Put the subtly wrong ones in bugs/ as `kind: "alternative"`.
+   If any of them passes, the suite has a gap: add the missing test, then re-run everything.
 
 # Quality bar (non-negotiable)
 

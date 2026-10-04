@@ -29,6 +29,7 @@ O(n) time and O(n) extra space: every element is copied once into exactly one ch
   `i + size <= items.length` only emits full chunks. Caught by "keeps the last partial chunk".
 - **Mutating the input** (`bugs/mutates-input`): `splice` removes elements from the caller's array.
   Caught by "does not mutate the input array".
+- **A truthy size check** (`bugs/truthy-size-check`): `if (!(size > 0))` accepts `1.5`, and `Math.ceil`/`Math.round` quietly produce chunks of mixed sizes. Caught by "rejects a non-positive or non-integer size", which also checks the exact `RangeError` message.
 
 ## Idioms
 

@@ -31,6 +31,7 @@ Counting is O(n) in the text length. Sorting the k distinct words is O(k log k).
   "ties are ordered alphabetically".
 - **Case-sensitive counting** (`bugs/case-sensitive`): `"THE"` and `"the"` become two entries. Caught
   by "counts words case-insensitively".
+- **Splitting on `\W+`** (`bugs/word-regex-split`): `\W` treats digits and `_` as word characters and splits on apostrophes, so `"abc123abc"` stays one word and `"don't"` becomes two. Caught by "digits are separators".
 
 ## Idioms
 

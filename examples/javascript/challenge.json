@@ -3,11 +3,32 @@
   "title": "Chunk an array",
   "type": "implement",
   "level": 1,
-  "topics": ["arrays", "immutability", "input validation"],
+  "topics": [
+    "arrays",
+    "immutability",
+    "input validation"
+  ],
   "estMinutes": 15,
-  "test": { "command": "node --test", "successPattern": null, "timeoutSeconds": 60 },
+  "test": {
+    "command": "node --test",
+    "successPattern": null,
+    "timeoutSeconds": 60
+  },
   "bugs": [
-    { "name": "drops-partial-chunk", "expect": "keeps the last partial chunk" },
-    { "name": "mutates-input", "expect": "does not mutate the input array" }
+    {
+      "name": "drops-partial-chunk",
+      "kind": "mutation",
+      "expect": "keeps the last partial chunk"
+    },
+    {
+      "name": "mutates-input",
+      "kind": "alternative",
+      "expect": "does not mutate the input array"
+    },
+    {
+      "name": "truthy-size-check",
+      "kind": "alternative",
+      "expect": "rejects a non-positive or non-integer size"
+    }
   ]
 }
