@@ -31,7 +31,7 @@ $ ginga test        # run the tests against your starter/ (in a container)
 $ ginga hint        # reveal hint 1 of 3 (recorded)
 $ ginga done        # tests pass → "Minutes spent [37]:" (enter accepts) → solution unlocked
 $ ginga review      # optional: Claude reviews your code, running probes in the sandbox
-$ ginga commit --push   # record the day in your workspace repo
+$ ginga commit --push   # record the day in your workspace repo (plain git, no Claude tokens)
 $ ginga rank
 🔥 Streak: 3 days  (next freeze in 4 solve days, max 2)
 
@@ -303,8 +303,8 @@ kept in `.staging/_failed/` for inspection.
 | `ginga rank` / `ginga list` | levels, streak, weak topics / all challenges |
 | `ginga coverage [lang…]` | practice areas per language and how often you've had each |
 | `ginga rotation [list\|set\|add\|remove\|mode]` | the daily's languages and order, e.g. `ginga rotation add typescript cpp`, `ginga rotation mode ordered` |
-| `ginga commit [--yes] [--push]` | commit the workspace with a structured message built from your progress |
-| `ginga push` | push the workspace (sets the upstream on the first push) |
+| `ginga commit [--yes] [--push]` | commit the workspace with a structured message built from your progress (plain git, **no Claude tokens**) |
+| `ginga push` | push the workspace, setting the upstream on the first push (plain git, **no Claude tokens**) |
 | `ginga lang list` / `ginga lang add <name>` | profiles |
 | `ginga schedule install\|remove\|status` | systemd user timer |
 | `ginga doctor [--pull]` | check setup, pre-pull images |
@@ -338,8 +338,19 @@ defaults, so you only need the ones you change.
 
 ## Cost
 
-Each generation is one Claude Code session (plus at most one retry), and it uses your Claude plan or
-API key like any other session. `ginga review` is optional and spends a little more.
+Only four commands call Claude, and they use your Claude plan or API key like any other Claude Code
+session:
+
+| Uses Claude tokens | When |
+|---|---|
+| `ginga daily`, `ginga new` | one session per generated challenge, plus at most one retry if validation fails |
+| `ginga lang add` | once per new language (also when a challenge first needs that language) |
+| `ginga review` | only when you ask for a review |
+
+**Everything else is local and free**: `open`, `test`, `hint`, `done`, `giveup`, `rank`, `list`,
+`coverage`, `rotation`, `commit`, `push`, `doctor`, `schedule`, `validate` and `init`. In
+particular, `ginga commit` builds its message from your progress log with plain code, and `ginga
+push` is just `git push`.
 
 ## License
 

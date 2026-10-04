@@ -31,7 +31,7 @@ Progress
   coverage [lang…]           practice areas per language and how often you've had each
   list                       all challenges with status
 
-Workspace repo
+Workspace repo (plain git, no Claude tokens)
   commit [--yes] [--push]    commit the workspace with a message built from your progress
   push                       push the workspace (sets the upstream on the first push)
 
@@ -39,7 +39,8 @@ Authoring
   validate [dir] [--examples]  solution passes, starter fails, every bug caught
   sandbox run --lang L [--dir D] [--cwd C] [--target T] -- <cmd>
 
-[id] defaults to your newest open challenge. Docs: README.md`;
+[id] defaults to your newest open challenge.
+Only daily, new, lang add and review use Claude (tokens); everything else is local. Docs: README.md`;
 
 const commands = {
   init: cli.cmdInit, new: cli.cmdNew, daily: cli.cmdDaily, test: cli.cmdTest, hint: cli.cmdHint,
