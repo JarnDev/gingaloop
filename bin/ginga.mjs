@@ -31,6 +31,10 @@ Progress
   coverage [lang…]           practice areas per language and how often you've had each
   list                       all challenges with status
 
+Workspace repo
+  commit [--yes] [--push]    commit the workspace with a message built from your progress
+  push                       push the workspace (sets the upstream on the first push)
+
 Authoring
   validate [dir] [--examples]  solution passes, starter fails, every bug caught
   sandbox run --lang L [--dir D] [--cwd C] [--target T] -- <cmd>
@@ -41,7 +45,7 @@ const commands = {
   init: cli.cmdInit, new: cli.cmdNew, daily: cli.cmdDaily, test: cli.cmdTest, hint: cli.cmdHint,
   done: cli.cmdDone, giveup: cli.cmdGiveup, rank: cli.cmdRank, list: cli.cmdList,
   validate: cli.cmdValidate, sandbox: cli.cmdSandbox, lang: cli.cmdLang, rotation: cli.cmdRotation, coverage: cli.cmdCoverage, open: cli.cmdOpen, schedule: cli.cmdSchedule,
-  doctor: cli.cmdDoctor, review: cli.cmdReview,
+  doctor: cli.cmdDoctor, review: cli.cmdReview, commit: cli.cmdCommit, push: cli.cmdPush,
 };
 
 const { values, positionals, tokens } = parseArgs({
@@ -67,6 +71,7 @@ const { values, positionals, tokens } = parseArgs({
     target: { type: "string" },
     "profile-file": { type: "string" },
     jail: { type: "boolean" },
+    push: { type: "boolean" },
     default: { type: "boolean" },
     help: { type: "boolean", short: "h" },
     version: { type: "boolean", short: "v" },

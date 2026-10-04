@@ -13,11 +13,12 @@ import { notify } from "./notify.mjs";
 import { allProfiles, findProfile, requireProfile } from "./profiles.mjs";
 import { appendEvent, challengeStatus, eventDate, readEvents } from "./progress.mjs";
 import { materialize, readManifest, runTarget, validateTree } from "./runner.mjs";
-import { engineAvailable, ensureImage, imagePresent, imageRef, removeDir, runInSandbox } from "./sandbox.mjs";
+import { engineAvailable, ensureImage, imagePresent, imageRef, makeTempDir, removeDir, runInSandbox } from "./sandbox.mjs";
 import { refreshViews } from "./dashboard.mjs";
 import { allAreas, coverageCounts, findArea, pickArea, unlockedAreas } from "./coverage.mjs";
 import { ROTATION_MODES, bagState, nextOrdered, pickDailyLang } from "./rotation.mjs";
 import { installSchedule, removeSchedule, scheduleStatus } from "./schedule.mjs";
+import { buildCommitMessage, ensureRepo, git, pushWorkspace, stagedFiles, stagedNewEvents } from "./gitops.mjs";
 import { VaultKeyError, readBundle } from "./vault.mjs";
 import {
   CONFIG_FILE, DEFAULT_CONFIG, UserError, daysBetween, findWorkspace, loadConfig,
@@ -757,3 +758,58 @@ export async function cmdReview(positionals, opts) {
   console.log(out);
   console.log(`\n(appended to ${join(c.dir, "NOTES.md")})`);
 }
+
+// ---------------------------------------------------------------- workspace git
+
+export async function cmdCommit(_positionals, opts) {
+  const { ws, config } = ctx(opts);
+  ensureRepo(ws);
+  refreshViews(ws); // commit an up-to-date dashboard
+  if (git(ws, ["add", "-A"]).status !== 0) throw new UserError("git add failed.");
+  const files = stagedFiles(ws);
+  if (!files.length) {
+    console.log("Nothing to commit: the workspace is clean.");
+    return;
+  }
+  let message = buildCommitMessage({
+    allEvents: readEvents(ws), newEvents: stagedNewEvents(ws), files, leveling: config.leveling, today: today(),
+  });
+  const msgFile = join(makeTempDir("gingaloop-commit-"), "COMMIT_MSG");
+  writeFileSync(msgFile, message);
+  if (!opts.yes) {
+    if (!isTTY()) {
+      git(ws, ["reset", "-q"]);
+      throw new UserError("Re-run with --yes to commit non-interactively.");
+    }
+    console.log(`\n${message.replace(/^/gm, "  ")}`);
+    const answer = (await ask("Commit with this message? [Y]es / [e]dit / [n]o", "y")).toLowerCase();
+    if (answer.startsWith("e")) {
+      const editor = config.editor || process.env.VISUAL || process.env.EDITOR || "vi";
+      spawnSync(`${editor} '${msgFile.replace(/'/g, `'\\''`)}'`, { stdio: "inherit", shell: true });
+      message = readFileSync(msgFile, "utf8");
+      if (!message.replace(/^#.*$/gm, "").trim()) {
+        git(ws, ["reset", "-q"]);
+        console.log("Empty message: nothing committed (changes unstaged).");
+        return;
+      }
+    } else if (!answer.startsWith("y")) {
+      git(ws, ["reset", "-q"]);
+      console.log("Nothing committed (changes unstaged).");
+      return;
+    }
+  }
+  // Inherit stdio so GPG signing and hooks can talk to the user.
+  const r = git(ws, ["commit", "-q", "-F", msgFile], { inherit: true });
+  if (r.status !== 0) {
+    throw new UserError("git commit failed (see above). Your changes are still staged; fix it and run `ginga commit` again.");
+  }
+  console.log(`✔ Committed: ${message.split("\n")[0]}`);
+  if (opts.push) pushWorkspace(ws);
+}
+
+export async function cmdPush(_positionals, opts) {
+  const { ws } = ctx(opts);
+  pushWorkspace(ws);
+  console.log("✔ Pushed.");
+}
+

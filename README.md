@@ -93,7 +93,22 @@ Levels, streak and the daily bag are all computed from `progress.jsonl`, so ther
 <sub>The workspace README after ten weeks of practice (sample data from `node scripts/sample-dashboard.mjs`).</sub>
 
 **Make it a git repo** to keep a history of your practice: `.gitignore` and `.gitattributes` are
-already set up, and `ginga` never commits or pushes for you. Its `README.md` is a **progress
+already set up. `ginga` never commits on its own, but `ginga commit` does it in one step with a
+message built from your progress (no AI involved, so it's free), and `ginga push` publishes it:
+
+```
+$ ginga commit --push
+  practice(2026-10-03): solve 1, new 1
+
+  - new(python): URL slugs for blog titles · L1 · strings
+  - solve(python): URL slugs for blog titles · L1 · 30 min · 0 hints · +100 pts
+  - notes(python): URL slugs for blog titles
+
+Commit with this message? [Y]es / [e]dit / [n]o [y]
+```
+
+It uses your normal git setup (signing, hooks), sets the upstream on the first push, and with
+`--yes` works without a terminal. Its `README.md` is a **progress
 dashboard** (streak, levels with progress bars, a 12-week activity grid with 🟩 clean solves, 🟨 solves
 with hints and 🟥 give-ups, coverage and recent
 challenges), rewritten after every `daily`, `new`, `hint`, `done`, `giveup` and `rank`. Only the
@@ -280,6 +295,8 @@ kept in `.staging/_failed/` for inspection.
 | `ginga rank` / `ginga list` | levels, streak, weak topics / all challenges |
 | `ginga coverage [lang…]` | practice areas per language and how often you've had each |
 | `ginga rotation [list\|set\|add\|remove\|mode]` | the daily's languages and order, e.g. `ginga rotation add typescript cpp`, `ginga rotation mode ordered` |
+| `ginga commit [--yes] [--push]` | commit the workspace with a structured message built from your progress |
+| `ginga push` | push the workspace (sets the upstream on the first push) |
 | `ginga lang list` / `ginga lang add <name>` | profiles |
 | `ginga schedule install\|remove\|status` | systemd user timer |
 | `ginga doctor [--pull]` | check setup, pre-pull images |

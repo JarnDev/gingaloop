@@ -2,6 +2,9 @@
 
 ## 0.3.0
 
+- `ginga commit` / `ginga push`: commit the workspace with a structured Conventional-Commits message
+  built from progress.jsonl and the changed files (solves with level, time, hints and points; new
+  challenges; give-ups; level-ups; notes); confirm, edit or cancel; `--yes`, `--push`.
 - Timer: the first `ginga open` starts it; `ginga done` suggests the elapsed minutes (enter accepts,
   or type your own; over 4 h it's only shown). Solves record where the minutes came from.
 - Stronger tests: the generator designs suites from a contract inventory (input classes, isolated
