@@ -52,5 +52,37 @@
       "name": "Proxy and Reflect",
       "minLevel": 6
     }
-  ]
+  ],
+  "stacks": {
+    "ecosystem": {
+      "libraries": [
+        "vitest@2.1.9",
+        "zod@3.23.8"
+      ],
+      "image": {
+        "tag": "gingaloop/node-eco:24-v2",
+        "dockerfile": "FROM node:24-slim\nWORKDIR /opt/eco\nRUN npm init -y >/dev/null && npm install --no-audit --no-fund typescript@5.8.3 vitest@2.1.9 fastify@5.2.1 zod@3.23.8 && npm cache clean --force && ln -s /opt/eco/node_modules/.bin/tsc /usr/local/bin/tsc\n"
+      },
+      "testCommand": "ln -sfn /opt/eco/node_modules /work/node_modules && /opt/eco/node_modules/.bin/vitest run --root /work/tests --reporter verbose",
+      "successPattern": null,
+      "conventions": "Tests use vitest 2.1 (describe/it/expect, it.each, vi.fn, vi.spyOn, vi.useFakeTimers) in tests/*.test.{mjs,ts}; they load the code under test from ../$TARGET/ with a dynamic import, written EXACTLY like this because Vite only resolves template-string imports one level deep (bugs/<name>/ is two): `const target = new URL(`../${process.env.TARGET ?? \"starter\"}/solution.mjs`, import.meta.url).href; const { fn } = await import(/* @vite-ignore */ target);` (use solution.ts for TypeScript). Libraries resolve from the test run's node_modules (already set up by the test command): import them normally. zod 3.23 is available for validation; use it where a professional would validate untrusted input. A plausible 'alternative' bug is often a hand-rolled check with different semantics than the schema, or a mock that hides a real bug.",
+      "areas": [
+        {
+          "id": "validation-zod",
+          "name": "Input validation with zod",
+          "minLevel": 1
+        },
+        {
+          "id": "fake-timers",
+          "name": "Timers and time-dependent code under vitest fake timers",
+          "minLevel": 3
+        },
+        {
+          "id": "mocking-boundaries",
+          "name": "Code designed for testing: dependency injection and mocks",
+          "minLevel": 3
+        }
+      ]
+    }
+  }
 }

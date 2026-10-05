@@ -1,0 +1,15 @@
+{
+  "slug": "parse-analytics-events",
+  "title": "Parse analytics events with a zod discriminated union",
+  "type": "implement",
+  "level": 1,
+  "stack": "ecosystem",
+  "topics": ["zod discriminated unions", "z.infer types", "parsing untrusted JSON"],
+  "estMinutes": 25,
+  "test": { "command": "ln -sfn /opt/eco/node_modules /work/node_modules && tsc --noEmit --strict --target es2022 --module nodenext --moduleResolution nodenext --allowImportingTsExtensions --erasableSyntaxOnly ../$TARGET/*.ts && /opt/eco/node_modules/.bin/vitest run --root /work/tests --reporter verbose", "successPattern": null, "timeoutSeconds": 120 },
+  "bugs": [
+    { "name": "cents-allow-floats", "kind": "mutation", "expect": "cents must be a positive whole number" },
+    { "name": "throws-on-bad-json", "kind": "mutation", "expect": "invalid JSON lines are rejected, not thrown" },
+    { "name": "hand-rolled-guard", "kind": "alternative", "expect": "sku must be a non-empty string" }
+  ]
+}

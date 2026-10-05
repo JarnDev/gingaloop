@@ -52,5 +52,32 @@
       "name": "Template literal types",
       "minLevel": 6
     }
-  ]
+  ],
+  "stacks": {
+    "ecosystem": {
+      "libraries": [
+        "vitest@2.1.9",
+        "zod@3.23.8"
+      ],
+      "image": {
+        "tag": "gingaloop/node-eco:24-v2",
+        "dockerfile": "FROM node:24-slim\nWORKDIR /opt/eco\nRUN npm init -y >/dev/null && npm install --no-audit --no-fund typescript@5.8.3 vitest@2.1.9 fastify@5.2.1 zod@3.23.8 && npm cache clean --force && ln -s /opt/eco/node_modules/.bin/tsc /usr/local/bin/tsc\n"
+      },
+      "testCommand": "ln -sfn /opt/eco/node_modules /work/node_modules && tsc --noEmit --strict --target es2022 --module nodenext --moduleResolution nodenext --allowImportingTsExtensions --erasableSyntaxOnly ../$TARGET/*.ts && /opt/eco/node_modules/.bin/vitest run --root /work/tests --reporter verbose",
+      "successPattern": null,
+      "conventions": "Tests use vitest 2.1 (describe/it/expect, it.each, vi.fn, vi.spyOn, vi.useFakeTimers) in tests/*.test.{mjs,ts}; they load the code under test from ../$TARGET/ with a dynamic import, written EXACTLY like this because Vite only resolves template-string imports one level deep (bugs/<name>/ is two): `const target = new URL(`../${process.env.TARGET ?? \"starter\"}/solution.mjs`, import.meta.url).href; const { fn } = await import(/* @vite-ignore */ target);` (use solution.ts for TypeScript). Libraries resolve from the test run's node_modules (already set up by the test command): import them normally. zod 3.23 is available: derive static types from schemas with z.infer, and validate at the boundary. Only erasable TypeScript syntax (as in basics).",
+      "areas": [
+        {
+          "id": "schema-types-zod",
+          "name": "Schemas as types with zod (z.infer, refinements, transforms)",
+          "minLevel": 1
+        },
+        {
+          "id": "typed-api-contracts",
+          "name": "Typed API contracts and parsing untrusted data",
+          "minLevel": 3
+        }
+      ]
+    }
+  }
 }

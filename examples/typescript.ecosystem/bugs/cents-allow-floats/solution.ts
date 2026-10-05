@@ -1,0 +1,25 @@
+import { z } from "zod";
+
+const Click = z.object({ type: z.literal("click"), x: z.number().finite(), y: z.number().finite() });
+const Purchase = z.object({ type: z.literal("purchase"), sku: z.string().min(1), cents: z.number().positive() }); // BUG: 19.99 is accepted
+export const EventSchema = z.discriminatedUnion("type", [Click, Purchase]);
+
+export type Event = z.infer<typeof EventSchema>;
+
+export function parseEvents(lines: string[]): { events: Event[]; rejected: number[] } {
+  const events: Event[] = [];
+  const rejected: number[] = [];
+  lines.forEach((line, index) => {
+    let value: unknown;
+    try {
+      value = JSON.parse(line);
+    } catch {
+      rejected.push(index);
+      return;
+    }
+    const result = EventSchema.safeParse(value);
+    if (result.success) events.push(result.data);
+    else rejected.push(index);
+  });
+  return { events, rejected };
+}

@@ -1,0 +1,15 @@
+{
+  "slug": "signup-validation",
+  "title": "Validate a signup form with zod",
+  "type": "implement",
+  "level": 1,
+  "stack": "ecosystem",
+  "topics": ["zod schemas", "input normalization", "strict objects", "error reporting"],
+  "estMinutes": 20,
+  "test": { "command": "ln -sfn /opt/eco/node_modules /work/node_modules && /opt/eco/node_modules/.bin/vitest run --root /work/tests --reporter verbose", "successPattern": null, "timeoutSeconds": 120 },
+  "bugs": [
+    { "name": "no-normalize", "kind": "mutation", "expect": "normalizes the email" },
+    { "name": "age-allows-floats", "kind": "mutation", "expect": "age must be a whole number" },
+    { "name": "strips-unknown-keys", "kind": "alternative", "expect": "unknown fields are rejected" }
+  ]
+}

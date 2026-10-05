@@ -1,0 +1,15 @@
+{
+  "slug": "todo-api-fastify",
+  "title": "A small todo API with fastify",
+  "type": "implement",
+  "level": 1,
+  "stack": "ecosystem",
+  "topics": ["fastify routes", "status codes", "request validation", "in-memory testing with inject"],
+  "estMinutes": 25,
+  "test": { "command": "ln -sfn /opt/eco/node_modules /work/node_modules && /opt/eco/node_modules/.bin/vitest run --root /work/tests --reporter verbose", "successPattern": null, "timeoutSeconds": 120 },
+  "bugs": [
+    { "name": "create-returns-200", "kind": "mutation", "expect": "create returns 201 with the new todo" },
+    { "name": "shared-store", "kind": "mutation", "expect": "each app instance has its own store" },
+    { "name": "truthy-title-check", "kind": "alternative", "expect": "rejects blank or non-string titles" }
+  ]
+}

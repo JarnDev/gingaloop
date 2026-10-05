@@ -52,5 +52,43 @@
       "name": "worker_threads",
       "minLevel": 6
     }
-  ]
+  ],
+  "stacks": {
+    "ecosystem": {
+      "libraries": [
+        "vitest@2.1.9",
+        "fastify@5.2.1",
+        "zod@3.23.8"
+      ],
+      "image": {
+        "tag": "gingaloop/node-eco:24-v2",
+        "dockerfile": "FROM node:24-slim\nWORKDIR /opt/eco\nRUN npm init -y >/dev/null && npm install --no-audit --no-fund typescript@5.8.3 vitest@2.1.9 fastify@5.2.1 zod@3.23.8 && npm cache clean --force && ln -s /opt/eco/node_modules/.bin/tsc /usr/local/bin/tsc\n"
+      },
+      "testCommand": "ln -sfn /opt/eco/node_modules /work/node_modules && /opt/eco/node_modules/.bin/vitest run --root /work/tests --reporter verbose",
+      "successPattern": null,
+      "conventions": "Tests use vitest 2.1 (describe/it/expect, it.each, vi.fn, vi.spyOn, vi.useFakeTimers) in tests/*.test.{mjs,ts}; they load the code under test from ../$TARGET/ with a dynamic import, written EXACTLY like this because Vite only resolves template-string imports one level deep (bugs/<name>/ is two): `const target = new URL(`../${process.env.TARGET ?? \"starter\"}/solution.mjs`, import.meta.url).href; const { fn } = await import(/* @vite-ignore */ target);` (use solution.ts for TypeScript). Libraries resolve from the test run's node_modules (already set up by the test command): import them normally. fastify 5.2 and zod 3.23 are available. HTTP handlers are tested IN MEMORY with fastify's app.inject() (never listen on a port; the sandbox has no network). Use fastify schemas or zod for request validation, hooks for cross-cutting concerns, and proper status codes and error payloads.",
+      "areas": [
+        {
+          "id": "http-handlers",
+          "name": "HTTP handlers with fastify (routes, status codes, inject tests)",
+          "minLevel": 1
+        },
+        {
+          "id": "request-validation",
+          "name": "Request validation and error responses",
+          "minLevel": 2
+        },
+        {
+          "id": "middleware-hooks",
+          "name": "Hooks/middleware: auth, rate limits, request ids",
+          "minLevel": 3
+        },
+        {
+          "id": "api-pagination",
+          "name": "Pagination, filtering and idempotency in APIs",
+          "minLevel": 3
+        }
+      ]
+    }
+  }
 }
