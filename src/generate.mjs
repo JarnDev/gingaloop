@@ -266,7 +266,7 @@ export async function generateChallenge({ ws, config, profile, level, area, type
   );
   appendEvent(ws, {
     type: "generated", id, lang: profile.id, level, title: manifest.title, topics: manifest.topics, source,
-    stack: profile.stack ?? "basics", challengeType: type, domain,
+    stack: profile.stack ?? "basics", challengeType: type, domain, estMinutes: manifest.estMinutes,
     ...(area ? { area: area.id } : {}),
     ...(reviewOf ? { reviewOf: reviewOf.id } : {}),
   });

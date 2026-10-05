@@ -8,7 +8,8 @@ import {
   isLocked, listChallenges, pickChallenge, readHints, unlockChallenge, writeEditorFiles,
 } from "./challenges.mjs";
 import { bootstrapProfile, generateChallenge, sandboxPrefix } from "./generate.mjs";
-import { levelState, resolveLevel, streakState } from "./levels.mjs";
+import { resolveLevel, streakState } from "./levels.mjs";
+import { gateSummary, langLevel } from "./progression.mjs";
 import { notify } from "./notify.mjs";
 import { allProfiles, findProfile, requireProfile } from "./profiles.mjs";
 import { appendEvent, challengeStatus, eventDate, readEvents } from "./progress.mjs";
@@ -166,7 +167,7 @@ export async function cmdNew(positionals, opts) {
   const lang = positionals[0];
   if (!lang) throw new UserError("Usage: ginga new <language> [--level N]");
   const base = await profileFor(ws, config, lang, opts);
-  const state = levelState(readEvents(ws), base.id, config.leveling);
+  const state = langLevel(ws, config, readEvents(ws), base.id);
   const requestedLevel = resolveLevel(opts.level, state, base.id, config.leveling);
   // --stack wins; an ecosystem-only --area implies the ecosystem stack; else the config decides.
   const domain = opts.domain ? requireDomain(opts.domain).id : pickDomain(readEvents(ws), configuredDomains(config));
@@ -190,15 +191,29 @@ export async function cmdNew(positionals, opts) {
   printNew(result);
 }
 
+/** A solve that should come back for review: 2+ hints, or more than twice the estimated time. */
+export function isStruggle(e, generated) {
+  if (e.type !== "solved" || e.afterGiveup) return false;
+  const est = generated?.estMinutes;
+  return (e.hints ?? 0) >= 2 || (Number.isFinite(e.minutes) && Number.isFinite(est) && e.minutes > 2 * est);
+}
+
 /**
- * The oldest give-up with a review due: one review per `reviewAfterDays` entry the give-up's age
- * has reached, so a day the machine was off only delays a review, never skips it.
+ * The oldest challenge with a review due. Give-ups and struggled solves come back once per
+ * `reviewAfterDays` entry their age has reached (3, 7, 21 days by default), so a day the machine
+ * was off only delays a review, never skips it.
  */
 export function dueReview(events, reviewAfterDays, date) {
   const generated = new Map(events.filter((e) => e.type === "generated").map((e) => [e.id, e]));
   const reviews = new Map();
   for (const e of events) if (e.type === "generated" && e.reviewOf) reviews.set(e.reviewOf, (reviews.get(e.reviewOf) ?? 0) + 1);
-  for (const e of events.filter((x) => x.type === "gaveup")) {
+  // First trigger per challenge: its give-up, or a struggled solve.
+  const triggers = new Map();
+  for (const e of events) {
+    if (triggers.has(e.id)) continue;
+    if (e.type === "gaveup" || isStruggle(e, generated.get(e.id))) triggers.set(e.id, e);
+  }
+  for (const e of triggers.values()) {
     const age = daysBetween(eventDate(e), date);
     const due = reviewAfterDays.filter((n) => age >= n).length;
     if ((reviews.get(e.id) ?? 0) >= due) continue;
@@ -237,7 +252,7 @@ export async function cmdDaily(_positionals, opts) {
     const reviewed = review && generatedEvent(events, review.id);
     const domain = reviewed?.domain ?? pickDomain(events, configuredDomains(config));
     const profile = profileForStack(base, reviewed?.stack ?? pickStack(base, stackMode(config, base.id), { share: ecosystemShare(domain) }));
-    const state = levelState(events, profile.id, config.leveling);
+    const state = langLevel(ws, config, events, profile.id);
     const earned = review ? Math.min(review.level ?? state.level, state.level) : state.level;
     const { type, sourceLang, level } = review
       ? { type: "implement", sourceLang: null, level: earned }
@@ -284,7 +299,7 @@ async function runStarter(ws, config, c) {
  */
 function portPlan(ws, config, events, targetId, level, { allowLower }) {
   const candidates = rotationIds(ws, config).filter((l) => findProfile(ws, l))
-    .map((id) => ({ id, level: levelState(events, id, config.leveling).level }));
+    .map((id) => ({ id, level: langLevel(ws, config, events, id).level }));
   for (const at of allowLower ? [level, level - 1] : [level]) {
     const sourceLang = choosePortSource(targetId, candidates, at);
     if (sourceLang) return { sourceLang, level: at };
@@ -387,7 +402,7 @@ export async function cmdDone(positionals, opts) {
   const c = pickChallenge(ws, positionals[0]);
   const m = c.manifest;
   const events = readEvents(ws);
-  const before = levelState(events, m.lang, config.leveling);
+  const before = langLevel(ws, config, events, m.lang);
   const { status, hints } = challengeStatus(events, m.id);
   if (status === "solved") {
     console.log(`${m.id} is already solved.`);
@@ -431,7 +446,7 @@ export async function cmdDone(positionals, opts) {
     minutes, ...(minutesSource ? { minutesSource } : {}), hints,
     ...(status === "gaveup" ? { afterGiveup: true } : {}),
   });
-  const after = levelState(readEvents(ws), m.lang, config.leveling);
+  const after = langLevel(ws, config, readEvents(ws), m.lang);
   const earned = after.points - before.points;
   const why = [];
   if (status === "gaveup") why.push("solved after giving up");
@@ -470,7 +485,10 @@ export function streak(events, date = today()) {
 export function levelLine(s, leveling) {
   if (s.level >= s.max) return `L${s.level}  max level · ${s.points} pts`;
   const floor = s.level === 1 ? 0 : leveling.thresholds[s.level - 2];
-  return `L${s.level}  ${bar(s.points - floor, s.nextAt - floor)}  ${s.points} / ${s.nextAt} pts (${s.needed} to L${s.level + 1})`;
+  const shown = Math.min(s.points, s.nextAt);
+  const toGo = s.needed > 0 ? `${s.needed} pts to L${s.level + 1}` : `points done for L${s.level + 1}`;
+  const gates = gateSummary(s);
+  return `L${s.level}  ${bar(shown - floor, s.nextAt - floor)}  ${s.points} / ${s.nextAt} pts (${toGo}${gates ? `; ${gates}` : ""})`;
 }
 
 export async function cmdRank(_positionals, opts) {
@@ -485,7 +503,7 @@ export async function cmdRank(_positionals, opts) {
   if (st.frozeOn.length) console.log(`   freezes used on ${st.frozeOn.join(", ")}`);
   console.log("");
   for (const lang of langs) {
-    const s = levelState(events, lang, config.leveling);
+    const s = langLevel(ws, config, events, lang);
     const solved = events.filter((e) => e.type === "solved" && e.lang === lang);
     const gaveup = events.filter((e) => e.type === "gaveup" && e.lang === lang);
     const mins = solved.map((e) => e.minutes).filter((x) => Number.isFinite(x));
@@ -652,7 +670,7 @@ export async function cmdCoverage(positionals, opts) {
       console.log(`${lang}: no profile yet\n`);
       continue;
     }
-    const { level } = levelState(events, lang, config.leveling);
+    const { level } = langLevel(ws, config, events, lang);
     const counts = coverageCounts(events, lang);
     const open = unlockedAreas(profile, level);
     const covered = open.filter((a) => counts.get(a.id)).length;
@@ -948,6 +966,7 @@ export async function cmdCommit(_positionals, opts) {
   }
   let message = buildCommitMessage({
     allEvents: readEvents(ws), newEvents: stagedNewEvents(ws), files, leveling: config.leveling, today: today(),
+    levelOf: (history, lang) => langLevel(ws, config, history, lang).level,
   });
   const msgFile = join(makeTempDir("gingaloop-commit-"), "COMMIT_MSG");
   writeFileSync(msgFile, message);

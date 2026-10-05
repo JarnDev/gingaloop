@@ -20,24 +20,71 @@ export function pointsFor({ level, hints = 0, afterGiveup = false }, currentLeve
   return Math.round(leveling.basePoints * share * mult);
 }
 
+/** A solve that shows mastery: at most one hint, and not after giving up. */
+export function isClean(e) {
+  return (e.hints ?? 0) <= 1 && !e.afterGiveup;
+}
+
+/** Level reached by points alone (the pre-gates rule), used to keep levels earned before gates. */
+function pointsOnlyLevel(events, lang, leveling) {
+  return levelState(events, lang, leveling).level;
+}
+
 /**
+ * Level, points and gate status for one language.
+ *
+ * Points: a solve at your level earns the base, below it a small share, scaled by hints.
+ * Gates (when `gate` is given): reaching the next level also needs
+ *   - breadth: a clean solve in every area unlocked at your current level (gate.areasAt(level));
+ *   - quality: your last `gate.cleanStreak` solves at your current level are all clean.
+ * Levels already reached by points alone with events before `gate.since` are kept (no demotions).
+ *
  * @param {Array<object>} events  progress events in chronological order
- * @returns {{level:number, points:number, nextAt:number|null, needed:number, max:number}}
+ * @returns {{level, points, nextAt, needed, max, gates?: {areasMissing: string[], streak: number, streakNeeded: number, blocked: boolean}}}
  */
-export function levelState(events, lang, leveling) {
+export function levelState(events, lang, leveling, gate = null) {
   const { thresholds } = leveling;
   const max = maxLevelFor(leveling);
+  const areaOf = new Map();
+  for (const e of events) if (e.type === "generated" && e.area) areaOf.set(e.id, e.area);
+  const kept = gate?.since ? pointsOnlyLevel(events.filter((e) => (e.ts ?? "") < gate.since), lang, leveling) : 1;
+
   let level = 1;
   let points = 0;
+  let recent = []; // clean? flags of solves at the current level, in order
+  const cleanAreas = new Set();
   const seen = new Set();
+  const streakNeeded = gate?.cleanStreak ?? 3;
+  const gatesMet = (lvl) => {
+    if (!gate) return true;
+    const missing = gate.areasAt(lvl).filter((a) => !cleanAreas.has(a));
+    const last = recent.slice(-streakNeeded);
+    return missing.length === 0 && last.length >= streakNeeded && last.every(Boolean);
+  };
+
   for (const e of events) {
     if (e.type !== "solved" || e.lang !== lang || seen.has(e.id)) continue;
     seen.add(e.id);
     points += pointsFor(e, level, leveling);
-    while (level < max && points >= thresholds[level - 1]) level++;
+    if (isClean(e) && areaOf.has(e.id)) cleanAreas.add(areaOf.get(e.id));
+    if (e.level === level) recent.push(isClean(e));
+    while (level < max && points >= thresholds[level - 1] && (level < kept || gatesMet(level))) {
+      level++;
+      recent = [];
+    }
   }
   const nextAt = level >= max ? null : thresholds[level - 1];
-  return { level, points, nextAt, needed: nextAt == null ? 0 : nextAt - points, max };
+  const state = { level, points, nextAt, needed: nextAt == null ? 0 : Math.max(0, nextAt - points), max };
+  if (gate && nextAt != null) {
+    const trailing = [...recent].reverse().findIndex((c) => !c);
+    state.gates = {
+      areasMissing: gate.areasAt(level).filter((a) => !cleanAreas.has(a)),
+      streak: trailing === -1 ? recent.length : trailing,
+      streakNeeded,
+      blocked: points >= nextAt,
+    };
+  }
+  return state;
 }
 
 /** Resolve a requested level against the earned one. Never above the earned level. */

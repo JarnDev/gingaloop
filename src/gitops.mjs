@@ -51,7 +51,7 @@ function dateLabel(dates) {
  * @param {object[]} newEvents  the events this commit adds
  * @param {string[]} files      staged file paths
  */
-export function buildCommitMessage({ allEvents, newEvents, files, leveling, today }) {
+export function buildCommitMessage({ allEvents, newEvents, files, leveling, today, levelOf = (history, lang) => levelState(history, lang, leveling).level }) {
   const isNew = new Set(newEvents.map((e) => JSON.stringify(e)));
   const titles = new Map(allEvents.filter((e) => e.type === "generated").map((e) => [e.id, e]));
   const title = (id) => titles.get(id)?.title ?? id;
@@ -62,10 +62,10 @@ export function buildCommitMessage({ allEvents, newEvents, files, leveling, toda
   allEvents.forEach((e, i) => {
     if (!isNew.has(JSON.stringify(e))) return;
     const history = allEvents.slice(0, i);
-    if (e.lang && !before.has(e.lang)) before.set(e.lang, levelState(history, e.lang, leveling).level);
+    if (e.lang && !before.has(e.lang)) before.set(e.lang, levelOf(history, e.lang));
     if (e.type === "solved") {
       counts.solve++;
-      const level = levelState(history, e.lang, leveling).level;
+      const level = levelOf(history, e.lang);
       const pts = pointsFor(e, level, leveling);
       const parts = [title(e.id), `L${e.level}`];
       if (Number.isFinite(e.minutes)) parts.push(`${e.minutes} min`);
@@ -88,7 +88,7 @@ export function buildCommitMessage({ allEvents, newEvents, files, leveling, toda
 
   const levelUps = [];
   for (const [lang, from] of before) {
-    const to = levelState(allEvents, lang, leveling).level;
+    const to = levelOf(allEvents, lang);
     if (to > from) {
       levelUps.push(`${lang} L${to}`);
       lines.push(`- level-up(${lang}): L${from} → L${to}`);

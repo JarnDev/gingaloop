@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Mastery gates:** reaching the next level needs the points **and** a clean solve (<= 1 hint, not
+  after giving up) in every area unlocked at your level, **and** your last 3 solves at your level
+  clean. `rank`, `done` and the dashboard show what's missing. Levels reached before are kept.
+- **Spaced reviews for struggles:** challenges solved with 2+ hints or in more than twice the
+  estimated time come back like give-ups, now at 3, 7 and 21 days.
+
 - **Stacks:** each language practices `basics` (standard library only, the default) and may have an
   `ecosystem` stack with pinned libraries in a second image: Python (numpy, pandas, pytest),
   JavaScript/TypeScript (vitest, zod), Node.js (vitest, fastify, zod), C++ (GoogleTest + CMake).

@@ -203,12 +203,24 @@ Hints scale that: 0 hints 100%, 1 → 85%, 2 → 70%, 3 → 50%.
 
 That's 6 clean solves for L2, 9 more for L3, then 15, 25, 40… L10 is a multi-year goal.
 
+**Points are necessary but not enough.** To unlock the next level you also need:
+
+- **Breadth:** a clean solve in **every area** unlocked at your current level (`ginga coverage` shows
+  them), so you can't skip a topic;
+- **Consistency:** your **last 3 solves at your level are clean** (at most one hint, not after
+  giving up).
+
+"Clean" is deliberately strict: points measure effort, the gates measure mastery. `ginga rank` shows
+what's still missing (`missing areas: hashing · clean streak 2/3`). Levels you reached before these
+gates existed are kept.
+
 - The daily job always generates at your level. `ginga new <lang> --level N` picks any level **up
   to** yours, never above.
 - Solving easier challenges still counts a little, but farming them is slow: at 5 points, two or
   more levels below is 20× slower than playing at your level.
-- A give-up comes back as a **review** (a new problem on the same idea) 3 and 7 days later, or on
-  the first daily after that if the machine was off.
+- **Reviews** (a new problem on the same idea) come back **3, 7 and 21 days** later, spaced the way
+  memory research recommends, for every challenge you gave up on **or struggled with** (2+ hints, or
+  more than twice the estimated time). If the machine was off, they come on the first daily after.
 - Levels are recomputed from `progress.jsonl`, so tuning `leveling` in `gingaloop.json` re-scores
   your history.
 
@@ -416,7 +428,7 @@ kept in `.staging/_failed/` for inspection.
     "belowShare": [0.3, 0.05],
     "hintMultiplier": [1, 0.85, 0.7, 0.5]
   },
-  "reviewAfterDays": [3, 7],
+  "reviewAfterDays": [3, 7, 21],
   "schedule": { "time": "08:00" },
   "claude": { "command": "claude", "model": null, "timeoutMinutes": 20, "retries": 1 },
   "sandbox": { "engine": "docker", "memory": "1g", "cpus": "2", "pidsLimit": 256, "timeoutSeconds": 120 }

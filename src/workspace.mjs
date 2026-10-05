@@ -28,7 +28,7 @@ export const DEFAULT_CONFIG = Object.freeze({
     hintMultiplier: [1, 0.85, 0.7, 0.5],
   },
   // Days after a give-up when the topic comes back as a review challenge.
-  reviewAfterDays: [3, 7],
+  reviewAfterDays: [3, 7, 21],
   schedule: { time: "08:00" },
   claude: { command: "claude", model: null, timeoutMinutes: 20, retries: 1 },
   sandbox: {

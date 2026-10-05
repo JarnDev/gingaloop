@@ -4,7 +4,8 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { listChallenges, writeIndex } from "./challenges.mjs";
 import { coverageCounts, unlockedAreas } from "./coverage.mjs";
-import { levelState, streakState } from "./levels.mjs";
+import { streakState } from "./levels.mjs";
+import { gateSummary, langLevel } from "./progression.mjs";
 import { findProfile } from "./profiles.mjs";
 import { challengeStatus, eventDate, readEvents } from "./progress.mjs";
 import { loadConfig, today } from "./workspace.mjs";
@@ -83,11 +84,11 @@ export function renderDashboard(ws, config, date = today()) {
 
   const levelRows = langs.map((lang) => {
     const p = findProfile(ws, lang);
-    const s = levelState(events, lang, config.leveling);
+    const s = langLevel(ws, config, events, lang);
     const floor = s.level === 1 ? 0 : config.leveling.thresholds[s.level - 2];
     const progress = s.nextAt == null
       ? "max level"
-      : `\`${bar(s.points - floor, s.nextAt - floor)}\` ${fmt(s.points)} / ${fmt(s.nextAt)} pts`;
+      : `\`${bar(Math.min(s.points, s.nextAt) - floor, s.nextAt - floor)}\` ${fmt(s.points)} / ${fmt(s.nextAt)} pts${gateSummary(s) ? ` · ${gateSummary(s)}` : ""}`;
     const solved = solvedEvents.filter((e) => e.lang === lang);
     const generatedStack = new Map(events.filter((e) => e.type === "generated").map((e) => [e.id, e.stack]));
     const eco = solved.filter((e) => generatedStack.get(e.id) === "ecosystem").length;
@@ -99,7 +100,7 @@ export function renderDashboard(ws, config, date = today()) {
   const coverageRows = langs.flatMap((lang) => {
     const p = findProfile(ws, lang);
     if (!p) return [];
-    const { level } = levelState(events, lang, config.leveling);
+    const { level } = langLevel(ws, config, events, lang);
     const counts = coverageCounts(events, lang);
     const open = unlockedAreas(p, level);
     const covered = open.filter((a) => counts.get(a.id)).length;
