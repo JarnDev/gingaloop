@@ -1,0 +1,715 @@
+{
+  "comment": "Industry domains: framing, realistic data and domain rules for challenges. languages = soft affinity; ecosystemShare = probability of an ecosystem challenge in 'mixed' stack mode.",
+  "domains": [
+    {
+      "id": "general",
+      "name": "General",
+      "group": "General",
+      "focus": "classic problems with no industry framing",
+      "languages": [],
+      "ecosystemShare": 0.3,
+      "topics": []
+    },
+    {
+      "id": "fintech",
+      "name": "Fintech & payments",
+      "group": "Business & web",
+      "focus": "money in integer cents, ledgers, idempotency, reconciliation",
+      "languages": [
+        "python",
+        "typescript",
+        "java",
+        "go"
+      ],
+      "ecosystemShare": 0.3,
+      "topics": [
+        "money as integer cents and rounding rules",
+        "double-entry ledger invariants",
+        "idempotent payment retries",
+        "reconciliation of two transaction feeds",
+        "currency conversion with rates"
+      ]
+    },
+    {
+      "id": "ecommerce",
+      "name": "E-commerce",
+      "group": "Business & web",
+      "focus": "carts, promotions, inventory, pricing, shipping rules",
+      "languages": [
+        "javascript",
+        "typescript",
+        "python"
+      ],
+      "ecosystemShare": 0.3,
+      "topics": [
+        "cart totals with stackable promotions",
+        "inventory reservations with timeouts",
+        "shipping cost by weight bands",
+        "coupon validation rules",
+        "order state machines"
+      ]
+    },
+    {
+      "id": "backend",
+      "name": "SaaS & backend APIs",
+      "group": "Business & web",
+      "focus": "rate limits, pagination, auth tokens, webhooks, error contracts",
+      "languages": [
+        "nodejs",
+        "typescript",
+        "go",
+        "python"
+      ],
+      "ecosystemShare": 0.4,
+      "topics": [
+        "token-bucket rate limiting",
+        "cursor pagination",
+        "webhook signature verification",
+        "RFC 7807 problem responses",
+        "multi-tenant data isolation"
+      ]
+    },
+    {
+      "id": "frontend",
+      "name": "Frontend & UI",
+      "group": "Business & web",
+      "focus": "debounce, state machines, virtual lists, tree diffing",
+      "languages": [
+        "javascript",
+        "typescript",
+        "react"
+      ],
+      "ecosystemShare": 0.4,
+      "topics": [
+        "debounce and throttle",
+        "form state machines",
+        "virtualized list windowing",
+        "diffing two UI trees",
+        "undo/redo stacks"
+      ]
+    },
+    {
+      "id": "healthcare",
+      "name": "Healthcare",
+      "group": "Business & web",
+      "focus": "scheduling, clinical records, privacy",
+      "languages": [
+        "python",
+        "typescript",
+        "java"
+      ],
+      "ecosystemShare": 0.3,
+      "topics": [
+        "appointment scheduling without overlaps",
+        "parsing HL7/FHIR-like records",
+        "PII redaction",
+        "medication dosage schedules"
+      ]
+    },
+    {
+      "id": "logistics",
+      "name": "Logistics & mobility",
+      "group": "Business & web",
+      "focus": "routes, time windows, geo search, fleet assignment",
+      "languages": [
+        "python",
+        "go",
+        "cpp"
+      ],
+      "ecosystemShare": 0.3,
+      "topics": [
+        "route ETAs with time windows",
+        "nearest vehicle search",
+        "fleet assignment",
+        "delivery batching"
+      ]
+    },
+    {
+      "id": "edtech",
+      "name": "Education & content",
+      "group": "Business & web",
+      "focus": "spaced repetition, grading, text diff, quizzes",
+      "languages": [
+        "python",
+        "typescript"
+      ],
+      "ecosystemShare": 0.3,
+      "topics": [
+        "spaced-repetition scheduling",
+        "grading with partial credit",
+        "text diff for feedback",
+        "quiz randomization with constraints"
+      ]
+    },
+    {
+      "id": "govtech",
+      "name": "Government & compliance",
+      "group": "Business & web",
+      "focus": "ID validation, business days, taxes",
+      "languages": [
+        "python",
+        "java",
+        "typescript"
+      ],
+      "ecosystemShare": 0.2,
+      "topics": [
+        "CPF/CNPJ/IBAN check digits",
+        "business-day calendars with holidays",
+        "progressive tax brackets",
+        "document number formats"
+      ]
+    },
+    {
+      "id": "mobile",
+      "name": "Mobile apps",
+      "group": "Business & web",
+      "focus": "offline-first sync, conflict resolution, local caches, batching",
+      "languages": [
+        "typescript",
+        "kotlin",
+        "swift"
+      ],
+      "ecosystemShare": 0.3,
+      "topics": [
+        "offline queue with sync on reconnect",
+        "conflict resolution (last-write-wins vs merge)",
+        "local cache invalidation",
+        "request batching and backoff"
+      ]
+    },
+    {
+      "id": "adtech",
+      "name": "Ad tech & marketing",
+      "group": "Business & web",
+      "focus": "auctions, frequency capping, attribution, budget pacing",
+      "languages": [
+        "python",
+        "go",
+        "java"
+      ],
+      "ecosystemShare": 0.4,
+      "topics": [
+        "second-price auctions",
+        "frequency capping per user",
+        "attribution windows",
+        "budget pacing over a day"
+      ]
+    },
+    {
+      "id": "accounting",
+      "name": "Accounting & ERP",
+      "group": "Business & web",
+      "focus": "invoices, per-line tax, multi-currency, period closing, payroll",
+      "languages": [
+        "python",
+        "java",
+        "typescript"
+      ],
+      "ecosystemShare": 0.3,
+      "topics": [
+        "invoice totals with per-line tax and rounding",
+        "multi-currency balances",
+        "period closing rules",
+        "payroll calculation"
+      ]
+    },
+    {
+      "id": "travel",
+      "name": "Travel & hospitality",
+      "group": "Business & web",
+      "focus": "availability calendars, overbooking, dynamic fares, holds",
+      "languages": [
+        "python",
+        "typescript",
+        "java"
+      ],
+      "ecosystemShare": 0.3,
+      "topics": [
+        "room availability calendars",
+        "overbooking limits",
+        "dynamic fare rules",
+        "booking holds that expire"
+      ]
+    },
+    {
+      "id": "insurance",
+      "name": "Insurance",
+      "group": "Business & web",
+      "focus": "premiums, coverage rules, claims validation",
+      "languages": [
+        "python",
+        "java"
+      ],
+      "ecosystemShare": 0.4,
+      "topics": [
+        "premium calculation tables",
+        "coverage and exclusion rules",
+        "claims validation"
+      ]
+    },
+    {
+      "id": "data-eng",
+      "name": "Data engineering",
+      "group": "Data & AI",
+      "focus": "streaming ETL, malformed input, windows, deduplication",
+      "languages": [
+        "python",
+        "go",
+        "sql"
+      ],
+      "ecosystemShare": 0.5,
+      "topics": [
+        "streaming CSV with malformed lines",
+        "event-time windowed aggregation",
+        "dedupe by key keeping the latest",
+        "schema evolution"
+      ]
+    },
+    {
+      "id": "ml-tooling",
+      "name": "ML & AI tooling",
+      "group": "Data & AI",
+      "focus": "tokenizers, batching, embeddings, prompt templates",
+      "languages": [
+        "python",
+        "typescript"
+      ],
+      "ecosystemShare": 0.5,
+      "topics": [
+        "tokenizer edge cases",
+        "batched inference queues",
+        "top-k cosine similarity",
+        "prompt template rendering",
+        "dataset splitting without leakage"
+      ]
+    },
+    {
+      "id": "analytics",
+      "name": "Analytics & BI",
+      "group": "Data & AI",
+      "focus": "percentiles, cohorts, funnels, one-pass statistics",
+      "languages": [
+        "python",
+        "sql"
+      ],
+      "ecosystemShare": 0.5,
+      "topics": [
+        "percentiles in one pass",
+        "cohort retention tables",
+        "funnel conversion",
+        "sessionization of events"
+      ]
+    },
+    {
+      "id": "search",
+      "name": "Search & recommendations",
+      "group": "Data & AI",
+      "focus": "inverted indexes, ranking, autocomplete, recommendations",
+      "languages": [
+        "python",
+        "java",
+        "go"
+      ],
+      "ecosystemShare": 0.3,
+      "topics": [
+        "inverted index",
+        "BM25 / TF-IDF ranking",
+        "autocomplete with tries",
+        "item-to-item recommendations"
+      ]
+    },
+    {
+      "id": "quant",
+      "name": "Quant finance",
+      "group": "Finance (quantitative)",
+      "focus": "returns, risk, backtesting, pricing, order books",
+      "languages": [
+        "python",
+        "cpp"
+      ],
+      "ecosystemShare": 0.5,
+      "topics": [
+        "simple vs log returns, compounding",
+        "rolling volatility and Sharpe",
+        "max drawdown",
+        "historical VaR/CVaR",
+        "EMA/SMA with warm-up rules",
+        "OHLC bars from ticks",
+        "look-ahead-free alignment",
+        "PnL with fees and slippage",
+        "Black–Scholes and Greeks",
+        "implied volatility",
+        "Monte Carlo with fixed seeds",
+        "portfolio rebalancing"
+      ]
+    },
+    {
+      "id": "devops",
+      "name": "DevOps & cloud",
+      "group": "Systems & infrastructure",
+      "focus": "log parsing, config merges, cron, retries, observability",
+      "languages": [
+        "go",
+        "python",
+        "nodejs"
+      ],
+      "ecosystemShare": 0.3,
+      "topics": [
+        "log parsing and alert rules",
+        "config merge with precedence",
+        "cron expression parsing",
+        "retry with jitter",
+        "metric histograms"
+      ]
+    },
+    {
+      "id": "storage",
+      "name": "Databases & storage",
+      "group": "Systems & infrastructure",
+      "focus": "caches, write-ahead logs, B-trees, TTL key-value",
+      "languages": [
+        "c",
+        "cpp",
+        "rust",
+        "go"
+      ],
+      "ecosystemShare": 0.2,
+      "topics": [
+        "LRU/LFU caches",
+        "write-ahead log with recovery",
+        "B-tree node splits",
+        "key-value store with TTL"
+      ]
+    },
+    {
+      "id": "distributed",
+      "name": "Distributed systems",
+      "group": "Systems & infrastructure",
+      "focus": "consistent hashing, leader election, vector clocks, quorums",
+      "languages": [
+        "go",
+        "java",
+        "rust",
+        "python"
+      ],
+      "ecosystemShare": 0.2,
+      "topics": [
+        "consistent hashing",
+        "leader election",
+        "vector clocks",
+        "quorum reads and writes",
+        "idempotent consumers"
+      ]
+    },
+    {
+      "id": "networking",
+      "name": "Networking & protocols",
+      "group": "Systems & infrastructure",
+      "focus": "framing, checksums, parsers, IP/CIDR",
+      "languages": [
+        "c",
+        "go",
+        "rust"
+      ],
+      "ecosystemShare": 0.2,
+      "topics": [
+        "length-prefixed framing",
+        "CRC/Adler checksums",
+        "HTTP request parsing",
+        "IP/CIDR matching"
+      ]
+    },
+    {
+      "id": "security",
+      "name": "Security",
+      "group": "Systems & infrastructure",
+      "focus": "constant-time compares, token validation, sanitizing",
+      "languages": [
+        "python",
+        "go",
+        "c"
+      ],
+      "ecosystemShare": 0.2,
+      "topics": [
+        "constant-time comparison",
+        "JWT structure validation",
+        "input sanitizing",
+        "log anomaly detection"
+      ]
+    },
+    {
+      "id": "devtools",
+      "name": "Compilers & dev tools",
+      "group": "Systems & infrastructure",
+      "focus": "tokenizers, evaluators, semver, globbing",
+      "languages": [],
+      "ecosystemShare": 0.2,
+      "topics": [
+        "tokenizers",
+        "expression evaluators",
+        "semantic version comparison",
+        "glob matching"
+      ]
+    },
+    {
+      "id": "os",
+      "name": "Operating systems & systems programming",
+      "group": "Systems & infrastructure",
+      "focus": "schedulers, allocators, page replacement, file systems",
+      "languages": [
+        "c",
+        "cpp",
+        "rust"
+      ],
+      "ecosystemShare": 0.1,
+      "topics": [
+        "CPU schedulers",
+        "memory allocators",
+        "page replacement",
+        "simple file systems"
+      ]
+    },
+    {
+      "id": "realtime",
+      "name": "Messaging & real-time collaboration",
+      "group": "Systems & infrastructure",
+      "focus": "chat feeds, receipts, presence, CRDT/OT, fan-out",
+      "languages": [
+        "typescript",
+        "nodejs",
+        "go"
+      ],
+      "ecosystemShare": 0.3,
+      "topics": [
+        "chat feeds with delivery receipts",
+        "presence tracking",
+        "CRDT text merging",
+        "fan-out on write vs read"
+      ]
+    },
+    {
+      "id": "embedded",
+      "name": "Embedded & IoT",
+      "group": "Low level & real time",
+      "focus": "ring buffers, fixed point, bit packing, debouncing",
+      "languages": [
+        "c",
+        "cpp",
+        "rust"
+      ],
+      "ecosystemShare": 0.1,
+      "topics": [
+        "ring buffers for sensor reads",
+        "fixed-point arithmetic",
+        "bit-packed registers",
+        "switch debouncing"
+      ]
+    },
+    {
+      "id": "gamedev",
+      "name": "Game development",
+      "group": "Low level & real time",
+      "focus": "collisions, game loops, pathfinding, entity storage",
+      "languages": [
+        "cpp",
+        "csharp",
+        "rust",
+        "typescript"
+      ],
+      "ecosystemShare": 0.2,
+      "topics": [
+        "AABB collisions",
+        "fixed-timestep loops",
+        "A* on grids",
+        "entity-component storage"
+      ]
+    },
+    {
+      "id": "media",
+      "name": "Audio, graphics & media",
+      "group": "Low level & real time",
+      "focus": "PCM mixing, image filters, color spaces",
+      "languages": [
+        "c",
+        "cpp",
+        "rust"
+      ],
+      "ecosystemShare": 0.2,
+      "topics": [
+        "PCM mixing with clipping",
+        "image convolution",
+        "RGB/HSV conversion"
+      ]
+    },
+    {
+      "id": "trading-sys",
+      "name": "Trading systems & HFT",
+      "group": "Low level & real time",
+      "focus": "matching engines, lock-free queues, market data",
+      "languages": [
+        "cpp",
+        "rust",
+        "java"
+      ],
+      "ecosystemShare": 0.1,
+      "topics": [
+        "order book with price-time priority",
+        "matching with partial fills",
+        "lock-free SPSC queues",
+        "binary market-data parsing"
+      ]
+    },
+    {
+      "id": "robotics",
+      "name": "Robotics & automotive",
+      "group": "Low level & real time",
+      "focus": "control loops, trajectories, sensor filtering",
+      "languages": [
+        "cpp",
+        "python"
+      ],
+      "ecosystemShare": 0.3,
+      "topics": [
+        "PID controllers",
+        "trajectory interpolation",
+        "Kalman filter steps"
+      ]
+    },
+    {
+      "id": "telecom",
+      "name": "Telecom",
+      "group": "Low level & real time",
+      "focus": "protocol state machines, jitter buffers, reassembly",
+      "languages": [
+        "c",
+        "cpp",
+        "go"
+      ],
+      "ecosystemShare": 0.1,
+      "topics": [
+        "protocol state machines",
+        "jitter buffers",
+        "frame reassembly"
+      ]
+    },
+    {
+      "id": "gis",
+      "name": "Maps & geospatial",
+      "group": "Low level & real time",
+      "focus": "point in polygon, haversine, tiles, bounding boxes",
+      "languages": [
+        "python",
+        "typescript",
+        "cpp"
+      ],
+      "ecosystemShare": 0.3,
+      "topics": [
+        "point in polygon",
+        "haversine distance",
+        "tile coordinates",
+        "bounding box queries"
+      ]
+    },
+    {
+      "id": "scientific",
+      "name": "Scientific computing",
+      "group": "Science & other",
+      "focus": "numerical methods, sparse data, units",
+      "languages": [
+        "python",
+        "cpp",
+        "julia"
+      ],
+      "ecosystemShare": 0.6,
+      "topics": [
+        "numerical integration with error control",
+        "sparse matrices",
+        "units and dimensions"
+      ]
+    },
+    {
+      "id": "bioinformatics",
+      "name": "Bioinformatics",
+      "group": "Science & other",
+      "focus": "k-mers, alignment, FASTA",
+      "languages": [
+        "python",
+        "rust"
+      ],
+      "ecosystemShare": 0.4,
+      "topics": [
+        "k-mer counting",
+        "edit-distance alignment",
+        "FASTA parsing"
+      ]
+    },
+    {
+      "id": "web3",
+      "name": "Blockchain & Web3",
+      "group": "Science & other",
+      "focus": "Merkle proofs, nonces, fixed-point tokens",
+      "languages": [
+        "rust",
+        "go",
+        "typescript"
+      ],
+      "ecosystemShare": 0.2,
+      "topics": [
+        "Merkle trees and proofs",
+        "nonce ordering",
+        "fixed-point token amounts"
+      ]
+    },
+    {
+      "id": "energy",
+      "name": "Energy & utilities",
+      "group": "Science & other",
+      "focus": "meter readings, tariffs, load aggregation",
+      "languages": [
+        "python",
+        "java"
+      ],
+      "ecosystemShare": 0.4,
+      "topics": [
+        "meter reading gaps",
+        "time-of-use tariffs",
+        "load aggregation"
+      ]
+    },
+    {
+      "id": "manufacturing",
+      "name": "Manufacturing & industry 4.0",
+      "group": "Science & other",
+      "focus": "scheduling, OEE, PLC logic, quality control",
+      "languages": [
+        "python",
+        "cpp"
+      ],
+      "ecosystemShare": 0.3,
+      "topics": [
+        "job-shop scheduling",
+        "OEE calculation",
+        "PLC-style ladder logic",
+        "statistical process control"
+      ]
+    },
+    {
+      "id": "i18n",
+      "name": "Internationalization",
+      "group": "Science & other",
+      "focus": "Unicode, time zones and DST, plurals, locale formatting",
+      "languages": [
+        "python",
+        "typescript",
+        "java"
+      ],
+      "ecosystemShare": 0.2,
+      "topics": [
+        "grapheme clusters and normalization",
+        "time zones and DST transitions",
+        "plural rules",
+        "locale-aware formatting"
+      ]
+    }
+  ]
+}

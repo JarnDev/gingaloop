@@ -1,0 +1,15 @@
+{
+  "slug": "trace-references-coercion-closures",
+  "title": "Predict the output: references, coercion and closures",
+  "type": "trace",
+  "lang": "javascript",
+  "level": 1,
+  "topics": ["reference semantics", "type coercion", "var vs let closures"],
+  "estMinutes": 10,
+  "test": { "command": "node --test", "successPattern": null, "timeoutSeconds": 60 },
+  "bugs": [
+    { "name": "copy-on-assign", "kind": "misread", "expect": "line 1 matches" },
+    { "name": "numeric-plus", "kind": "misread", "expect": "line 2 matches" },
+    { "name": "let-semantics", "kind": "misread", "expect": "line 3 matches" }
+  ]
+}

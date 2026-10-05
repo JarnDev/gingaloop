@@ -1,0 +1,16 @@
+{
+  "slug": "log-summary-skips-lines",
+  "title": "The log summary that loses half the errors",
+  "type": "debug-from-symptom",
+  "lang": "nodejs",
+  "level": 3,
+  "topics": ["regex state", "debugging", "global mutable state"],
+  "estMinutes": 30,
+  "test": { "command": "node --test", "successPattern": null, "timeoutSeconds": 60 },
+  "symptom": { "command": "node -e \"import('../' + process.env.TARGET + '/solution.mjs').then((m) => console.log(JSON.stringify(m.summarizeLog(['ERROR disk full', 'ERROR disk full', 'ERROR retry failed', 'ERROR giving up']))))\"" },
+  "bugs": [
+    { "name": "reset-once", "kind": "mutation", "expect": "calling it twice gives the same result" },
+    { "name": "known-levels-only", "kind": "alternative", "expect": "any uppercase level is counted" },
+    { "name": "split-first-word", "kind": "alternative", "expect": "lines without a message are skipped" }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "slug": "test-a-duration-parser",
+  "title": "Write the tests for a duration parser",
+  "type": "write-the-tests",
+  "lang": "python",
+  "level": 1,
+  "topics": ["unit testing", "edge cases", "error contracts", "parsing"],
+  "estMinutes": 25,
+  "test": { "command": "PYTHONPATH=../$IMPL python3 -m unittest discover -s ../$TESTS -p \"test_*.py\" -v", "successPattern": null, "timeoutSeconds": 60 },
+  "bugs": [
+    { "name": "accepts-any-order", "kind": "mutation", "expect": "test_units_out_of_order_are_rejected" },
+    { "name": "minutes-as-seconds", "kind": "mutation", "expect": "test_each_unit_has_its_own_weight" },
+    { "name": "regex-allows-empty", "kind": "alternative", "expect": "test_empty_text_is_rejected" },
+    { "name": "split-allows-repeats", "kind": "alternative", "expect": "test_repeated_unit_is_rejected" }
+  ]
+}

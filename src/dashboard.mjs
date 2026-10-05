@@ -144,6 +144,7 @@ export function renderDashboard(ws, config, date = today()) {
     "|---|---|---|",
     ...coverageRows,
     "",
+    ...domainLine(events),
     "## Recent challenges",
     "",
     ...(recent.length
@@ -153,6 +154,14 @@ export function renderDashboard(ws, config, date = today()) {
     `Full list: [INDEX.md](INDEX.md)`,
     END,
   ].join("\n");
+}
+
+/** "Domains: quant 4 · general 2" under the coverage table, once there are non-general domains. */
+function domainLine(events) {
+  const counts = {};
+  for (const e of events) if (e.type === "generated") counts[e.domain ?? "general"] = (counts[e.domain ?? "general"] ?? 0) + 1;
+  if (!Object.keys(counts).some((d) => d !== "general")) return [];
+  return [`Domains: ${Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([dom, n]) => `${dom} ${n}`).join(" · ")}`, ""];
 }
 
 /** Replace the marked block in README.md; add it on top if there are no markers yet. */

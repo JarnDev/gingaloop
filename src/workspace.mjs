@@ -14,6 +14,8 @@ export const DEFAULT_CONFIG = Object.freeze({
   rotationMode: "random",
   // Per-language stack: basics (stdlib only, default) | mixed | ecosystem (pinned libraries).
   stack: {},
+  // Industry domains that frame challenges; "general" = no framing.
+  domains: ["general"],
   // Command for `ginga open`; null → $VISUAL, $EDITOR, then vi.
   editor: null,
   leveling: {

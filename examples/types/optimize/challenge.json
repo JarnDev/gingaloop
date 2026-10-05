@@ -1,0 +1,16 @@
+{
+  "slug": "count-pairs-under-budget",
+  "title": "Count pairs with a target sum, within a time budget",
+  "type": "optimize",
+  "lang": "python",
+  "level": 3,
+  "topics": ["complexity", "hash maps", "counting pairs", "performance budgets"],
+  "estMinutes": 30,
+  "budget": { "seconds": 2, "expect": "test_large_input_within_budget" },
+  "test": { "command": "python3 -m unittest discover -s . -p \"test_*.py\" -v", "successPattern": null, "timeoutSeconds": 60 },
+  "bugs": [
+    { "name": "set-loses-duplicates", "kind": "alternative", "expect": "test_duplicates_make_more_pairs" },
+    { "name": "pairs-with-itself", "kind": "mutation", "expect": "test_an_element_does_not_pair_with_itself" },
+    { "name": "still-quadratic", "kind": "alternative", "expect": "test_large_input_within_budget" }
+  ]
+}

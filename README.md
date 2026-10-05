@@ -154,8 +154,23 @@ After `ginga done` or `ginga giveup`, `locked.bin` is replaced by `solution/` (w
 the approach, a traced example, complexity, alternatives, the common bugs, language idioms and two
 "level up" follow-ups), `bugs/` (the typical mistakes the tests catch) and `hints.md`.
 
-Challenge types rotate: **implement**, **fix-the-bug** (the starter is buggy code), **refactor**
-(make poor code meet a new requirement) and **extend** (add a feature to a working module).
+### Challenge types
+
+| Type | From | You… | Graded by |
+|---|---|---|---|
+| **implement** | L1 | write the code from the spec | the tests |
+| **fix-the-bug** | L1 | fix a buggy implementation | the tests |
+| **refactor** | L1 | make poor code meet a new requirement | the tests |
+| **extend** | L1 | add a feature to a working module | the tests |
+| **write-the-tests** | L1 | write the test suite for a visible, correct `subject/` | your tests must pass on it **and fail on every hidden buggy version** (`ginga test` shows "caught 3/4") |
+| **trace** | L1 | read `program/` and write its exact output in `starter/answer.txt` | the real output (the tests never print it) |
+| **port** | L2 | rewrite `source/`, a solution in another language from your rotation | the tests, in the target language |
+| **debug-from-symptom** | L3 | fix a bug when the README shows only the symptom | the tests (and the symptom is reproduced for real) |
+| **optimize** | L3 | make correct-but-slow code meet a time budget | correctness + a budget test, sized so a slower complexity class can't pass even on a fast machine |
+
+The daily mix is weighted so **implement stays at least half** of your challenges at every level;
+`ginga new <lang> --type trace` picks one explicitly. Extra folders (`subject/`, `program/`,
+`source/`) are visible, and `ginga open` opens them with the starter.
 
 ## Levels, points and streaks
 
@@ -260,8 +275,31 @@ SELinux `:z` label for it).
 
 ## Languages
 
-Built-in profiles: **python, javascript, typescript, nodejs, c, cpp**, each with a hand-validated
-reference challenge in [`examples/`](examples/).
+Built-in profiles: **python, javascript, typescript, nodejs, c, cpp, sql** (SQLite) and **react**,
+each with a hand-validated reference challenge in [`examples/`](examples/).
+
+### Stacks: basics or ecosystem
+
+Each language practices **basics** (standard library only) by default. Some also have an
+**ecosystem** stack with the libraries you'd use at work, pinned to exact versions:
+
+| Language | Ecosystem stack |
+|---|---|
+| python | numpy 2.1, pandas 2.2, pytest 8.3 |
+| javascript / typescript | vitest 2.1, zod 3.23 |
+| nodejs | vitest 2.1, fastify 5.2, zod 3.23 (HTTP tested in memory with `inject`) |
+| cpp | GoogleTest 1.16 + CMake 3.31 |
+
+Choose per language with `ginga stack python basics|mixed|ecosystem` (`init` asks too):
+
+- **basics** (default) is a guarantee, not a preference: basics challenges run in an image where the
+  libraries don't exist, so `import pandas` fails.
+- **mixed** gives some ecosystem challenges. The share depends on the domain: about half for
+  data-heavy domains like quant or analytics, less for systems work.
+- **ecosystem** always uses the libraries.
+
+Your level stays one per language; `rank` and the dashboard show how many solves were basics vs
+ecosystem. The ecosystem image is built only the first time you need it (`ginga doctor --pull`).
 
 **Any other language works too.** The first time you use one (`ginga new elixir`, or
 `ginga lang add elixir`), Claude writes a profile for it (an official Docker image, test command and
@@ -282,6 +320,26 @@ int main() { /* try things here */ }
 
 A profile is a small JSON file. See [`profiles/python.json`](profiles/python.json). Good profiles
 are very welcome as pull requests; see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Domains
+
+Pick the industries you want your challenges framed in: `ginga domains add quant fintech`
+(`general`, no industry framing, is the default). The domain shapes the story, the realistic data
+and the domain's own rules (money in cents for fintech, look-ahead bias for quant, fixed memory for
+embedded), while the area still decides the core skill. Your domains rotate without repeats, and
+`general` still shows up about 1 in 4 times so fundamentals stay in the mix.
+
+40 domains in 7 groups (`ginga domains list`):
+
+- **Business & web:** fintech, ecommerce, backend, frontend, healthcare, logistics, edtech, govtech,
+  mobile, adtech, accounting, travel, insurance
+- **Data & AI:** data-eng, ml-tooling, analytics, search
+- **Finance (quantitative):** quant
+- **Systems & infrastructure:** devops, storage, distributed, networking, security, devtools, os,
+  realtime
+- **Low level & real time:** embedded, gamedev, media, trading-sys, robotics, telecom, gis
+- **Science & other:** scientific, bioinformatics, web3, energy, manufacturing, i18n
+- **general** (default)
 
 ## Validation
 
@@ -314,7 +372,7 @@ kept in `.staging/_failed/` for inspection.
 | Command | |
 |---|---|
 | `ginga init [dir]` | create a workspace (languages, random/ordered, time) |
-| `ginga new <lang> [--level N] [--area ID]` | generate a challenge now |
+| `ginga new <lang> [--level N] [--area ID] [--type T] [--stack S] [--domain D]` | generate a challenge now; every option is optional and capped by your level |
 | `ginga daily [--force]` | today's challenge from the rotation (what the timer runs) |
 | `ginga open [id]` | open README + starter files in your editor (`editor` in config, else `$VISUAL`/`$EDITOR`, else `vi`) |
 | `ginga test [id]` | run the tests against your starter |
@@ -322,11 +380,13 @@ kept in `.staging/_failed/` for inspection.
 | `ginga done [id] [--minutes N]` | verify, record the solve, unlock the solution; suggests the minutes since your first `ginga open` (over 4 h it only shows them, since breaks are likely) |
 | `ginga giveup [id]` | record a give-up, unlock the solution |
 | `ginga review [id]` | Claude reviews your solution against the reference (after unlock), running the tests and its own edge-case probes in the sandbox |
-| `ginga rank` / `ginga list` | levels, streak, weak topics / all challenges |
+| `ginga rank` / `ginga list` | levels (with basics/ecosystem split), streak, weak topics / all challenges |
 | `ginga coverage [lang…]` | practice areas per language and how often you've had each |
 | `ginga rotation [list\|set\|add\|remove\|mode]` | the daily's languages and order, e.g. `ginga rotation add typescript cpp`, `ginga rotation mode ordered` |
 | `ginga commit [--yes] [--push]` | commit the workspace with a structured message built from your progress (plain git, **no Claude tokens**) |
 | `ginga push` | push the workspace, setting the upstream on the first push (plain git, **no Claude tokens**) |
+| `ginga stack [<lang> basics\|mixed\|ecosystem]` | standard library only, or also the language's pinned libraries |
+| `ginga domains [list\|set\|add\|remove]` | industries your challenges are framed in (`general` by default) |
 | `ginga lang list` / `ginga lang add <name>` | profiles |
 | `ginga schedule install\|remove\|status` | systemd user timer |
 | `ginga doctor [--pull]` | check setup, pre-pull images |
@@ -341,6 +401,8 @@ kept in `.staging/_failed/` for inspection.
 {
   "rotation": ["python", "typescript", "c", "rust"],
   "rotationMode": "random",
+  "stack": { "python": "mixed" },
+  "domains": ["general"],
   "editor": null,
   "leveling": {
     "thresholds": [600, 1500, 3000, 5500, 9500, 16000, 26000, 42000, 68000],

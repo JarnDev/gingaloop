@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+- **Stacks:** each language practices `basics` (standard library only, the default) and may have an
+  `ecosystem` stack with pinned libraries in a second image: Python (numpy, pandas, pytest),
+  JavaScript/TypeScript (vitest, zod), Node.js (vitest, fastify, zod), C++ (GoogleTest + CMake).
+  Basics challenges run in the bare image, so libraries are physically unavailable. Per-language
+  mode `basics | mixed | ecosystem` (`ginga stack`, `init`, `new --stack`); ecosystem areas;
+  rank/dashboard split solves by stack.
+- **New languages:** SQL (SQLite 3.46) and React (Testing Library + jsdom).
+- **Challenge types:** write-the-tests and trace (L1), port (L2), debug-from-symptom and optimize
+  (L3), with per-type grading and validation; weighted mix keeps implement at >= 50%; `new --type`.
+- **Domains:** 40 industry domains (`general` by default) that frame challenges with realistic
+  data and domain rules; `ginga domains`; general still appears ~1 in 4.
+
 ## 0.3.0 (2026-10-05)
 
 - C and C++ challenges get a `compile_flags.txt` mirroring the sandbox flags (plus

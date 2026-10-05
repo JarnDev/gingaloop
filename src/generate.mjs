@@ -11,6 +11,7 @@ import { join, relative, sep } from "node:path";
 import { lockChallenge, writeEditorFiles } from "./challenges.mjs";
 import { refreshViews } from "./dashboard.mjs";
 import { findDuplicate } from "./dedupe.mjs";
+import { GENERAL, domainBrief } from "./domains.mjs";
 import { allProfiles, checkProfile, normalizeLang } from "./profiles.mjs";
 import { appendEvent, readEvents } from "./progress.mjs";
 import { readManifest, validateTree } from "./runner.mjs";
@@ -50,6 +51,19 @@ export function levelRubric(level) {
   return m ? m[1].trim() : "";
 }
 
+/** Authoring rules + validated example for the non-classic challenge types. */
+function typeGuide(type, { sourceLang, ws }) {
+  const file = join(PKG_ROOT, "prompts", "types", `${type}.md`);
+  if (!existsSync(file)) return "(classic type: follow the layout below)";
+  let guide = readFileSync(file, "utf8");
+  if (sourceLang) {
+    const src = allProfiles(ws).find((p) => p.id === sourceLang);
+    guide = guide.replaceAll("{{SOURCE_LANG}}", src ? `${src.name} (profile id \`${src.id}\`)` : sourceLang);
+  }
+  const example = join(PKG_ROOT, "examples", "types", type);
+  return existsSync(example) ? `${guide}\n\n## Reference example of this type (match its layout, not its topic)\n\n${dumpDir(example)}` : guide;
+}
+
 /** Quote a word for sh only when needed, so the permission rule stays exactly what Claude types. */
 export function shq(word) {
   return /^[\w@%+=:,./-]+$/.test(word) ? word : `'${word.replace(/'/g, `'\\''`)}'`;
@@ -75,12 +89,6 @@ function lastLines(file, n = 8) {
   } catch {
     return "";
   }
-}
-
-function pickType(events, lang) {
-  // ~60% implement, the rest rotates through the other types.
-  const n = events.filter((e) => e.type === "generated" && e.lang === lang).length;
-  return ["implement", "fix-the-bug", "implement", "refactor", "implement", "extend"][n % 6];
 }
 
 /** Run `claude -p` in `cwd`; output goes to `logFile`. Kills the whole process group on timeout. */
@@ -148,7 +156,7 @@ function formatProblems(problems) {
  * Generate, validate (with retries), lock and publish one challenge.
  * @returns {Promise<{id:string, dir:string, manifest:object}>}
  */
-export async function generateChallenge({ ws, config, profile, level, area, source = "manual", reviewOf = null, log = console.error }) {
+export async function generateChallenge({ ws, config, profile, level, area, type = "implement", sourceLang = null, domain = GENERAL, source = "manual", reviewOf = null, log = console.error }) {
   const events = readEvents(ws);
   // Full history in this language (capped only to keep the prompt bounded).
   const history = events.filter((e) => e.type === "generated" && e.lang === profile.id);
@@ -163,7 +171,9 @@ export async function generateChallenge({ ws, config, profile, level, area, sour
     LEVEL: level,
     LEVEL_RUBRIC: levelRubric(level),
     LEVEL_NOTES: profile.levelNotes?.[String(level)] ?? "(none)",
-    TYPE: reviewOf ? "implement" : pickType(events, profile.id),
+    TYPE: type,
+    DOMAIN: domainBrief(domain),
+    TYPE_GUIDE: typeGuide(type, { sourceLang, ws }),
     CONVENTIONS: profile.conventions,
     TEST_COMMAND: profile.testCommand,
     SUCCESS_PATTERN: profile.successPattern ?? "(none: exit code 0 means pass)",
@@ -208,7 +218,9 @@ export async function generateChallenge({ ws, config, profile, level, area, sour
     result = await validateTree({ config, profile, dir: staging, log: (m) => log(`  ${m}`) });
     if (result.ok && !reviewOf) {
       const m = readManifest(staging);
-      const dup = findDuplicate({ slug: m.slug, title: m.title }, history);
+      // The same idea framed for another industry is a different challenge.
+      const sameDomain = history.filter((e) => (e.domain ?? GENERAL) === domain);
+      const dup = findDuplicate({ slug: m.slug, title: m.title }, sameDomain);
       if (dup) {
         result = {
           ok: false,
@@ -238,7 +250,8 @@ export async function generateChallenge({ ws, config, profile, level, area, sour
     dir = join(ws, "challenges", id);
   }
   Object.assign(manifest, {
-    id, date, lang: profile.id, level, source, stack: profile.stack ?? "basics",
+    id, date, lang: profile.id, level, source, stack: profile.stack ?? "basics", type, domain,
+    ...(sourceLang ? { sourceLang } : {}),
     ...(area ? { area: area.id } : {}),
     ...(reviewOf ? { reviewOf: reviewOf.id } : {}),
   });
@@ -253,7 +266,7 @@ export async function generateChallenge({ ws, config, profile, level, area, sour
   );
   appendEvent(ws, {
     type: "generated", id, lang: profile.id, level, title: manifest.title, topics: manifest.topics, source,
-    stack: profile.stack ?? "basics",
+    stack: profile.stack ?? "basics", challengeType: type, domain,
     ...(area ? { area: area.id } : {}),
     ...(reviewOf ? { reviewOf: reviewOf.id } : {}),
   });

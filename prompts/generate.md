@@ -6,7 +6,8 @@ You are writing ONE coding practice challenge for gingaloop. Work only inside th
 - Language: {{LANG}} (profile id `{{LANG_ID}}`)
 - Stack: {{STACK}}
 - Level: {{LEVEL}}
-- Challenge type: {{TYPE}}
+- Challenge type: {{TYPE}} (type-specific rules below override the generic layout where they differ)
+- Industry domain: {{DOMAIN}}
 - Practice area: {{AREA}}. The problem must clearly exercise this area: the user is working
   through a coverage map, so a challenge that drifts to another area defeats the purpose.
 - {{REVIEW}}
@@ -23,6 +24,9 @@ Language-specific notes for this level: {{LEVEL_NOTES}}
 - refactor: starter/ has working-but-poor code that FAILS only the tests for a new requirement
   (performance budget, an API change, or a missing feature that the messy structure makes hard).
 - extend: starter/ has a small working module; README asks for a new feature on top of it.
+
+## Rules for the challenge type "{{TYPE}}"
+{{TYPE_GUIDE}}
 
 ## Challenges already given in this language (do NOT repeat any of them, not even reworded)
 A repeat of an earlier problem is rejected automatically, so pick a genuinely different one.

@@ -1,0 +1,16 @@
+{
+  "slug": "port-bucket-counts",
+  "title": "Port bucket counts from Python to TypeScript",
+  "type": "port",
+  "lang": "typescript",
+  "sourceLang": "python",
+  "level": 2,
+  "topics": ["floor vs truncating division", "Map vs object keys", "porting idioms"],
+  "estMinutes": 25,
+  "test": { "command": "tsc --noEmit --strict --target es2022 --module nodenext --moduleResolution nodenext --allowImportingTsExtensions --erasableSyntaxOnly ../$TARGET/*.ts && node --test", "successPattern": null, "timeoutSeconds": 90 },
+  "bugs": [
+    { "name": "trunc-division", "kind": "alternative", "expect": "negative values floor toward minus infinity" },
+    { "name": "object-keys-order", "kind": "alternative", "expect": "buckets are sorted numerically" },
+    { "name": "no-size-check", "kind": "mutation", "expect": "size must be positive" }
+  ]
+}

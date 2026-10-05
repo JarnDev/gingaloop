@@ -12,17 +12,19 @@ import { levelState, resolveLevel, streakState } from "./levels.mjs";
 import { notify } from "./notify.mjs";
 import { allProfiles, findProfile, requireProfile } from "./profiles.mjs";
 import { appendEvent, challengeStatus, eventDate, readEvents } from "./progress.mjs";
-import { materialize, readManifest, runTarget, validateTree } from "./runner.mjs";
+import { gradeTarget, materialize, readManifest, validateTree } from "./runner.mjs";
+import { TYPE_IDS, eligibleTypes, pickType, typeInfo } from "./types.mjs";
 import { engineAvailable, ensureImage, imagePresent, imageRef, makeTempDir, removeDir, runInSandbox } from "./sandbox.mjs";
 import { refreshViews } from "./dashboard.mjs";
 import { allAreas, coverageCounts, findArea, pickArea, unlockedAreas } from "./coverage.mjs";
 import { STACK_MODES, hasEcosystem, pickStack, profileForStack, stackMode } from "./stacks.mjs";
+import { GENERAL, allDomains, configuredDomains, ecosystemShare, pickDomain, requireDomain } from "./domains.mjs";
 import { ROTATION_MODES, bagState, nextOrdered, pickDailyLang } from "./rotation.mjs";
 import { installSchedule, removeSchedule, scheduleStatus } from "./schedule.mjs";
 import { buildCommitMessage, ensureRepo, git, pushWorkspace, stagedFiles, stagedNewEvents } from "./gitops.mjs";
 import { VaultKeyError, readBundle } from "./vault.mjs";
 import {
-  CONFIG_FILE, DEFAULT_CONFIG, UserError, daysBetween, findWorkspace, loadConfig,
+  CONFIG_FILE, DEFAULT_CONFIG, PKG_ROOT, UserError, daysBetween, findWorkspace, loadConfig,
   readGlobalConfig, saveConfig, today, writeGlobalConfig,
 } from "./workspace.mjs";
 
@@ -113,7 +115,9 @@ export async function cmdInit(positionals, opts) {
   }
   if (!STACK_MODES.includes(stackChoice)) throw new UserError(`Stack must be one of: ${STACK_MODES.join(", ")}.`);
   const stack = Object.fromEntries(withEco.map((l) => [findProfile(null, l).id, stackChoice]));
-  const config = structuredClone({ ...DEFAULT_CONFIG, rotation, rotationMode, stack, schedule: { time } });
+  const domainsRaw = opts.domains ?? (await ask("Industry domains (comma-separated; `ginga domains list` shows all 40):", GENERAL));
+  const domains = configuredDomains({ domains: domainsRaw.split(",").map((d) => d.trim()).filter(Boolean) });
+  const config = structuredClone({ ...DEFAULT_CONFIG, rotation, rotationMode, stack, domains, schedule: { time } });
   if (opts.engine) config.sandbox.engine = opts.engine;
   mkdirSync(join(dir, "challenges"), { recursive: true });
   saveConfig(dir, config);
@@ -165,9 +169,10 @@ export async function cmdNew(positionals, opts) {
   const state = levelState(readEvents(ws), base.id, config.leveling);
   const level = resolveLevel(opts.level, state, base.id, config.leveling);
   // --stack wins; an ecosystem-only --area implies the ecosystem stack; else the config decides.
+  const domain = opts.domain ? requireDomain(opts.domain).id : pickDomain(readEvents(ws), configuredDomains(config));
   let stack = opts.stack;
   if (!stack && opts.area && hasEcosystem(base) && findArea(profileForStack(base, "ecosystem"), opts.area)?.stack === "ecosystem") stack = "ecosystem";
-  stack ??= pickStack(base, stackMode(config, base.id));
+  stack ??= pickStack(base, stackMode(config, base.id), { share: ecosystemShare(domain) });
   const profile = profileForStack(base, stack);
   let area;
   if (opts.area) {
@@ -177,7 +182,8 @@ export async function cmdNew(positionals, opts) {
   } else {
     area = pickArea(profile, level, readEvents(ws));
   }
-  const result = await generateChallenge({ ws, config, profile, level, area, source: "manual" });
+  const { type, sourceLang } = chooseType(ws, config, readEvents(ws), profile, level, opts.type);
+  const result = await generateChallenge({ ws, config, profile, level, area, type, sourceLang, domain, source: "manual" });
   printNew(result);
 }
 
@@ -226,11 +232,15 @@ export async function cmdDaily(_positionals, opts) {
   try {
     const base = await profileFor(ws, config, lang, { yes: true });
     const reviewed = review && generatedEvent(events, review.id);
-    const profile = profileForStack(base, reviewed?.stack ?? pickStack(base, stackMode(config, base.id)));
+    const domain = reviewed?.domain ?? pickDomain(events, configuredDomains(config));
+    const profile = profileForStack(base, reviewed?.stack ?? pickStack(base, stackMode(config, base.id), { share: ecosystemShare(domain) }));
     const state = levelState(events, profile.id, config.leveling);
     const level = review ? Math.min(review.level ?? state.level, state.level) : state.level;
     const area = (review?.area && findArea(profile, review.area)) || pickArea(profile, level, events);
-    const result = await generateChallenge({ ws, config, profile, level, area, source: "daily", reviewOf: review });
+    const { type, sourceLang } = review
+      ? { type: "implement", sourceLang: null }
+      : chooseType(ws, config, events, profile, level, null);
+    const result = await generateChallenge({ ws, config, profile, level, area, type, sourceLang, domain, source: "daily", reviewOf: review });
     notify(
       `gingaloop · ${profile.name} · L${level}${review ? " · review" : ""}`,
       `${result.manifest.title} (~${result.manifest.estMinutes} min)\n${result.dir}`,
@@ -255,7 +265,39 @@ function readmeKeyWarning(dir) {
 
 async function runStarter(ws, config, c) {
   const profile = challengeProfile(ws, c.manifest);
-  return runTarget({ config, profile, challengeDir: c.dir, manifest: c.manifest, target: "starter" });
+  // write-the-tests grades your tests against the hidden buggy versions: decrypt only bugs/ into
+  // the throwaway sandbox copy (never into the workspace).
+  let bundle = null;
+  if (typeInfo(c.manifest.type).grader === "mutation" && isLocked(c.dir)) {
+    bundle = Object.fromEntries(Object.entries(readBundle(c.dir)).filter(([k]) => k.startsWith("bugs/")));
+  }
+  return gradeTarget({ config, profile, challengeDir: c.dir, manifest: c.manifest, target: "starter", bundle });
+}
+
+/** Port source: another rotation language, preferring the one you're strongest in. */
+function portSource(ws, config, events, targetId) {
+  const others = rotationIds(ws, config).filter((l) => l !== targetId && findProfile(ws, l));
+  if (!others.length) return null;
+  return others
+    .map((id) => ({ id, level: levelState(events, id, config.leveling).level }))
+    .sort((a, b) => b.level - a.level || a.id.localeCompare(b.id))[0].id;
+}
+
+/** Type for a new challenge: --type (checked against level and rotation) or the weighted mix. */
+function chooseType(ws, config, events, profile, level, requested) {
+  const source = portSource(ws, config, events, profile.id);
+  if (requested) {
+    if (!TYPE_IDS.includes(requested)) throw new UserError(`Unknown type "${requested}". Types: ${TYPE_IDS.join(", ")}.`);
+    if (!eligibleTypes(level, { canPort: Boolean(source) }).includes(requested)) {
+      const info = typeInfo(requested);
+      throw new UserError(info.needsSecondLanguage && !source
+        ? `"port" needs a second language in your rotation (ginga rotation add <lang>).`
+        : `"${requested}" starts at level ${info.minLevel}; this challenge is level ${level}.`);
+    }
+    return { type: requested, sourceLang: requested === "port" ? source : null };
+  }
+  const type = pickType(events, profile.id, level, { canPort: Boolean(source) });
+  return { type, sourceLang: type === "port" ? source : null };
 }
 
 export async function cmdTest(positionals, opts) {
@@ -476,6 +518,13 @@ export async function cmdValidate(positionals, opts) {
   const { ws, config } = ctxOrDefaults(opts);
   const targets = [];
   if (opts.examples) {
+    // Type examples (examples/types/<type>/) declare their own language and stack.
+    const typesDir = join(PKG_ROOT, "examples", "types");
+    for (const t of existsSync(typesDir) ? readdirSync(typesDir).sort() : []) {
+      const dir = join(typesDir, t);
+      const m = readManifest(dir);
+      targets.push({ profile: profileForStack(requireProfile(ws, m.lang), m.stack ?? "basics"), dir });
+    }
     for (const p of allProfiles(ws)) {
       for (const stack of hasEcosystem(p) ? ["basics", "ecosystem"] : ["basics"]) {
         const sp = profileForStack(p, stack);
@@ -606,6 +655,16 @@ export async function cmdCoverage(positionals, opts) {
     }
     console.log("");
   }
+  const typeCounts = {};
+  for (const e of events) if (e.type === "generated" && langs.includes(e.lang)) typeCounts[e.challengeType ?? "implement"] = (typeCounts[e.challengeType ?? "implement"] ?? 0) + 1;
+  const domainCounts = {};
+  for (const e of events) if (e.type === "generated" && langs.includes(e.lang)) domainCounts[e.domain ?? GENERAL] = (domainCounts[e.domain ?? GENERAL] ?? 0) + 1;
+  if (Object.keys(domainCounts).length) {
+    console.log(`Domains so far: ${Object.entries(domainCounts).map(([d, n]) => `${d} ${n}`).join(" · ")}`);
+  }
+  if (Object.keys(typeCounts).length) {
+    console.log(`Challenge types so far: ${Object.entries(typeCounts).map(([t, n]) => `${t} ${n}`).join(" · ")}\n`);
+  }
   console.log("★ = specific to the language · ⚙ = ecosystem stack (libraries). Generation targets the least-covered unlocked area;");
   console.log("pick one yourself with `ginga new <lang> --area <id>`.");
 }
@@ -629,6 +688,35 @@ export async function cmdStack(positionals, opts) {
     console.log(`${id.padEnd(12)} ${(p ? stackMode(config, p.id) : "basics").padEnd(10)} (${eco})`);
   }
   console.log("\nbasics = standard library only (default) · mixed = some ecosystem challenges · ecosystem = always libraries");
+}
+
+export async function cmdDomains(positionals, opts) {
+  const [sub = "list", ...rest] = positionals;
+  if (sub === "list") {
+    let current = [GENERAL];
+    try {
+      current = configuredDomains(ctx(opts).config);
+    } catch {}
+    let group = "";
+    for (const d of allDomains()) {
+      if (d.group !== group) console.log(`\n${(group = d.group)}`);
+      console.log(`  ${current.includes(d.id) ? "●" : " "} ${d.id.padEnd(15)} ${d.name.padEnd(36)} ${d.focus}`);
+    }
+    console.log("\n● = selected. Change with: ginga domains set|add|remove <id…>");
+    return;
+  }
+  const { ws, config } = ctx(opts);
+  const ids = rest.join(",").split(",").map((x) => x.trim()).filter(Boolean).map((id) => requireDomain(id).id);
+  let domains = configuredDomains(config);
+  if (sub === "set") domains = ids;
+  else if (sub === "add") domains = [...domains.filter((d) => d !== GENERAL || ids.includes(GENERAL)), ...ids];
+  else if (sub === "remove") domains = domains.filter((d) => !ids.includes(d));
+  else throw new UserError("Usage: ginga domains [list] | set <ids…> | add <ids…> | remove <ids…>");
+  config.domains = [...new Set(domains)].length ? [...new Set(domains)] : [GENERAL];
+  saveConfig(ws, config);
+  const specific = config.domains.filter((d) => d !== GENERAL);
+  console.log(`Domains: ${config.domains.join(", ")}`);
+  if (specific.length) console.log("Challenges rotate through these without repeats; general still appears ~1 in 4.");
 }
 
 export async function cmdRotation(positionals, opts) {
@@ -678,7 +766,7 @@ export async function cmdOpen(positionals, opts) {
   const added = writeEditorFiles(c.dir, requireProfile(ws, c.manifest.lang));
   if (added.length) console.log(`Added ${added.join(", ")} for your editor/debugger.`);
   const editor = config.editor || process.env.VISUAL || process.env.EDITOR || "vi";
-  const starter = [];
+  const starter = []; // files to open after README: type-specific dirs (subject/, program/, source/), then starter/
   const walk = (rel) => {
     for (const name of readdirSync(join(c.dir, rel)).sort()) {
       const r = `${rel}/${name}`;
@@ -686,6 +774,7 @@ export async function cmdOpen(positionals, opts) {
       else starter.push(r);
     }
   };
+  for (const extra of typeInfo(c.manifest.type).open) if (existsSync(join(c.dir, extra))) walk(extra);
   if (existsSync(join(c.dir, "starter"))) walk("starter");
   const quote = (s) => `'${s.replace(/'/g, `'\\''`)}'`;
   // The first open starts the timer that `ginga done` suggests as "minutes spent".
@@ -789,7 +878,15 @@ export async function cmdReview(positionals, opts) {
   cpSync(c.dir, staging, { recursive: true });
   const prefix = sandboxPrefix({ lang: profile.id, stack: profile.stack });
   const testCmd = c.manifest.test?.command ?? profile.testCommand;
+  const typeNote = {
+    "write-the-tests": "This is a write-the-tests challenge: starter/ holds the USER'S TESTS for subject/, and solution/ the reference tests. Review the test suite: missing input classes, weak assertions, unclear names, redundant tests. ",
+    trace: "This is a trace challenge: starter/answer.txt is the user's predicted output of program/. Explain each wrong line's misconception. ",
+    port: "This is a port challenge from source/ (another language): check idiomatic use of the target language and every semantic difference that could bite. ",
+    optimize: "This is an optimize challenge: check the complexity of the user's version, and any behavior change against the original. ",
+    "debug-from-symptom": "This is a debug-from-symptom challenge: check that the user fixed the root cause, not just the symptom. ",
+  }[c.manifest.type] ?? "";
   const prompt =
+    typeNote +
     "You are reviewing a practice solution. starter/ is the user's solution, solution/ the reference, " +
     "README.md the problem, tests/ the suite. Write a short, direct code review in Markdown: correctness " +
     "risks the tests miss, complexity, idiomatic improvements for this language, and one thing done well. " +
