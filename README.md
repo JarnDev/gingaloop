@@ -168,6 +168,11 @@ the approach, a traced example, complexity, alternatives, the common bugs, langu
 | **debug-from-symptom** | L3 | fix a bug when the README shows only the symptom | the tests (and the symptom is reproduced for real) |
 | **optimize** | L3 | make correct-but-slow code meet a time budget | correctness + a budget test, sized so a slower complexity class can't pass even on a fast machine |
 
+`port` only appears once the target **and** another rotation language are both at L2 or higher, so
+you can read the source fluently. The source comes from a different language family when possible
+(Python ↔ JS/TS ↔ C/C++), so the real porting traps show up: floor vs truncating division, bytes vs
+characters, mutability, map ordering. SQL and React are never ported.
+
 The daily mix is weighted so **implement stays at least half** of your challenges at every level;
 `ginga new <lang> --type trace` picks one explicitly. Extra folders (`subject/`, `program/`,
 `source/`) are visible, and `ginga open` opens them with the starter.

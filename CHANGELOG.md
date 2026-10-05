@@ -11,6 +11,8 @@
 - **New languages:** SQL (SQLite 3.46) and React (Testing Library + jsdom).
 - **Challenge types:** write-the-tests and trace (L1), port (L2), debug-from-symptom and optimize
   (L3), with per-type grading and validation; weighted mix keeps implement at >= 50%; `new --type`.
+  `port` needs the target and another rotation language at L2+, and prefers a source from a
+  different language family; SQL and React are never ported.
 - **Domains:** 40 industry domains (`general` by default) that frame challenges with realistic
   data and domain rules; `ginga domains`; general still appears ~1 in 4.
 

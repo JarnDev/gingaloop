@@ -19,6 +19,27 @@ export const TYPE_IDS = Object.keys(TYPES);
 // Types whose bug variants are implementations, so one must be a plausible different approach.
 export const CODE_TYPES = new Set(["implement", "fix-the-bug", "refactor", "extend", "port", "debug-from-symptom", "optimize", "write-the-tests"]);
 
+// port: languages that don't make sense to port from or to, and families of languages that share
+// semantics (porting inside a family teaches little). Unlisted languages are their own family.
+export const NO_PORT = new Set(["sql", "react"]);
+const FAMILY = { javascript: "js", typescript: "js", nodejs: "js", c: "c", cpp: "c", python: "python" };
+export const familyOf = (id) => FAMILY[id] ?? id;
+
+/**
+ * Source language for a port into `targetId`, or null when port isn't available. Candidates are
+ * the other rotation languages with their earned levels; only those at or above port's minimum
+ * level qualify (you should read the source fluently). A different family is preferred, then the
+ * highest level, then the id.
+ */
+export function choosePortSource(targetId, candidates, minLevel = TYPES.port.minLevel) {
+  if (NO_PORT.has(targetId)) return null;
+  const qualified = candidates.filter((c) => c.id !== targetId && !NO_PORT.has(c.id) && c.level >= minLevel);
+  if (!qualified.length) return null;
+  const far = qualified.filter((c) => familyOf(c.id) !== familyOf(targetId));
+  const pool = far.length ? far : qualified;
+  return pool.sort((a, b) => b.level - a.level || a.id.localeCompare(b.id))[0].id;
+}
+
 export function typeInfo(type) {
   return TYPES[type] ?? TYPES.implement;
 }

@@ -46,3 +46,21 @@ test("the type examples satisfy their type-specific static rules", () => {
     assert.deepEqual(staticProblems(join(EX, t)), [], t);
   }
 });
+
+test("port: source must be another qualified language, preferring a different family", async () => {
+  const { choosePortSource } = await import("../src/types.mjs");
+  const L = (id, level) => ({ id, level });
+  // Node.js is the strongest, but it's the same family as TypeScript: Python wins.
+  assert.equal(choosePortSource("typescript", [L("nodejs", 5), L("python", 3), L("c", 2)]), "python");
+  // Only same-family languages qualify: fall back to them.
+  assert.equal(choosePortSource("typescript", [L("nodejs", 3), L("python", 1)]), "nodejs");
+  // Nothing at the minimum level (L2): no port.
+  assert.equal(choosePortSource("python", [L("c", 1), L("javascript", 1)]), null);
+  // SQL and React are never source or target.
+  assert.equal(choosePortSource("python", [L("sql", 9), L("react", 9)]), null);
+  assert.equal(choosePortSource("sql", [L("python", 9)]), null);
+  // Ties: higher level, then id.
+  assert.equal(choosePortSource("python", [L("cpp", 4), L("c", 4), L("javascript", 3)]), "c");
+  // Unknown (bootstrapped) languages are their own family.
+  assert.equal(choosePortSource("go", [L("rust", 2), L("go", 9)]), "rust");
+});

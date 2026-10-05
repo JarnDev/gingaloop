@@ -13,7 +13,7 @@ import { notify } from "./notify.mjs";
 import { allProfiles, findProfile, requireProfile } from "./profiles.mjs";
 import { appendEvent, challengeStatus, eventDate, readEvents } from "./progress.mjs";
 import { gradeTarget, materialize, readManifest, validateTree } from "./runner.mjs";
-import { TYPE_IDS, eligibleTypes, pickType, typeInfo } from "./types.mjs";
+import { TYPES, TYPE_IDS, choosePortSource, eligibleTypes, pickType, typeInfo } from "./types.mjs";
 import { engineAvailable, ensureImage, imagePresent, imageRef, makeTempDir, removeDir, runInSandbox } from "./sandbox.mjs";
 import { refreshViews } from "./dashboard.mjs";
 import { allAreas, coverageCounts, findArea, pickArea, unlockedAreas } from "./coverage.mjs";
@@ -274,13 +274,15 @@ async function runStarter(ws, config, c) {
   return gradeTarget({ config, profile, challengeDir: c.dir, manifest: c.manifest, target: "starter", bundle });
 }
 
-/** Port source: another rotation language, preferring the one you're strongest in. */
+/**
+ * Port source for a target language: another rotation language you've reached port's minimum level
+ * in (and the target must have reached it too), preferring a different language family.
+ */
 function portSource(ws, config, events, targetId) {
-  const others = rotationIds(ws, config).filter((l) => l !== targetId && findProfile(ws, l));
-  if (!others.length) return null;
-  return others
-    .map((id) => ({ id, level: levelState(events, id, config.leveling).level }))
-    .sort((a, b) => b.level - a.level || a.id.localeCompare(b.id))[0].id;
+  const levelOf = (id) => levelState(events, id, config.leveling).level;
+  if (levelOf(targetId) < TYPES.port.minLevel) return null;
+  const candidates = rotationIds(ws, config).filter((l) => findProfile(ws, l)).map((id) => ({ id, level: levelOf(id) }));
+  return choosePortSource(targetId, candidates);
 }
 
 /** Type for a new challenge: --type (checked against level and rotation) or the weighted mix. */
@@ -291,7 +293,7 @@ function chooseType(ws, config, events, profile, level, requested) {
     if (!eligibleTypes(level, { canPort: Boolean(source) }).includes(requested)) {
       const info = typeInfo(requested);
       throw new UserError(info.needsSecondLanguage && !source
-        ? `"port" needs a second language in your rotation (ginga rotation add <lang>).`
+        ? `"port" needs the target and another rotation language (not SQL/React) both at level ${info.minLevel}+.`
         : `"${requested}" starts at level ${info.minLevel}; this challenge is level ${level}.`);
     }
     return { type: requested, sourceLang: requested === "port" ? source : null };
