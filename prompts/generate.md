@@ -4,6 +4,7 @@ You are writing ONE coding practice challenge for gingaloop. Work only inside th
 # The assignment
 
 - Language: {{LANG}} (profile id `{{LANG_ID}}`)
+- Stack: {{STACK}}
 - Level: {{LEVEL}}
 - Challenge type: {{TYPE}}
 - Practice area: {{AREA}}. The problem must clearly exercise this area: the user is working

@@ -47,5 +47,53 @@
       "name": "asyncio (tasks, cancellation, ordering)",
       "minLevel": 6
     }
-  ]
+  ],
+  "stacks": {
+    "ecosystem": {
+      "libraries": [
+        "numpy==2.1.3",
+        "pandas==2.2.3",
+        "pytest==8.3.3"
+      ],
+      "image": {
+        "tag": "gingaloop/python-eco:3.12-np2.1-pd2.2-pt8.3",
+        "dockerfile": "FROM python:3.12-slim\nRUN pip install --no-cache-dir numpy==2.1.3 pandas==2.2.3 pytest==8.3.3\n"
+      },
+      "testCommand": "python3 -m pytest -q -p no:cacheprovider -rf",
+      "successPattern": null,
+      "conventions": "numpy 2.1, pandas 2.2 and pytest 8.3 are installed (nothing else). Use them the way a professional would: vectorized numpy/pandas operations instead of Python loops, idiomatic pandas (groupby/agg, merge, pivot_table, resample, rolling, nullable dtypes, explicit sort_values with kind='stable'). Tests use pytest (plain assert, pytest.raises with match=, @pytest.mark.parametrize, tmp_path); test files are tests/test_*.py and load the code under test from ../$TARGET/ exactly as in basics. Compare floats with pytest.approx and DataFrames with pandas.testing.assert_frame_equal. A plausible 'alternative' bug variant is often the pure-Python loop or a pandas call with different semantics (sum vs nansum, nlargest tie order, inner vs left merge, closed/label side of resample).",
+      "areas": [
+        {
+          "id": "vectorization",
+          "name": "Vectorization with numpy (no Python loops)",
+          "minLevel": 1
+        },
+        {
+          "id": "groupby-aggregation",
+          "name": "pandas groupby and aggregation",
+          "minLevel": 1
+        },
+        {
+          "id": "merge-join",
+          "name": "pandas merge/join and reshaping (pivot, melt)",
+          "minLevel": 2
+        },
+        {
+          "id": "missing-data",
+          "name": "Missing data, dtypes and cleaning in pandas",
+          "minLevel": 2
+        },
+        {
+          "id": "time-series-pandas",
+          "name": "Time series in pandas (resample, rolling, time zones)",
+          "minLevel": 3
+        },
+        {
+          "id": "numerical-numpy",
+          "name": "Numerical work with numpy (broadcasting, linear algebra, stability)",
+          "minLevel": 4
+        }
+      ]
+    }
+  }
 }

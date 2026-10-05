@@ -19,8 +19,14 @@ export function allAreas(profile) {
   return [...byId.values()];
 }
 
+/** Areas unlocked at `level`. An ecosystem challenge targets the ecosystem areas when there are any. */
 export function unlockedAreas(profile, level) {
-  return allAreas(profile).filter((a) => (a.minLevel ?? 1) <= level);
+  const open = allAreas(profile).filter((a) => (a.minLevel ?? 1) <= level);
+  if (profile.stack === "ecosystem") {
+    const eco = open.filter((a) => a.stack === "ecosystem");
+    if (eco.length) return eco;
+  }
+  return open.filter((a) => a.stack !== "ecosystem");
 }
 
 /** Challenges generated per area in one language. */

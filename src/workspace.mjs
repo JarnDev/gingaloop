@@ -12,6 +12,8 @@ export const DEFAULT_CONFIG = Object.freeze({
   rotation: ["python"],
   // "random": shuffle bag, each language once per cycle; "ordered": the list in order.
   rotationMode: "random",
+  // Per-language stack: basics (stdlib only, default) | mixed | ecosystem (pinned libraries).
+  stack: {},
   // Command for `ginga open`; null → $VISUAL, $EDITOR, then vi.
   editor: null,
   leveling: {

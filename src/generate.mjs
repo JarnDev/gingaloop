@@ -60,9 +60,10 @@ export function shq(word) {
  * is working in (see cmdSandbox), and options can't be given twice, so Claude cannot widen it.
  * No workspace paths are in it: only the absolute node and ginga paths.
  */
-export function sandboxPrefix({ lang, profileFile, dir } = {}) {
+export function sandboxPrefix({ lang, stack, profileFile, dir } = {}) {
   const parts = [shq(process.execPath), shq(join(PKG_ROOT, "bin", "ginga.mjs")), "sandbox", "run", "--jail"];
   if (lang) parts.push("--lang", shq(lang));
+  if (stack && stack !== "basics") parts.push("--stack", shq(stack));
   if (profileFile) parts.push("--profile-file", shq(profileFile));
   if (dir) parts.push("--dir", shq(dir));
   return parts.join(" ");
@@ -174,11 +175,15 @@ export async function generateChallenge({ ws, config, profile, level, area, sour
       ? `This is a REVIEW challenge: the user gave up on "${reviewOf.title}" (topics: ${(reviewOf.topics ?? []).join(", ")}). ` +
         "Write a NEW problem that exercises the same core idea from a different angle. Do not reuse its statement."
       : "Not a review challenge.",
-    SANDBOX: sandboxPrefix({ lang: profile.id }),
+    STACK: profile.stack === "ecosystem"
+      ? `ecosystem: these pinned libraries are installed and SHOULD be used the way a professional would: ${(profile.libraries ?? []).join(", ")}`
+      : "basics: standard library only (no third-party packages exist in this environment)",
+    SANDBOX: sandboxPrefix({ lang: profile.id, stack: profile.stack }),
   });
-  const allowedTools = ["Read", "Write", "Edit", "Glob", "Grep", `Bash(${sandboxPrefix({ lang: profile.id })}:*)`];
+  const allowedTools = ["Read", "Write", "Edit", "Glob", "Grep", `Bash(${sandboxPrefix({ lang: profile.id, stack: profile.stack })}:*)`];
 
-  log(`Generating a level-${level} ${profile.name} challenge${area ? ` on ${area.name}` : ""} with Claude (log: ${logFile}) …`);
+  const stackLabel = profile.stack === "ecosystem" ? " (ecosystem)" : "";
+  log(`Generating a level-${level} ${profile.name}${stackLabel} challenge${area ? ` on ${area.name}` : ""} with Claude (log: ${logFile}) …`);
   ensureImage(config.sandbox, profile);
   const failFast = (code) => {
     if (code === 0) return;
@@ -233,7 +238,7 @@ export async function generateChallenge({ ws, config, profile, level, area, sour
     dir = join(ws, "challenges", id);
   }
   Object.assign(manifest, {
-    id, date, lang: profile.id, level, source,
+    id, date, lang: profile.id, level, source, stack: profile.stack ?? "basics",
     ...(area ? { area: area.id } : {}),
     ...(reviewOf ? { reviewOf: reviewOf.id } : {}),
   });
@@ -248,6 +253,7 @@ export async function generateChallenge({ ws, config, profile, level, area, sour
   );
   appendEvent(ws, {
     type: "generated", id, lang: profile.id, level, title: manifest.title, topics: manifest.topics, source,
+    stack: profile.stack ?? "basics",
     ...(area ? { area: area.id } : {}),
     ...(reviewOf ? { reviewOf: reviewOf.id } : {}),
   });

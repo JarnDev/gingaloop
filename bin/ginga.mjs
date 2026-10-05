@@ -13,11 +13,12 @@ Setup
   init [dir]                 create a workspace (asks for rotation + time)
   doctor [--pull]            check claude, docker/podman and language images
   rotation [list|set|add|remove <langs> | mode random|ordered]   the daily's languages and order
+  stack [<lang> basics|mixed|ecosystem]   standard library only, or also pinned libraries (pandas…)
   lang list | add <name>     list profiles / bootstrap a new language with Claude
   schedule install|remove|status [--time HH:MM]   systemd user timer for \`daily\`
 
 Practice
-  new <lang> [--level N] [--area ID]   generate a challenge now (N ≤ your earned level)
+  new <lang> [--level N] [--area ID] [--stack basics|ecosystem]   generate a challenge now (N ≤ your earned level)
   daily [--force]            today's challenge from the rotation (used by the timer)
   open [id]                  open README + starter in $EDITOR, inside the challenge folder
   test [id]                  run the tests against your starter/ (sandboxed)
@@ -45,7 +46,7 @@ Only daily, new, lang add and review use Claude (tokens); everything else is loc
 const commands = {
   init: cli.cmdInit, new: cli.cmdNew, daily: cli.cmdDaily, test: cli.cmdTest, hint: cli.cmdHint,
   done: cli.cmdDone, giveup: cli.cmdGiveup, rank: cli.cmdRank, list: cli.cmdList,
-  validate: cli.cmdValidate, sandbox: cli.cmdSandbox, lang: cli.cmdLang, rotation: cli.cmdRotation, coverage: cli.cmdCoverage, open: cli.cmdOpen, schedule: cli.cmdSchedule,
+  validate: cli.cmdValidate, sandbox: cli.cmdSandbox, lang: cli.cmdLang, rotation: cli.cmdRotation, stack: cli.cmdStack, coverage: cli.cmdCoverage, open: cli.cmdOpen, schedule: cli.cmdSchedule,
   doctor: cli.cmdDoctor, review: cli.cmdReview, commit: cli.cmdCommit, push: cli.cmdPush,
 };
 
@@ -57,6 +58,7 @@ const { values, positionals, tokens } = parseArgs({
     workspace: { type: "string", short: "w" },
     level: { type: "string", short: "l" },
     area: { type: "string" },
+    stack: { type: "string" },
     minutes: { type: "string" },
     yes: { type: "boolean", short: "y" },
     force: { type: "boolean" },

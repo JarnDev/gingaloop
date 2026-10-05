@@ -16,6 +16,7 @@ import { materialize, readManifest, runTarget, validateTree } from "./runner.mjs
 import { engineAvailable, ensureImage, imagePresent, imageRef, makeTempDir, removeDir, runInSandbox } from "./sandbox.mjs";
 import { refreshViews } from "./dashboard.mjs";
 import { allAreas, coverageCounts, findArea, pickArea, unlockedAreas } from "./coverage.mjs";
+import { STACK_MODES, hasEcosystem, pickStack, profileForStack, stackMode } from "./stacks.mjs";
 import { ROTATION_MODES, bagState, nextOrdered, pickDailyLang } from "./rotation.mjs";
 import { installSchedule, removeSchedule, scheduleStatus } from "./schedule.mjs";
 import { buildCommitMessage, ensureRepo, git, pushWorkspace, stagedFiles, stagedNewEvents } from "./gitops.mjs";
@@ -152,9 +153,14 @@ export async function cmdNew(positionals, opts) {
   const { ws, config } = ctx(opts);
   const lang = positionals[0];
   if (!lang) throw new UserError("Usage: ginga new <language> [--level N]");
-  const profile = await profileFor(ws, config, lang, opts);
-  const state = levelState(readEvents(ws), profile.id, config.leveling);
-  const level = resolveLevel(opts.level, state, profile.id, config.leveling);
+  const base = await profileFor(ws, config, lang, opts);
+  const state = levelState(readEvents(ws), base.id, config.leveling);
+  const level = resolveLevel(opts.level, state, base.id, config.leveling);
+  // --stack wins; an ecosystem-only --area implies the ecosystem stack; else the config decides.
+  let stack = opts.stack;
+  if (!stack && opts.area && hasEcosystem(base) && findArea(profileForStack(base, "ecosystem"), opts.area)?.stack === "ecosystem") stack = "ecosystem";
+  stack ??= pickStack(base, stackMode(config, base.id));
+  const profile = profileForStack(base, stack);
   let area;
   if (opts.area) {
     area = findArea(profile, opts.area);
@@ -185,6 +191,15 @@ export function dueReview(events, reviewAfterDays, date) {
   return null;
 }
 
+function generatedEvent(events, id) {
+  return events.find((e) => e.type === "generated" && e.id === id);
+}
+
+/** The profile a challenge runs with: its language, in the stack it was generated for. */
+function challengeProfile(ws, manifest) {
+  return profileForStack(requireProfile(ws, manifest.lang), manifest.stack ?? "basics");
+}
+
 /** Rotation with aliases resolved to profile ids (events record profile ids). */
 function rotationIds(ws, config) {
   return [...new Set(config.rotation.map((l) => findProfile(ws, l)?.id ?? l))];
@@ -201,7 +216,9 @@ export async function cmdDaily(_positionals, opts) {
   const review = dueReview(events, config.reviewAfterDays, date);
   const lang = review?.lang ?? pickDailyLang(events, rotationIds(ws, config), config.rotationMode);
   try {
-    const profile = await profileFor(ws, config, lang, { yes: true });
+    const base = await profileFor(ws, config, lang, { yes: true });
+    const reviewed = review && generatedEvent(events, review.id);
+    const profile = profileForStack(base, reviewed?.stack ?? pickStack(base, stackMode(config, base.id)));
     const state = levelState(events, profile.id, config.leveling);
     const level = review ? Math.min(review.level ?? state.level, state.level) : state.level;
     const area = (review?.area && findArea(profile, review.area)) || pickArea(profile, level, events);
@@ -229,7 +246,7 @@ function readmeKeyWarning(dir) {
 }
 
 async function runStarter(ws, config, c) {
-  const profile = requireProfile(ws, c.manifest.lang);
+  const profile = challengeProfile(ws, c.manifest);
   return runTarget({ config, profile, challengeDir: c.dir, manifest: c.manifest, target: "starter" });
 }
 
@@ -449,15 +466,20 @@ export async function cmdValidate(positionals, opts) {
   const { ws, config } = ctxOrDefaults(opts);
   const targets = [];
   if (opts.examples) {
-    for (const p of allProfiles(ws)) if (existsSync(p.exampleDir)) targets.push({ profile: p, dir: p.exampleDir });
+    for (const p of allProfiles(ws)) {
+      for (const stack of hasEcosystem(p) ? ["basics", "ecosystem"] : ["basics"]) {
+        const sp = profileForStack(p, stack);
+        if (existsSync(sp.exampleDir)) targets.push({ profile: sp, dir: sp.exampleDir });
+      }
+    }
   } else {
     const dir = resolve(positionals[0] ?? ".");
     const m = readManifest(dir);
-    targets.push({ profile: requireProfile(ws, opts.lang ?? m.lang), dir });
+    targets.push({ profile: profileForStack(requireProfile(ws, opts.lang ?? m.lang), opts.stack ?? m.stack ?? "basics"), dir });
   }
   let failed = 0;
   for (const t of targets) {
-    console.log(`${t.profile.id}: ${t.dir}`);
+    console.log(`${t.profile.id}${t.profile.stack === "ecosystem" ? " (ecosystem)" : ""}: ${t.dir}`);
     const r = await validateOne(config, t.profile, t.dir);
     if (r.ok) console.log("  ✔ valid");
     else {
@@ -532,7 +554,7 @@ export async function cmdSandbox(positionals, opts) {
       throw new UserError('Draft profiles may only use Docker Official Images via "pull" (no "/" and no dockerfile).');
     }
   } else {
-    profile = requireProfile(ws, opts.lang ?? "");
+    profile = profileForStack(requireProfile(ws, opts.lang ?? ""), opts.stack ?? "basics");
   }
   const { tmp, work } = materialize(dir, null);
   try {
@@ -574,6 +596,27 @@ export async function cmdCoverage(positionals, opts) {
   }
   console.log("★ = specific to the language. Generation targets the least-covered unlocked area;");
   console.log("pick one yourself with `ginga new <lang> --area <id>`.");
+}
+
+export async function cmdStack(positionals, opts) {
+  const { ws, config } = ctx(opts);
+  const [lang, mode] = positionals;
+  if (lang && mode) {
+    const p = requireProfile(ws, lang);
+    if (!STACK_MODES.includes(mode)) throw new UserError(`Stack mode must be one of: ${STACK_MODES.join(", ")}.`);
+    if (mode !== "basics" && !hasEcosystem(p)) throw new UserError(`${p.id} has no ecosystem stack yet (only basics).`);
+    config.stack = { ...(config.stack ?? {}), [p.id]: mode };
+    saveConfig(ws, config);
+    console.log(`${p.id}: ${mode}.${mode !== "basics" ? " Run `ginga doctor --pull` to build its ecosystem image." : ""}`);
+    return;
+  }
+  if (lang) throw new UserError(`Usage: ginga stack [<lang> ${STACK_MODES.join("|")}]`);
+  for (const id of rotationIds(ws, config)) {
+    const p = findProfile(ws, id);
+    const eco = p && hasEcosystem(p) ? `ecosystem: ${p.stacks.ecosystem.libraries.join(", ")}` : "basics only";
+    console.log(`${id.padEnd(12)} ${(p ? stackMode(config, p.id) : "basics").padEnd(10)} (${eco})`);
+  }
+  console.log("\nbasics = standard library only (default) · mixed = some ecosystem challenges · ecosystem = always libraries");
 }
 
 export async function cmdRotation(positionals, opts) {
@@ -656,7 +699,8 @@ export async function cmdLang(positionals, opts) {
   } catch {}
   if (sub === "list") {
     for (const p of allProfiles(ws)) {
-      console.log(`${p.id.padEnd(12)} ${p.name.padEnd(14)} ${imageRef(p).padEnd(28)} ${p.source}${p.aliases?.length ? `  (aliases: ${p.aliases.join(", ")})` : ""}`);
+      const eco = hasEcosystem(p) ? `  + ecosystem: ${(p.stacks.ecosystem.libraries ?? []).join(", ")}` : "";
+      console.log(`${p.id.padEnd(12)} ${p.name.padEnd(14)} ${imageRef(p).padEnd(28)} ${p.source}${p.aliases?.length ? `  (aliases: ${p.aliases.join(", ")})` : ""}${eco}`);
     }
     return;
   }
@@ -711,9 +755,15 @@ export async function cmdDoctor(_positionals, opts) {
       line(false, lang, "no profile yet (bootstrapped with Claude on first use, or `ginga lang add`)");
       continue;
     }
-    if (opts.pull && engine.ok) ensureImage(config.sandbox, p);
-    const present = engine.ok && imagePresent(config.sandbox, p);
-    line(present, lang, `${imageRef(p)} ${present ? "ready" : "not pulled yet (`ginga doctor --pull`)"}`);
+    const mode = stackMode(config, p.id);
+    const stacks = mode === "basics" || !hasEcosystem(p) ? ["basics"] : mode === "ecosystem" ? ["ecosystem"] : ["basics", "ecosystem"];
+    for (const stack of stacks) {
+      const sp = profileForStack(p, stack);
+      if (opts.pull && engine.ok) ensureImage(config.sandbox, sp);
+      const present = engine.ok && imagePresent(config.sandbox, sp);
+      const label = stack === "ecosystem" ? `${lang} (ecosystem)` : lang;
+      line(present, label, `${imageRef(sp)} ${present ? "ready" : "not built/pulled yet (`ginga doctor --pull`)"}`);
+    }
   }
 }
 
@@ -721,11 +771,11 @@ export async function cmdReview(positionals, opts) {
   const { ws, config } = ctx(opts);
   const c = pickChallenge(ws, positionals[0]);
   if (isLocked(c.dir)) throw new UserError("Review needs the reference solution: solve it (`ginga done`) or `ginga giveup` first.");
-  const profile = requireProfile(ws, c.manifest.lang);
+  const profile = challengeProfile(ws, c.manifest);
   // Work on a staging copy so Claude can run code through the jailed sandbox command.
   const staging = join(ws, ".staging", `review-${c.manifest.id}-${Date.now().toString(36)}`);
   cpSync(c.dir, staging, { recursive: true });
-  const prefix = sandboxPrefix({ lang: profile.id });
+  const prefix = sandboxPrefix({ lang: profile.id, stack: profile.stack });
   const testCmd = c.manifest.test?.command ?? profile.testCommand;
   const prompt =
     "You are reviewing a practice solution. starter/ is the user's solution, solution/ the reference, " +

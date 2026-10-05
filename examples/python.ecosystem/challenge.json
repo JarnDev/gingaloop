@@ -1,0 +1,16 @@
+{
+  "slug": "top-spenders",
+  "title": "Top spenders from an orders table",
+  "type": "implement",
+  "level": 1,
+  "stack": "ecosystem",
+  "topics": ["pandas groupby", "filtering", "sorting with tie-breaks", "missing values"],
+  "estMinutes": 20,
+  "test": { "command": "python3 -m pytest -q -p no:cacheprovider -rf", "successPattern": null, "timeoutSeconds": 120 },
+  "bugs": [
+    { "name": "includes-refunds", "kind": "mutation", "expect": "test_refunded_orders_are_not_counted" },
+    { "name": "keeps-zero-totals", "kind": "mutation", "expect": "test_customers_with_nothing_paid_are_left_out" },
+    { "name": "nlargest-tie-order", "kind": "alternative", "expect": "test_ties_are_broken_alphabetically" },
+    { "name": "python-loop-nan", "kind": "alternative", "expect": "test_missing_amounts_are_ignored" }
+  ]
+}
