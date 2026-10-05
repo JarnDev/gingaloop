@@ -105,7 +105,15 @@ export async function cmdInit(positionals, opts) {
 
   const rotationMode = opts.mode ?? (await ask("Daily order: random (each language once per cycle, shuffled) or ordered?", "random"));
   if (!ROTATION_MODES.includes(rotationMode)) throw new UserError(`Order must be one of: ${ROTATION_MODES.join(", ")}.`);
-  const config = structuredClone({ ...DEFAULT_CONFIG, rotation, rotationMode, schedule: { time } });
+  const withEco = rotation.filter((l) => hasEcosystem(findProfile(null, l) ?? {}));
+  let stackChoice = opts.stack ?? "basics";
+  if (!opts.stack && withEco.length) {
+    stackChoice = await ask(
+      `Libraries for ${withEco.join(", ")}: basics (standard library only), mixed, or ecosystem (pandas, vitest…)?`, "basics");
+  }
+  if (!STACK_MODES.includes(stackChoice)) throw new UserError(`Stack must be one of: ${STACK_MODES.join(", ")}.`);
+  const stack = Object.fromEntries(withEco.map((l) => [findProfile(null, l).id, stackChoice]));
+  const config = structuredClone({ ...DEFAULT_CONFIG, rotation, rotationMode, stack, schedule: { time } });
   if (opts.engine) config.sandbox.engine = opts.engine;
   mkdirSync(join(dir, "challenges"), { recursive: true });
   saveConfig(dir, config);
@@ -427,7 +435,9 @@ export async function cmdRank(_positionals, opts) {
     const gaveup = events.filter((e) => e.type === "gaveup" && e.lang === lang);
     const mins = solved.map((e) => e.minutes).filter((x) => Number.isFinite(x));
     const avg = mins.length ? `${Math.round(mins.reduce((a, b) => a + b, 0) / mins.length)} min avg` : "";
-    console.log(`${lang.padEnd(12)} ${levelLine(s, config.leveling).padEnd(52)} ${solved.length} solved, ${gaveup.length} gave up  ${avg}`);
+    const ecoSolved = solved.filter((e) => generatedEvent(events, e.id)?.stack === "ecosystem").length;
+    const split = ecoSolved ? ` (${solved.length - ecoSolved} basics · ${ecoSolved} ecosystem)` : "";
+    console.log(`${lang.padEnd(12)} ${levelLine(s, config.leveling).padEnd(52)} ${solved.length} solved${split}, ${gaveup.length} gave up  ${avg}`);
   }
   const weak = {};
   for (const e of events.filter((x) => x.type === "gaveup")) for (const t of e.topics ?? []) weak[t] = (weak[t] ?? 0) + 1;
@@ -585,16 +595,18 @@ export async function cmdCoverage(positionals, opts) {
     const open = unlockedAreas(profile, level);
     const covered = open.filter((a) => counts.get(a.id)).length;
     console.log(`${profile.name} (L${level}): ${covered}/${open.length} unlocked areas covered`);
-    const width = Math.max(...allAreas(profile).map((a) => a.id.length));
-    for (const a of allAreas(profile).sort((x, y) => (x.minLevel ?? 1) - (y.minLevel ?? 1))) {
+    // Ecosystem areas are listed too (tagged ⚙), so the whole map is visible in one place.
+    const shown = hasEcosystem(profile) ? allAreas(profileForStack(profile, "ecosystem")) : allAreas(profile);
+    const width = Math.max(...shown.map((a) => a.id.length));
+    for (const a of shown.sort((x, y) => (x.minLevel ?? 1) - (y.minLevel ?? 1))) {
       const n = counts.get(a.id) ?? 0;
-      const tag = a.specific ? "★" : " ";
+      const tag = a.stack === "ecosystem" ? "⚙" : a.specific ? "★" : " ";
       if ((a.minLevel ?? 1) > level) console.log(`  ${tag} ${a.id.padEnd(width)}  ·  unlocks at L${a.minLevel}`);
       else console.log(`  ${tag} ${a.id.padEnd(width)}  ${n ? "■".repeat(Math.min(n, 12)) + ` ${n}` : "□ not yet"}`);
     }
     console.log("");
   }
-  console.log("★ = specific to the language. Generation targets the least-covered unlocked area;");
+  console.log("★ = specific to the language · ⚙ = ecosystem stack (libraries). Generation targets the least-covered unlocked area;");
   console.log("pick one yourself with `ginga new <lang> --area <id>`.");
 }
 

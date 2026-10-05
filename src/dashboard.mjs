@@ -89,9 +89,11 @@ export function renderDashboard(ws, config, date = today()) {
       ? "max level"
       : `\`${bar(s.points - floor, s.nextAt - floor)}\` ${fmt(s.points)} / ${fmt(s.nextAt)} pts`;
     const solved = solvedEvents.filter((e) => e.lang === lang);
+    const generatedStack = new Map(events.filter((e) => e.type === "generated").map((e) => [e.id, e.stack]));
+    const eco = solved.filter((e) => generatedStack.get(e.id) === "ecosystem").length;
     const m = solved.map((e) => e.minutes).filter(Number.isFinite);
     const avg = m.length ? `${Math.round(m.reduce((a, b) => a + b, 0) / m.length)} min` : "–";
-    return `| ${p?.name ?? lang} | L${s.level} | ${progress} | ${solved.length} | ${avg} |`;
+    return `| ${p?.name ?? lang} | L${s.level} | ${progress} | ${solved.length}${eco ? ` (${eco} ⚙)` : ""} | ${avg} |`;
   });
 
   const coverageRows = langs.flatMap((lang) => {
