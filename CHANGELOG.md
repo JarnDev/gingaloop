@@ -1,14 +1,11 @@
 # Changelog
 
-## Unreleased
+## 0.3.0 (2026-10-05)
 
 - C and C++ challenges get a `compile_flags.txt` mirroring the sandbox flags (plus
   `-DGINGA_SCRATCH` for a guarded personal `main`), so clangd and debuggers see C17/C++20 and the
   starter headers. `ginga open` adds it to older challenges without overwriting edits. Profiles can
   declare such files with `editorFiles`.
-
-## 0.3.0
-
 - `ginga commit` / `ginga push`: commit the workspace with a structured Conventional-Commits message
   built from progress.jsonl and the changed files (solves with level, time, hints and points; new
   challenges; give-ups; level-ups; notes); confirm, edit or cancel; `--yes`, `--push`.
