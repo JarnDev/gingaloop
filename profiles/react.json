@@ -1,0 +1,53 @@
+{
+  "id": "react",
+  "name": "React",
+  "aliases": [
+    "reactjs",
+    "jsx"
+  ],
+  "image": {
+    "tag": "gingaloop/react:24-r18-v1",
+    "dockerfile": "FROM node:24-slim\nWORKDIR /opt/eco\nRUN npm init -y >/dev/null && npm install --no-audit --no-fund react@18.3.1 react-dom@18.3.1 vitest@2.1.9 jsdom@25.0.1 @testing-library/react@16.1.0 @testing-library/dom@10.4.0 @testing-library/user-event@14.5.2 @testing-library/jest-dom@6.6.3 && npm cache clean --force\n"
+  },
+  "testCommand": "ln -sfn /opt/eco/node_modules /work/node_modules && /opt/eco/node_modules/.bin/vitest run --root /work/tests --reporter verbose",
+  "successPattern": null,
+  "conventions": "React 18.3 function components in JavaScript with JSX (.jsx files, hooks, no class components), tested like real frontend work: vitest 2.1 + jsdom + Testing Library (render, screen, getByRole/getByLabelText, userEvent, waitFor; jest-dom matchers via `import \"@testing-library/jest-dom/vitest\"`). The code under test is a component module in starter/, solution/ and every bugs/<name>/ (e.g. Component.jsx, exporting the component by name). tests/vitest.config.mjs MUST be copied from the example (JSX automatic runtime + jsdom). Tests load the component with the vite-ignore dynamic import pattern: `const target = new URL(`../${process.env.TARGET ?? \"starter\"}/Component.jsx`, import.meta.url).href; const { Component } = await import(/* @vite-ignore */ target);`. Query the DOM the way a user sees it (roles, labels, visible text), never by class names or implementation details. Name `it` blocks after the behavior: `bugs[].expect` matches the failing test's name. No network: mock fetch with vi.fn when a component loads data. Read fixtures (e.g. tests/cases.json) with readFileSync(join(process.cwd(), \"cases.json\")): under jsdom import.meta.url is not a file: URL, and tests run with tests/ as the working directory.",
+  "areas": [
+    {
+      "id": "state-and-events",
+      "name": "State and events (useState, controlled inputs)",
+      "minLevel": 1
+    },
+    {
+      "id": "lists-and-keys",
+      "name": "Rendering lists, filtering, empty states",
+      "minLevel": 1
+    },
+    {
+      "id": "forms-validation",
+      "name": "Forms and validation messages",
+      "minLevel": 2
+    },
+    {
+      "id": "effects-and-data",
+      "name": "Effects and data loading (loading, error, cancel)",
+      "minLevel": 3
+    },
+    {
+      "id": "accessibility",
+      "name": "Accessibility (roles, labels, keyboard navigation)",
+      "minLevel": 3
+    },
+    {
+      "id": "state-management",
+      "name": "useReducer, context and derived state",
+      "minLevel": 4
+    },
+    {
+      "id": "performance-react",
+      "name": "Rendering performance (memo, useMemo, avoiding re-renders)",
+      "minLevel": 5
+    }
+  ],
+  "editorFiles": {}
+}

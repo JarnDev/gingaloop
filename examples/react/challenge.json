@@ -1,0 +1,14 @@
+{
+  "slug": "filterable-list",
+  "title": "A filterable list with an empty state",
+  "type": "implement",
+  "level": 1,
+  "topics": ["controlled inputs", "derived state", "lists", "Testing Library"],
+  "estMinutes": 20,
+  "test": { "command": "ln -sfn /opt/eco/node_modules /work/node_modules && /opt/eco/node_modules/.bin/vitest run --root /work/tests --reporter verbose", "successPattern": null, "timeoutSeconds": 120 },
+  "bugs": [
+    { "name": "case-sensitive", "kind": "mutation", "expect": "filters case-insensitively" },
+    { "name": "no-empty-state", "kind": "mutation", "expect": "shows No matches when nothing matches" },
+    { "name": "filter-on-submit", "kind": "alternative", "expect": "filters as you type" }
+  ]
+}
