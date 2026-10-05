@@ -5,7 +5,7 @@ import { homedir } from "node:os";
 import { delimiter, isAbsolute, join, resolve, sep } from "node:path";
 import { createInterface } from "node:readline/promises";
 import {
-  isLocked, listChallenges, pickChallenge, readHints, unlockChallenge,
+  isLocked, listChallenges, pickChallenge, readHints, unlockChallenge, writeEditorFiles,
 } from "./challenges.mjs";
 import { bootstrapProfile, generateChallenge, sandboxPrefix } from "./generate.mjs";
 import { levelState, resolveLevel, streakState } from "./levels.mjs";
@@ -619,6 +619,9 @@ export async function cmdRotation(positionals, opts) {
 export async function cmdOpen(positionals, opts) {
   const { ws, config } = ctx(opts);
   const c = pickChallenge(ws, positionals[0]);
+  // Older challenges predate editor files (compile_flags.txt…): add any that are missing.
+  const added = writeEditorFiles(c.dir, requireProfile(ws, c.manifest.lang));
+  if (added.length) console.log(`Added ${added.join(", ")} for your editor/debugger.`);
   const editor = config.editor || process.env.VISUAL || process.env.EDITOR || "vi";
   const starter = [];
   const walk = (rel) => {

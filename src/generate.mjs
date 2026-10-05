@@ -8,7 +8,7 @@ import {
   statSync, writeFileSync,
 } from "node:fs";
 import { join, relative, sep } from "node:path";
-import { lockChallenge } from "./challenges.mjs";
+import { lockChallenge, writeEditorFiles } from "./challenges.mjs";
 import { refreshViews } from "./dashboard.mjs";
 import { findDuplicate } from "./dedupe.mjs";
 import { allProfiles, checkProfile, normalizeLang } from "./profiles.mjs";
@@ -241,6 +241,7 @@ export async function generateChallenge({ ws, config, profile, level, area, sour
   mkdirSync(join(ws, "challenges"), { recursive: true });
   renameSync(staging, dir);
   lockChallenge(dir);
+  writeEditorFiles(dir, profile);
   writeFileSync(
     join(dir, "NOTES.md"),
     `# Notes: ${manifest.title}\n\n- Time spent:\n- Hints used:\n- What tripped me up:\n- What I'd do differently:\n`,

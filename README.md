@@ -258,6 +258,18 @@ reference challenge in [`examples/`](examples/).
 conventions) plus a reference challenge. The profile is kept only if that challenge validates. It
 lives in your workspace's `profiles/`.
 
+**C and C++ challenges** come with a `compile_flags.txt` that mirrors the sandbox flags
+(`-std=c17` / `-std=c++20`, `-Istarter`), so clangd and debuggers that honor it (such as
+[autodap.nvim](https://github.com/JarnDev/autodap.nvim)) see the same code the tests do. `ginga open`
+adds it to older challenges, and never overwrites one you edited. It also defines `GINGA_SCRATCH`,
+so you can keep a personal `main` in the starter for quick runs without breaking `ginga test`:
+
+```cpp
+#ifdef GINGA_SCRATCH   // defined for your editor/debugger only, never in the sandbox
+int main() { /* try things here */ }
+#endif
+```
+
 A profile is a small JSON file. See [`profiles/python.json`](profiles/python.json). Good profiles
 are very welcome as pull requests; see [CONTRIBUTING.md](CONTRIBUTING.md).
 

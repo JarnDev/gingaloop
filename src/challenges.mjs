@@ -98,6 +98,25 @@ export function readHints(dir) {
   return existsSync(p) ? parseHints(readFileSync(p, "utf8")) : [];
 }
 
+/**
+ * Editor/debugger helper files from the profile (e.g. compile_flags.txt for clangd and autodap,
+ * mirroring the sandbox flags). Plain file names only; existing files are kept unless `overwrite`,
+ * so a user's tweaks survive. Returns the names written.
+ */
+export function writeEditorFiles(dir, profile, { overwrite = false } = {}) {
+  const written = [];
+  for (const [name, content] of Object.entries(profile.editorFiles ?? {})) {
+    if (!/^[\w.-]+$/.test(name) || name === "." || name === "..") {
+      throw new UserError(`Profile ${profile.id}: editorFiles name "${name}" must be a plain file name.`);
+    }
+    const p = join(dir, name);
+    if (existsSync(p) && !overwrite) continue;
+    writeFileSync(p, String(content));
+    written.push(name);
+  }
+  return written;
+}
+
 export function writeIndex(ws) {
   const events = readEvents(ws);
   const icon = { open: "⬜", solved: "✅", gaveup: "🟥" };

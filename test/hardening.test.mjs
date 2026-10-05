@@ -119,3 +119,24 @@ test("shell quoting keeps plain paths as-is and quotes the rest", () => {
   assert.equal(shq("/home/Ana Silva/bin"), "'/home/Ana Silva/bin'");
   assert.equal(shq("it's"), "'it'\\''s'");
 });
+
+test("editor files: C/C++ profiles bring compile_flags.txt; existing files are kept; names are plain", async () => {
+  const { writeEditorFiles } = await import("../src/challenges.mjs");
+  const { findProfile } = await import("../src/profiles.mjs");
+  const dir = join(tmp, "editorfiles");
+  mkdirSync(dir, { recursive: true });
+  const cpp = findProfile(null, "cpp");
+  assert.deepEqual(writeEditorFiles(dir, cpp), ["compile_flags.txt"]);
+  const flags = readFileSync(join(dir, "compile_flags.txt"), "utf8").split("\n");
+  assert.ok(flags.includes("-std=c++20") && flags.includes("-Istarter") && flags.includes("-DGINGA_SCRATCH"));
+  assert.ok(readFileSync(join(import.meta.dirname, "..", "examples", "cpp", "tests", "Makefile"), "utf8").includes("-std=c++20"),
+    "editor flags mirror the sandbox standard");
+  writeFileSync(join(dir, "compile_flags.txt"), "-std=c++23\n");
+  assert.deepEqual(writeEditorFiles(dir, cpp), [], "a user's customized file is kept");
+  assert.equal(readFileSync(join(dir, "compile_flags.txt"), "utf8"), "-std=c++23\n");
+  assert.ok(readFileSync(join(import.meta.dirname, "..", "profiles", "c.json"), "utf8").includes("-std=c17"));
+  assert.deepEqual(writeEditorFiles(dir, findProfile(null, "python")), [], "profiles without editor files write nothing");
+  for (const bad of ["../x", "a/b", "..", "."]) {
+    assert.throws(() => writeEditorFiles(dir, { id: "evil", editorFiles: { [bad]: "x" } }), /plain file name/);
+  }
+});

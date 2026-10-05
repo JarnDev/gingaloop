@@ -64,5 +64,8 @@
       "name": "Exception safety guarantees",
       "minLevel": 7
     }
-  ]
+  ],
+  "editorFiles": {
+    "compile_flags.txt": "-std=c++20\n-Wall\n-Wextra\n-Wpedantic\n-Istarter\n-DGINGA_SCRATCH\n"
+  }
 }
