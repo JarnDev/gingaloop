@@ -55,6 +55,13 @@ export function levelState(events, lang, leveling, gate = null) {
   const cleanAreas = new Set();
   const seen = new Set();
   const streakNeeded = gate?.cleanStreak ?? 3;
+  // Promotion: once points and gates are met, a promotion challenge at this level must be solved
+  // cleanly; a failed attempt (give-up or 2+ hints) allows the next one after `retryDays`.
+  let pending = false;
+  let retryOn = null;
+  const retryDays = gate?.promotionRetryDays ?? 3;
+  const dayOf = (e) => e.date ?? (e.ts ?? "").slice(0, 10);
+  const addDays = (d, k) => new Date(Date.parse(d + "T12:00:00Z") + k * 86_400_000).toISOString().slice(0, 10);
   const gatesMet = (lvl) => {
     if (!gate) return true;
     const missing = gate.areasAt(lvl).filter((a) => !cleanAreas.has(a));
@@ -63,12 +70,28 @@ export function levelState(events, lang, leveling, gate = null) {
   };
 
   for (const e of events) {
-    if (e.type !== "solved" || e.lang !== lang || seen.has(e.id)) continue;
+    if (e.lang !== lang) continue;
+    if (e.type === "gaveup" && e.promotion && pending) retryOn = addDays(dayOf(e), retryDays);
+    if (e.type !== "solved" || seen.has(e.id)) continue;
     seen.add(e.id);
     points += pointsFor(e, level, leveling);
     if (isClean(e) && areaOf.has(e.id)) cleanAreas.add(areaOf.get(e.id));
     if (e.level === level) recent.push(isClean(e));
+    if (pending && e.promotion && e.level === level) {
+      if (isClean(e)) {
+        level++;
+        recent = [];
+        pending = false;
+        retryOn = null;
+      } else {
+        retryOn = addDays(dayOf(e), retryDays);
+      }
+    }
     while (level < max && points >= thresholds[level - 1] && (level < kept || gatesMet(level))) {
+      if (gate?.promotion && level >= kept) {
+        pending = true;
+        break;
+      }
       level++;
       recent = [];
     }
@@ -82,6 +105,8 @@ export function levelState(events, lang, leveling, gate = null) {
       streak: trailing === -1 ? recent.length : trailing,
       streakNeeded,
       blocked: points >= nextAt,
+      promotionPending: pending,
+      promotionRetryOn: pending ? retryOn : null,
     };
   }
   return state;

@@ -5,6 +5,9 @@
 - **Mastery gates:** reaching the next level needs the points **and** a clean solve (<= 1 hint, not
   after giving up) in every area unlocked at your level, **and** your last 3 solves at your level
   clean. `rank`, `done` and the dashboard show what's missing. Levels reached before are kept.
+- **Promotion challenges:** once points and gates are met, the next challenge in that language is a
+  promotion combining 2–3 practiced areas; solving it cleanly unlocks the level, a failure retries
+  after 3 days (`leveling.promotion`, `leveling.promotionRetryDays`).
 - **Spaced reviews for struggles:** challenges solved with 2+ hints or in more than twice the
   estimated time come back like give-ups, now at 3, 7 and 21 days.
 

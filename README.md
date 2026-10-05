@@ -210,6 +210,11 @@ That's 6 clean solves for L2, 9 more for L3, then 15, 25, 40… L10 is a multi-y
 - **Consistency:** your **last 3 solves at your level are clean** (at most one hint, not after
   giving up).
 
+When the points and both gates are met, your next challenge in that language is a **🥋 promotion**:
+a slightly harder problem at your level that combines 2–3 areas you've already practiced (the least
+recently practiced first). Solve it cleanly to move up. If you give up or need 2+ hints, nothing is
+lost: regular challenges continue, and another promotion comes after 3 days.
+
 "Clean" is deliberately strict: points measure effort, the gates measure mastery. `ginga rank` shows
 what's still missing (`missing areas: hashing · clean streak 2/3`). Levels you reached before these
 gates existed are kept.

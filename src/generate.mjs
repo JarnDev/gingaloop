@@ -156,7 +156,7 @@ function formatProblems(problems) {
  * Generate, validate (with retries), lock and publish one challenge.
  * @returns {Promise<{id:string, dir:string, manifest:object}>}
  */
-export async function generateChallenge({ ws, config, profile, level, area, type = "implement", sourceLang = null, domain = GENERAL, source = "manual", reviewOf = null, log = console.error }) {
+export async function generateChallenge({ ws, config, profile, level, area, type = "implement", sourceLang = null, domain = GENERAL, promotion = null, source = "manual", reviewOf = null, log = console.error }) {
   const events = readEvents(ws);
   // Full history in this language (capped only to keep the prompt bounded).
   const history = events.filter((e) => e.type === "generated" && e.lang === profile.id);
@@ -172,6 +172,12 @@ export async function generateChallenge({ ws, config, profile, level, area, type
     LEVEL_RUBRIC: levelRubric(level),
     LEVEL_NOTES: profile.levelNotes?.[String(level)] ?? "(none)",
     TYPE: type,
+    PROMOTION: promotion
+      ? `PROMOTION CHALLENGE: this decides whether the user moves from level ${level} to ${level + 1}. Make it ` +
+        `a solid, slightly harder than average level-${level} problem that COMBINES these areas they have ` +
+        `already practiced: ${promotion.join(", ")}. It must still be fair for level ${level} (no level-${level + 1} ` +
+        `concepts), but it should not be solvable without really knowing those areas.`
+      : "Not a promotion challenge.",
     DOMAIN: domainBrief(domain),
     TYPE_GUIDE: typeGuide(type, { sourceLang, ws }),
     CONVENTIONS: profile.conventions,
@@ -251,6 +257,7 @@ export async function generateChallenge({ ws, config, profile, level, area, type
   }
   Object.assign(manifest, {
     id, date, lang: profile.id, level, source, stack: profile.stack ?? "basics", type, domain,
+    ...(promotion ? { promotion: true } : {}),
     ...(sourceLang ? { sourceLang } : {}),
     ...(area ? { area: area.id } : {}),
     ...(reviewOf ? { reviewOf: reviewOf.id } : {}),
@@ -267,6 +274,7 @@ export async function generateChallenge({ ws, config, profile, level, area, type
   appendEvent(ws, {
     type: "generated", id, lang: profile.id, level, title: manifest.title, topics: manifest.topics, source,
     stack: profile.stack ?? "basics", challengeType: type, domain, estMinutes: manifest.estMinutes,
+    ...(promotion ? { promotion: true } : {}),
     ...(area ? { area: area.id } : {}),
     ...(reviewOf ? { reviewOf: reviewOf.id } : {}),
   });

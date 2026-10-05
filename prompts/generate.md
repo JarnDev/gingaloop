@@ -7,6 +7,7 @@ You are writing ONE coding practice challenge for gingaloop. Work only inside th
 - Stack: {{STACK}}
 - Level: {{LEVEL}}
 - Challenge type: {{TYPE}} (type-specific rules below override the generic layout where they differ)
+- {{PROMOTION}}
 - Industry domain: {{DOMAIN}}
 - Practice area: {{AREA}}. The problem must clearly exercise this area: the user is working
   through a coverage map, so a challenge that drifts to another area defeats the purpose.

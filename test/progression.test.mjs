@@ -73,3 +73,34 @@ test("struggled solves come back for review at 3, 7 and 21 days", () => {
   assert.equal(dueReview([gen, hinted, r1, r2], [3, 7, 21], "2026-10-22")?.id, "x", "third review at day 21");
   assert.equal(dueReview([gen, { ...hinted, hints: 0, minutes: 10 }], [3, 7, 21], "2026-10-04"), null, "a clean solve doesn't come back");
 });
+
+test("promotion: gates met → pending; a clean promotion solve unlocks; a failure waits 3 days", async () => {
+  const { promotionAreas, promotionDue } = await import("../src/progression.mjs");
+  const g = { ...gate, promotion: true, promotionRetryDays: 3 };
+  const base = [...solve("strings"), ...solve("arrays"), ...solve("hashing"), ...solve("math-bits"), ...solve("strings"), ...solve("arrays")];
+  const s = levelState(base, "py", L, g);
+  assert.equal(s.level, 1, "points + gates are not enough on their own");
+  assert.equal(s.gates.promotionPending, true);
+  assert.equal(promotionDue(s, base, "py", "2026-10-06", new Set()), true);
+
+  const promo = (id, solvedExtra, date = "2026-10-07") => [
+    { type: "generated", id, lang: "py", level: 1, area: "hashing", promotion: true, ts: `${date}T08:00:00Z` },
+    { type: "solved", id, lang: "py", level: 1, promotion: true, date, ts: `${date}T20:00:00Z`, ...solvedExtra },
+  ];
+  assert.equal(levelState([...base, ...promo("p1", { hints: 1 })], "py", L, g).level, 2, "clean promotion: level up");
+
+  const failed = levelState([...base, ...promo("p1", { hints: 3 })], "py", L, g);
+  assert.equal(failed.level, 1);
+  assert.equal(failed.gates.promotionRetryOn, "2026-10-10");
+  assert.equal(promotionDue(failed, base, "py", "2026-10-09", new Set()), false, "cool-down");
+  assert.equal(promotionDue(failed, base, "py", "2026-10-10", new Set()), true);
+
+  const gaveUp = [...base, { type: "generated", id: "p2", lang: "py", level: 1, promotion: true, ts: "2026-10-07T08:00:00Z" },
+    { type: "gaveup", id: "p2", lang: "py", level: 1, promotion: true, date: "2026-10-07", ts: "2026-10-07T21:00:00Z" }];
+  assert.equal(levelState(gaveUp, "py", L, g).gates.promotionRetryOn, "2026-10-10");
+
+  const withOpen = [...base, { type: "generated", id: "p3", lang: "py", level: 1, promotion: true }];
+  assert.equal(promotionDue(s, withOpen, "py", "2026-10-06", new Set(["p3"])), false, "one open promotion at a time");
+
+  assert.deepEqual(promotionAreas(base, "py", 1), ["hashing", "math-bits", "strings"], "least recently practiced first");
+});

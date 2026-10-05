@@ -9,7 +9,7 @@ import {
 } from "./challenges.mjs";
 import { bootstrapProfile, generateChallenge, sandboxPrefix } from "./generate.mjs";
 import { resolveLevel, streakState } from "./levels.mjs";
-import { gateSummary, langLevel } from "./progression.mjs";
+import { gateSummary, langLevel, promotionAreas, promotionDue } from "./progression.mjs";
 import { notify } from "./notify.mjs";
 import { allProfiles, findProfile, requireProfile } from "./profiles.mjs";
 import { appendEvent, challengeStatus, eventDate, readEvents } from "./progress.mjs";
@@ -175,9 +175,11 @@ export async function cmdNew(positionals, opts) {
   if (!stack && opts.area && hasEcosystem(base) && findArea(profileForStack(base, "ecosystem"), opts.area)?.stack === "ecosystem") stack = "ecosystem";
   stack ??= pickStack(base, stackMode(config, base.id), { share: ecosystemShare(domain) });
   const profile = profileForStack(base, stack);
-  const { type, sourceLang, level } = chooseType(ws, config, readEvents(ws), profile, requestedLevel, opts.type, {
-    levelExplicit: opts.level != null,
-  });
+  const promotion = opts.type || opts.level != null ? null : promotionFor(readEvents(ws), base.id, state);
+  const { type, sourceLang, level } = promotion
+    ? { type: "implement", sourceLang: null, level: state.level }
+    : chooseType(ws, config, readEvents(ws), profile, requestedLevel, opts.type, { levelExplicit: opts.level != null });
+  if (promotion) console.error(`🥋 Promotion challenge for level ${level + 1} (areas: ${promotion.join(", ")}).`);
   if (level !== requestedLevel) console.error(`Port at level ${level}: your ${sourceLang} level is the limit for reading the source.`);
   let area;
   if (opts.area) {
@@ -185,9 +187,9 @@ export async function cmdNew(positionals, opts) {
     if (!area) throw new UserError(`Unknown area "${opts.area}" for ${profile.id}. See \`ginga coverage ${profile.id}\`.`);
     if ((area.minLevel ?? 1) > level) throw new UserError(`Area "${area.id}" starts at level ${area.minLevel}; this challenge is level ${level}.`);
   } else {
-    area = pickArea(profile, level, readEvents(ws));
+    area = (promotion && findArea(profile, promotion[0])) || pickArea(profile, level, readEvents(ws));
   }
-  const result = await generateChallenge({ ws, config, profile, level, area, type, sourceLang, domain, source: "manual" });
+  const result = await generateChallenge({ ws, config, profile, level, area, type, sourceLang, domain, promotion, source: "manual" });
   printNew(result);
 }
 
@@ -223,6 +225,19 @@ export function dueReview(events, reviewAfterDays, date) {
   return null;
 }
 
+/** Ids of challenges that are generated but not solved or given up yet. */
+function openChallengeIds(events) {
+  const closed = new Set(events.filter((e) => e.type === "solved" || e.type === "gaveup").map((e) => e.id));
+  return new Set(events.filter((e) => e.type === "generated" && !closed.has(e.id)).map((e) => e.id));
+}
+
+/** Promotion areas when this language's next challenge should be a promotion, else null. */
+function promotionFor(events, lang, state) {
+  if (!promotionDue(state, events, lang, today(), openChallengeIds(events))) return null;
+  const areas = promotionAreas(events, lang, state.level);
+  return areas.length ? areas : null;
+}
+
 function generatedEvent(events, id) {
   return events.find((e) => e.type === "generated" && e.id === id);
 }
@@ -254,13 +269,14 @@ export async function cmdDaily(_positionals, opts) {
     const profile = profileForStack(base, reviewed?.stack ?? pickStack(base, stackMode(config, base.id), { share: ecosystemShare(domain) }));
     const state = langLevel(ws, config, events, profile.id);
     const earned = review ? Math.min(review.level ?? state.level, state.level) : state.level;
-    const { type, sourceLang, level } = review
+    const promotion = review ? null : promotionFor(events, profile.id, state);
+    const { type, sourceLang, level } = review || promotion
       ? { type: "implement", sourceLang: null, level: earned }
       : chooseType(ws, config, events, profile, earned, null);
-    const area = (review?.area && findArea(profile, review.area)) || pickArea(profile, level, events);
-    const result = await generateChallenge({ ws, config, profile, level, area, type, sourceLang, domain, source: "daily", reviewOf: review });
+    const area = (review?.area && findArea(profile, review.area)) || (promotion && findArea(profile, promotion[0])) || pickArea(profile, level, events);
+    const result = await generateChallenge({ ws, config, profile, level, area, type, sourceLang, domain, promotion, source: "daily", reviewOf: review });
     notify(
-      `gingaloop · ${profile.name} · L${level}${review ? " · review" : ""}`,
+      `gingaloop · ${profile.name} · L${level}${review ? " · review" : ""}${promotion ? ` · 🥋 promotion to L${level + 1}` : ""}`,
       `${result.manifest.title} (~${result.manifest.estMinutes} min)\n${result.dir}`,
     );
   } catch (e) {
@@ -444,6 +460,7 @@ export async function cmdDone(positionals, opts) {
   appendEvent(ws, {
     type: "solved", id: m.id, lang: m.lang, level: m.level, topics: m.topics,
     minutes, ...(minutesSource ? { minutesSource } : {}), hints,
+    ...(m.promotion ? { promotion: true } : {}),
     ...(status === "gaveup" ? { afterGiveup: true } : {}),
   });
   const after = langLevel(ws, config, readEvents(ws), m.lang);
@@ -456,6 +473,8 @@ export async function cmdDone(positionals, opts) {
   }
   console.log(`\n✔ Solved ${m.title}.  +${earned} points${why.length ? ` (${why.join(", ")})` : ""}`);
   if (after.level > before.level) console.log(`🎉 Level ${after.level} unlocked for ${m.lang}!`);
+  else if (m.promotion) console.log(`Promotion not passed yet (it needs at most 1 hint); another one comes in ${config.leveling.promotionRetryDays ?? 3} days.`);
+  else if (after.gates?.promotionPending && !before.gates?.promotionPending) console.log(`🥋 Gates met: your next ${m.lang} challenge is a promotion to level ${after.level + 1}.`);
   console.log(`  ${m.lang}: ${levelLine(after, config.leveling)}`);
   tryUnlock(c.dir);
   refreshViews(ws);
@@ -468,7 +487,7 @@ export async function cmdGiveup(positionals, opts) {
   const { status } = challengeStatus(readEvents(ws), m.id);
   if (status === "open") {
     if (!(await confirm(`Give up on "${m.title}" and reveal the solution?`, opts.yes))) return;
-    appendEvent(ws, { type: "gaveup", id: m.id, lang: m.lang, level: m.level, topics: m.topics });
+    appendEvent(ws, { type: "gaveup", id: m.id, lang: m.lang, level: m.level, topics: m.topics, ...(m.promotion ? { promotion: true } : {}) });
     console.log("Recorded. This topic comes back as a review challenge in a few days.");
   }
   tryUnlock(c.dir);
