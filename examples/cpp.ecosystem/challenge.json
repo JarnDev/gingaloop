@@ -1,0 +1,36 @@
+{
+  "slug": "merge-intervals",
+  "title": "Merge booking intervals",
+  "type": "implement",
+  "level": 1,
+  "stack": "ecosystem",
+  "topics": [
+    "sorting",
+    "intervals",
+    "std::vector",
+    "GoogleTest parameterized tests"
+  ],
+  "estMinutes": 25,
+  "test": {
+    "command": "cmake -S . -B /tmp/build -DTARGET=$TARGET -Wno-dev > /tmp/cmake.log 2>&1 || { cat /tmp/cmake.log; exit 1; }; cmake --build /tmp/build -j2 > /tmp/build.log 2>&1 || { cat /tmp/build.log; exit 1; }; /tmp/build/tests",
+    "successPattern": "\\[  PASSED  \\]",
+    "timeoutSeconds": 180
+  },
+  "bugs": [
+    {
+      "name": "adjacent-not-merged",
+      "kind": "mutation",
+      "expect": "MergeIntervals.AdjacentIntervalsMerge"
+    },
+    {
+      "name": "keeps-empty",
+      "kind": "mutation",
+      "expect": "MergeIntervals.EmptyIntervalsAreDropped"
+    },
+    {
+      "name": "assumes-sorted",
+      "kind": "alternative",
+      "expect": "MergeIntervals.UnsortedInputIsHandled"
+    }
+  ]
+}

@@ -67,5 +67,42 @@
   ],
   "editorFiles": {
     "compile_flags.txt": "-std=c++20\n-Wall\n-Wextra\n-Wpedantic\n-Istarter\n-DGINGA_SCRATCH\n"
+  },
+  "stacks": {
+    "ecosystem": {
+      "libraries": [
+        "GoogleTest 1.16 (Debian trixie libgtest-dev)",
+        "CMake 3.31"
+      ],
+      "image": {
+        "tag": "gingaloop/cc-eco:trixie-gcc14-gtest-v1",
+        "dockerfile": "FROM debian:trixie-slim\nRUN apt-get update && apt-get install -y --no-install-recommends gcc g++ make libc6-dev cmake libgtest-dev && rm -rf /var/lib/apt/lists/*\n"
+      },
+      "testCommand": "cmake -S . -B /tmp/build -DTARGET=$TARGET -Wno-dev > /tmp/cmake.log 2>&1 || { cat /tmp/cmake.log; exit 1; }; cmake --build /tmp/build -j2 > /tmp/build.log 2>&1 || { cat /tmp/build.log; exit 1; }; /tmp/build/tests",
+      "successPattern": "\\[  PASSED  \\]",
+      "conventions": "Tests use GoogleTest 1.16 built with CMake 3.31, like most C++ teams: tests/CMakeLists.txt (copy it from the example: C++20, -Wall -Wextra -Wpedantic -Werror, ASan/UBSan, links GTest::gtest_main, compiles ../${TARGET}/*.cpp) and tests/test.cpp with TEST/TEST_F/TEST_P, EXPECT_EQ/ASSERT_EQ, EXPECT_THROW with the message checked, and INSTANTIATE_TEST_SUITE_P for golden tables (cases in a header). Name tests Suite.Behavior: `bugs[].expect` is the failing test's full name as GoogleTest prints it after [  FAILED  ]. No main() in tests: gtest_main provides it.",
+      "areas": [
+        {
+          "id": "stl-algorithms-ranges",
+          "name": "STL algorithms and C++20 ranges (sort, partition, views)",
+          "minLevel": 1
+        },
+        {
+          "id": "value-types",
+          "name": "Value types: equality, ordering (<=>), hashing for unordered containers",
+          "minLevel": 2
+        },
+        {
+          "id": "fixtures-and-interfaces",
+          "name": "Testable designs: interfaces, fixtures and fakes",
+          "minLevel": 3
+        },
+        {
+          "id": "error-handling-cpp",
+          "name": "Error handling: exceptions vs std::expected-style results",
+          "minLevel": 3
+        }
+      ]
+    }
   }
 }
