@@ -13,7 +13,7 @@ import { notify } from "./notify.mjs";
 import { allProfiles, findProfile, requireProfile } from "./profiles.mjs";
 import { appendEvent, challengeStatus, eventDate, readEvents } from "./progress.mjs";
 import { gradeTarget, materialize, readManifest, validateTree } from "./runner.mjs";
-import { TYPES, TYPE_IDS, choosePortSource, eligibleTypes, pickType, typeInfo } from "./types.mjs";
+import { TYPE_IDS, choosePortSource, eligibleTypes, pickType, typeInfo } from "./types.mjs";
 import { engineAvailable, ensureImage, imagePresent, imageRef, makeTempDir, removeDir, runInSandbox } from "./sandbox.mjs";
 import { refreshViews } from "./dashboard.mjs";
 import { allAreas, coverageCounts, findArea, pickArea, unlockedAreas } from "./coverage.mjs";
@@ -167,13 +167,17 @@ export async function cmdNew(positionals, opts) {
   if (!lang) throw new UserError("Usage: ginga new <language> [--level N]");
   const base = await profileFor(ws, config, lang, opts);
   const state = levelState(readEvents(ws), base.id, config.leveling);
-  const level = resolveLevel(opts.level, state, base.id, config.leveling);
+  const requestedLevel = resolveLevel(opts.level, state, base.id, config.leveling);
   // --stack wins; an ecosystem-only --area implies the ecosystem stack; else the config decides.
   const domain = opts.domain ? requireDomain(opts.domain).id : pickDomain(readEvents(ws), configuredDomains(config));
   let stack = opts.stack;
   if (!stack && opts.area && hasEcosystem(base) && findArea(profileForStack(base, "ecosystem"), opts.area)?.stack === "ecosystem") stack = "ecosystem";
   stack ??= pickStack(base, stackMode(config, base.id), { share: ecosystemShare(domain) });
   const profile = profileForStack(base, stack);
+  const { type, sourceLang, level } = chooseType(ws, config, readEvents(ws), profile, requestedLevel, opts.type, {
+    levelExplicit: opts.level != null,
+  });
+  if (level !== requestedLevel) console.error(`Port at level ${level}: your ${sourceLang} level is the limit for reading the source.`);
   let area;
   if (opts.area) {
     area = findArea(profile, opts.area);
@@ -182,7 +186,6 @@ export async function cmdNew(positionals, opts) {
   } else {
     area = pickArea(profile, level, readEvents(ws));
   }
-  const { type, sourceLang } = chooseType(ws, config, readEvents(ws), profile, level, opts.type);
   const result = await generateChallenge({ ws, config, profile, level, area, type, sourceLang, domain, source: "manual" });
   printNew(result);
 }
@@ -235,11 +238,11 @@ export async function cmdDaily(_positionals, opts) {
     const domain = reviewed?.domain ?? pickDomain(events, configuredDomains(config));
     const profile = profileForStack(base, reviewed?.stack ?? pickStack(base, stackMode(config, base.id), { share: ecosystemShare(domain) }));
     const state = levelState(events, profile.id, config.leveling);
-    const level = review ? Math.min(review.level ?? state.level, state.level) : state.level;
+    const earned = review ? Math.min(review.level ?? state.level, state.level) : state.level;
+    const { type, sourceLang, level } = review
+      ? { type: "implement", sourceLang: null, level: earned }
+      : chooseType(ws, config, events, profile, earned, null);
     const area = (review?.area && findArea(profile, review.area)) || pickArea(profile, level, events);
-    const { type, sourceLang } = review
-      ? { type: "implement", sourceLang: null }
-      : chooseType(ws, config, events, profile, level, null);
     const result = await generateChallenge({ ws, config, profile, level, area, type, sourceLang, domain, source: "daily", reviewOf: review });
     notify(
       `gingaloop · ${profile.name} · L${level}${review ? " · review" : ""}`,
@@ -275,31 +278,39 @@ async function runStarter(ws, config, c) {
 }
 
 /**
- * Port source for a target language: another rotation language you've reached port's minimum level
- * in (and the target must have reached it too), preferring a different language family.
+ * Port plan into `targetId` at `level`: a source you can read at that difficulty (see
+ * choosePortSource). When none qualifies and the level wasn't requested explicitly, the port drops
+ * one level (never more, never below port's minimum). Returns { sourceLang, level } or null.
  */
-function portSource(ws, config, events, targetId) {
-  const levelOf = (id) => levelState(events, id, config.leveling).level;
-  if (levelOf(targetId) < TYPES.port.minLevel) return null;
-  const candidates = rotationIds(ws, config).filter((l) => findProfile(ws, l)).map((id) => ({ id, level: levelOf(id) }));
-  return choosePortSource(targetId, candidates);
+function portPlan(ws, config, events, targetId, level, { allowLower }) {
+  const candidates = rotationIds(ws, config).filter((l) => findProfile(ws, l))
+    .map((id) => ({ id, level: levelState(events, id, config.leveling).level }));
+  for (const at of allowLower ? [level, level - 1] : [level]) {
+    const sourceLang = choosePortSource(targetId, candidates, at);
+    if (sourceLang) return { sourceLang, level: at };
+  }
+  return null;
 }
 
-/** Type for a new challenge: --type (checked against level and rotation) or the weighted mix. */
-function chooseType(ws, config, events, profile, level, requested) {
-  const source = portSource(ws, config, events, profile.id);
+/**
+ * Type for a new challenge: --type (checked against level and rotation) or the weighted mix.
+ * Returns { type, sourceLang, level }, where level may be one lower for a port.
+ */
+export function chooseType(ws, config, events, profile, level, requested, { levelExplicit = false } = {}) {
+  const plan = portPlan(ws, config, events, profile.id, level, { allowLower: !levelExplicit });
   if (requested) {
     if (!TYPE_IDS.includes(requested)) throw new UserError(`Unknown type "${requested}". Types: ${TYPE_IDS.join(", ")}.`);
-    if (!eligibleTypes(level, { canPort: Boolean(source) }).includes(requested)) {
+    if (!eligibleTypes(level, { canPort: Boolean(plan) }).includes(requested)) {
       const info = typeInfo(requested);
-      throw new UserError(info.needsSecondLanguage && !source
-        ? `"port" needs the target and another rotation language (not SQL/React) both at level ${info.minLevel}+.`
+      throw new UserError(info.needsSecondLanguage && !plan
+        ? `"port" at level ${level} needs another rotation language (not SQL/React) at level ` +
+          `${Math.max(info.minLevel, level - 1)}+ to read the source.`
         : `"${requested}" starts at level ${info.minLevel}; this challenge is level ${level}.`);
     }
-    return { type: requested, sourceLang: requested === "port" ? source : null };
+    return requested === "port" ? { type: "port", ...plan } : { type: requested, sourceLang: null, level };
   }
-  const type = pickType(events, profile.id, level, { canPort: Boolean(source) });
-  return { type, sourceLang: type === "port" ? source : null };
+  const type = pickType(events, profile.id, level, { canPort: Boolean(plan) });
+  return type === "port" ? { type, ...plan } : { type, sourceLang: null, level };
 }
 
 export async function cmdTest(positionals, opts) {

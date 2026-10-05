@@ -26,14 +26,16 @@ const FAMILY = { javascript: "js", typescript: "js", nodejs: "js", c: "c", cpp: 
 export const familyOf = (id) => FAMILY[id] ?? id;
 
 /**
- * Source language for a port into `targetId`, or null when port isn't available. Candidates are
- * the other rotation languages with their earned levels; only those at or above port's minimum
- * level qualify (you should read the source fluently). A different family is preferred, then the
- * highest level, then the id.
+ * Source language for a port into `targetId` at `challengeLevel`, or null. Candidates are the
+ * other rotation languages with their earned levels. A source qualifies when its level is at least
+ * port's minimum AND at most one below the challenge (the source is written at the challenge's
+ * difficulty, so you must be able to read it). A different family is preferred, then the highest
+ * level, then the id.
  */
-export function choosePortSource(targetId, candidates, minLevel = TYPES.port.minLevel) {
-  if (NO_PORT.has(targetId)) return null;
-  const qualified = candidates.filter((c) => c.id !== targetId && !NO_PORT.has(c.id) && c.level >= minLevel);
+export function choosePortSource(targetId, candidates, challengeLevel = TYPES.port.minLevel, minLevel = TYPES.port.minLevel) {
+  if (NO_PORT.has(targetId) || challengeLevel < minLevel) return null;
+  const need = Math.max(minLevel, challengeLevel - 1);
+  const qualified = candidates.filter((c) => c.id !== targetId && !NO_PORT.has(c.id) && c.level >= need);
   if (!qualified.length) return null;
   const far = qualified.filter((c) => familyOf(c.id) !== familyOf(targetId));
   const pool = far.length ? far : qualified;

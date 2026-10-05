@@ -168,8 +168,9 @@ the approach, a traced example, complexity, alternatives, the common bugs, langu
 | **debug-from-symptom** | L3 | fix a bug when the README shows only the symptom | the tests (and the symptom is reproduced for real) |
 | **optimize** | L3 | make correct-but-slow code meet a time budget | correctness + a budget test, sized so a slower complexity class can't pass even on a fast machine |
 
-`port` only appears once the target **and** another rotation language are both at L2 or higher, so
-you can read the source fluently. The source comes from a different language family when possible
+`port` needs a source you can read at the challenge's difficulty: another rotation language at
+L2 or higher and at most one level below the challenge. If none qualifies at your level, the port
+is generated one level lower (never more); with an explicit `--level`, it isn't lowered. The source comes from a different language family when possible
 (Python ↔ JS/TS ↔ C/C++), so the real porting traps show up: floor vs truncating division, bytes vs
 characters, mutability, map ordering. SQL and React are never ported.
 
