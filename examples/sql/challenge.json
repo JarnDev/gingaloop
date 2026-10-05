@@ -1,0 +1,14 @@
+{
+  "slug": "paid-orders-per-customer",
+  "title": "Paid orders per customer, including customers with none",
+  "type": "implement",
+  "level": 1,
+  "topics": ["LEFT JOIN", "aggregation", "COALESCE", "join conditions vs WHERE"],
+  "estMinutes": 20,
+  "test": { "command": "python3 -m unittest discover -s . -p \"test_*.py\" -v", "successPattern": null, "timeoutSeconds": 60 },
+  "bugs": [
+    { "name": "inner-join", "kind": "alternative", "expect": "test_customers_without_orders_are_listed" },
+    { "name": "count-star", "kind": "mutation", "expect": "test_zero_orders_counts_as_zero" },
+    { "name": "filter-in-where", "kind": "alternative", "expect": "test_customers_with_only_unpaid_orders_are_listed" }
+  ]
+}

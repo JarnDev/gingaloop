@@ -1,0 +1,24 @@
+{
+  "id": "sql",
+  "name": "SQL (SQLite)",
+  "aliases": ["sqlite"],
+  "image": { "pull": "python:3.12-slim" },
+  "testCommand": "python3 -m unittest discover -s . -p \"test_*.py\" -v",
+  "successPattern": null,
+  "conventions": "SQL challenges run on SQLite 3.46 (window functions, CTEs incl. recursive, UPSERT, RETURNING, STRICT tables, JSON functions). The user writes ONE query in starter/solution.sql (solution/solution.sql and every bugs/<name>/solution.sql likewise). README.md documents the schema as a code block. tests/schema.sql creates the tables; the Python unittest suite (stdlib only) builds a fresh in-memory database per test, inserts that test's rows, runs the query read from ../$TARGET/solution.sql and compares fetchall() to the expected rows (as lists, order-sensitive when the README specifies ORDER BY). Name tests after the rule they check: `bugs[].expect` matches the failing test's name. Golden tables are datasets in tests/cases.json (fixed seed, every edge case class: NULLs, duplicates, ties, empty tables, rows that should be excluded) with expected rows computed by running the REFERENCE query in the sandbox. Typical bug variants: INNER vs LEFT JOIN, a filter in WHERE that turns a LEFT JOIN into an INNER one, COUNT(*) vs COUNT(col), NULL comparisons with = instead of IS, missing tie-breakers in ORDER BY, window frames (ROWS vs RANGE).",
+  "areas": [
+    { "id": "select-filter-sort", "name": "SELECT, WHERE, ORDER BY with tie-breakers", "minLevel": 1 },
+    { "id": "joins", "name": "Joins (inner, left, self, anti/semi joins)", "minLevel": 1 },
+    { "id": "aggregation", "name": "GROUP BY, HAVING and aggregate functions", "minLevel": 1 },
+    { "id": "null-semantics", "name": "NULL semantics (IS NULL, COALESCE, three-valued logic)", "minLevel": 2 },
+    { "id": "window-functions", "name": "Window functions (ROW_NUMBER, RANK, running totals, LAG/LEAD)", "minLevel": 3 },
+    { "id": "ctes", "name": "CTEs, including recursive (hierarchies, gaps and islands)", "minLevel": 3 },
+    { "id": "data-modification", "name": "UPSERT, RETURNING and constraints", "minLevel": 4 },
+    { "id": "query-plans", "name": "Indexes and query plans (EXPLAIN QUERY PLAN)", "minLevel": 5 }
+  ],
+  "levelNotes": {
+    "1": "Single-table filters/sorts or one join; small schemas (2 tables).",
+    "3": "Window functions or CTEs; 3+ tables; tricky NULLs and ties.",
+    "5": "Performance: require an index or rewrite; tests can assert EXPLAIN QUERY PLAN uses an index."
+  }
+}
