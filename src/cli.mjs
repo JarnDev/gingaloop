@@ -123,7 +123,7 @@ export async function cmdInit(positionals, opts) {
   mkdirSync(join(dir, "challenges"), { recursive: true });
   saveConfig(dir, config);
   // Existing files are never overwritten: missing lines are appended instead.
-  ensureLines(join(dir, ".gitignore"), [".staging/", ".logs/"]);
+  ensureLines(join(dir, ".gitignore"), [".staging/", ".logs/", "node_modules/"]);
   // The README is the decryption key: never let git rewrite its line endings.
   ensureLines(join(dir, ".gitattributes"), ["challenges/**/README.md -text"]);
   if (!existsSync(join(dir, "README.md"))) {

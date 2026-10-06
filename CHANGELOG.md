@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `ginga init` also ignores `node_modules/` in the workspace (editor installs for type checking or
+  autocomplete in JS/TS challenges); existing workspaces get the line on their next `init`.
 - **Mastery gates:** reaching the next level needs the points **and** a clean solve (<= 1 hint, not
   after giving up) in every area unlocked at your level, **and** your last 3 solves at your level
   clean. `rank`, `done` and the dashboard show what's missing. Levels reached before are kept.

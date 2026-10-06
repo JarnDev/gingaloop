@@ -64,6 +64,7 @@ test("only built-in profiles may add docker flags, and only safe ones", () => {
 test("init never overwrites existing files and doesn't steal the default workspace", () => {
   const first = join(tmp, "first");
   assert.equal(ginga(["init", first, "--rotation", "python", "--time", "08:00", "--mode", "random"], { input: "" }).status, 0);
+  assert.equal(readFileSync(join(first, ".gitignore"), "utf8"), ".staging/\n.logs/\nnode_modules/\n");
   const repo = join(tmp, "my-repo");
   mkdirSync(repo);
   writeFileSync(join(repo, "README.md"), "# My project\n\nPrecious text.\n");
