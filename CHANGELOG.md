@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.4.0 (2026-10-12)
 
 - `ginga test --watch` reruns the tests on every save in starter/ or tests/.
 - `ginga hint` says what the hint costs (points, review, clean streak, promotion) before revealing it.

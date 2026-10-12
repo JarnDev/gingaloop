@@ -65,14 +65,14 @@ Windows needs WSL 2. Reports and PRs are welcome.
 
 ## Quick start
 
-gingaloop isn't on npm yet, so install it from GitHub:
-
 ```sh
-npm install -g github:JarnDev/gingaloop
+npm install -g gingaloop
 ginga init ~/gingaloop
 ```
 
-Or clone the repo and run `npm link` in it, so `ginga` follows your checkout.
+To try it without installing, `npx gingaloop init ~/gingaloop` works too. For the latest unreleased
+changes, install from GitHub (`npm install -g github:JarnDev/gingaloop`), or clone the repo and run
+`npm link` in it, so `ginga` follows your checkout.
 
 `init` never overwrites existing files (point it at an existing repo and it only adds what's
 missing), and it only becomes your default workspace if you have none yet or pass `--default`.

@@ -33,3 +33,11 @@ keep it that way.
 - Generated code never runs on the host. Anything that executes goes through `src/sandbox.mjs`.
 - The runner knows no languages. Language knowledge lives in profiles and prompts, not in code.
 - Be honest in docs: the solution lock is friction, not security.
+
+## Releasing
+
+1. Move the `Unreleased` entries in `CHANGELOG.md` under a new `## X.Y.Z (date)` heading and set the
+   same version in `package.json`.
+2. Commit, then tag and push: `git tag -s vX.Y.Z -m vX.Y.Z && git push origin main vX.Y.Z`.
+3. `.github/workflows/release.yml` runs the tests and the examples, checks the tag matches
+   `package.json`, and publishes to npm with provenance through trusted publishing (no npm token).
