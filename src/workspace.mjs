@@ -28,6 +28,10 @@ export const DEFAULT_CONFIG = Object.freeze({
     belowShare: [0.3, 0.05],
     // Multiplier by number of hints used: 0, 1, 2, 3+.
     hintMultiplier: [1, 0.85, 0.7, 0.5],
+    // Mastery gates: clean solves in a row at your level, then a promotion challenge.
+    cleanStreak: 3,
+    promotion: true,
+    promotionRetryDays: 3,
   },
   // Days after a give-up when the topic comes back as a review challenge.
   reviewAfterDays: [3, 7, 21],
@@ -144,6 +148,79 @@ export function loadConfig(ws) {
     claude: { ...DEFAULT_CONFIG.claude, ...raw.claude },
     sandbox: { ...DEFAULT_CONFIG.sandbox, ...raw.sandbox },
   };
+}
+
+// Keys `ginga config set` accepts, with their type ("?" = may be null). Rotation, stacks, domains and
+// the schedule have their own commands, which validate them and keep the timer in sync.
+export const CONFIG_KEYS = {
+  editor: "string?",
+  "leveling.thresholds": "numbers",
+  "leveling.basePoints": "number",
+  "leveling.belowShare": "numbers",
+  "leveling.hintMultiplier": "numbers",
+  "leveling.cleanStreak": "integer",
+  "leveling.promotion": "boolean",
+  "leveling.promotionRetryDays": "integer",
+  reviewAfterDays: "numbers",
+  "claude.command": "string",
+  "claude.model": "string?",
+  "claude.timeoutMinutes": "number",
+  "claude.retries": "integer",
+  "claude.maxBudgetUsd": "number?",
+  "sandbox.engine": "docker|podman|none",
+  "sandbox.allowUnsandboxed": "boolean",
+  "sandbox.memory": "string",
+  "sandbox.cpus": "string",
+  "sandbox.pidsLimit": "integer",
+  "sandbox.timeoutSeconds": "integer",
+};
+const OWN_COMMAND = { rotation: "ginga rotation", rotationMode: "ginga rotation mode", stack: "ginga stack", domains: "ginga domains", schedule: "ginga schedule install --time HH:MM" };
+
+/** Parse and type-check a value typed on the command line for `key`. */
+export function parseConfigValue(key, text) {
+  const type = CONFIG_KEYS[key];
+  if (!type) {
+    const top = key.split(".")[0];
+    if (OWN_COMMAND[top]) throw new UserError(`Use \`${OWN_COMMAND[top]}\` to change ${top}.`);
+    throw new UserError(`Unknown key "${key}". Keys: ${Object.keys(CONFIG_KEYS).join(", ")}.`);
+  }
+  let value;
+  try {
+    value = JSON.parse(text);
+  } catch {
+    value = text; // a bare word: a string
+  }
+  const nullable = type.endsWith("?");
+  const base = type.replace(/\?$/, "");
+  if (value === null && nullable) return null;
+  const ok = {
+    string: () => typeof value === "string" && value.length > 0,
+    number: () => typeof value === "number" && value >= 0,
+    integer: () => Number.isInteger(value) && value >= 0,
+    boolean: () => typeof value === "boolean",
+    numbers: () => Array.isArray(value) && value.length > 0 && value.every((n) => typeof n === "number" && n >= 0),
+  }[base];
+  if (ok ? ok() : base.split("|").includes(value)) {
+    // claude.model and friends are typed as words; numbers like "2" for sandbox.cpus stay strings.
+    return value;
+  }
+  if (base === "string" && typeof value === "number") return String(value);
+  const want = ok ? { numbers: "a JSON array of numbers, e.g. [3,7,21]", integer: "a whole number", number: "a number" }[base] ?? `a ${base}` : `one of ${base.replaceAll("|", ", ")}`;
+  throw new UserError(`${key} must be ${want}${nullable ? " (or null)" : ""}.`);
+}
+
+export function getConfigValue(config, key) {
+  return key.split(".").reduce((o, k) => (o == null ? undefined : o[k]), config);
+}
+
+/** A copy of `config` with `key` set to `value` (or back to its default when value is undefined). */
+export function withConfigValue(config, key, value) {
+  const out = structuredClone(config);
+  const parts = key.split(".");
+  const last = parts.pop();
+  const parent = parts.reduce((o, k) => (o[k] ??= {}), out);
+  parent[last] = value === undefined ? structuredClone(getConfigValue(DEFAULT_CONFIG, key)) : value;
+  return out;
 }
 
 export function saveConfig(ws, config) {

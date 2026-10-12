@@ -149,8 +149,8 @@ export function runClaude({ config, cwd, prompt, allowedTools, logFile, cont = f
       } catch {}
       const cost = parseClaudeCost(stdout);
       if (cost != null && usage) usage.costUsd = (usage.costUsd ?? 0) + cost;
-      log.end(`${text}\n${cost != null ? `[gingaloop] cost of this call: $${cost.toFixed(4)} (API list price)\n` : ""}`);
-      resolvePromise(code);
+      // Resolve once the log is flushed: callers read its last lines right after a failure.
+      log.end(`${text}\n${cost != null ? `[gingaloop] cost of this call: $${cost.toFixed(4)} (API list price)\n` : ""}`, () => resolvePromise(code));
     });
   });
 }

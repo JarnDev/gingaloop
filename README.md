@@ -53,10 +53,15 @@ python       L1  ██░░░░░░░░░░  185 / 600 pts (415 to L2)
 - Node.js ≥ 22.18
 - [Claude Code](https://claude.com/claude-code) (`claude` on your PATH, logged in)
 - Docker or Podman, which runs every piece of generated code
-- Linux with systemd for the daily schedule (optional; `ginga new` works anywhere)
+- Linux. The daily schedule uses systemd (without it, `ginga schedule install` prints a cron line), and
+  notifications use `notify-send` when it's there.
 
 You do **not** need compilers or language runtimes on your machine. Each language runs in its own
 container image.
+
+**macOS and Windows** aren't supported yet. macOS with Docker Desktop will likely work for
+`new`/`test`/`done` with cron for the schedule, but it's untested and there are no notifications.
+Windows needs WSL 2. Reports and PRs are welcome.
 
 ## Quick start
 
@@ -417,8 +422,10 @@ kept in `.staging/_failed/` for inspection.
 | `ginga lang list` / `ginga lang add <name>` | profiles |
 | `ginga schedule install\|remove\|status` | systemd user timer |
 | `ginga doctor [--pull]` | check setup, pre-pull images |
+| `ginga config [show\|get\|set\|unset]` | view or change `gingaloop.json` with type checks, e.g. `ginga config set claude.model opus` |
 | `ginga validate [dir] [--examples]` | validate a challenge or the built-in examples |
 
+Every command has its own help: `ginga <command> --help` or `ginga help <command>`.
 `[id]` can be a prefix and defaults to your newest open challenge. Use `--workspace DIR` (or
 `GINGALOOP_WORKSPACE`) to point at a workspace explicitly.
 
@@ -435,7 +442,10 @@ kept in `.staging/_failed/` for inspection.
     "thresholds": [600, 1500, 3000, 5500, 9500, 16000, 26000, 42000, 68000],
     "basePoints": 100,
     "belowShare": [0.3, 0.05],
-    "hintMultiplier": [1, 0.85, 0.7, 0.5]
+    "hintMultiplier": [1, 0.85, 0.7, 0.5],
+    "cleanStreak": 3,
+    "promotion": true,
+    "promotionRetryDays": 3
   },
   "reviewAfterDays": [3, 7, 21],
   "schedule": { "time": "08:00" },

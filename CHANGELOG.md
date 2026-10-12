@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **Per-command help:** `ginga <command> --help` and `ginga help <command>`; an unknown command now
+  says so instead of printing the full help.
+- **`ginga config [show|get|set|unset]`** changes `gingaloop.json` with type checks (model, budget,
+  editor, leveling, sandbox limits…); `unset` goes back to the default.
+- The gate settings (`leveling.cleanStreak`, `promotion`, `promotionRetryDays`) are now listed in the
+  defaults. `ginga review` also reports its cost and honors `claude.maxBudgetUsd`.
+- README: supported platforms stated plainly (Linux; macOS and Windows not yet).
 - **`ginga discard [id] [--reason R]`** drops a broken, duplicate or unwanted challenge with no
   penalty, review or reveal. Generation forgets it: its area, type, domain and daily slot come back.
   Shown as ⬛ in INDEX and the dashboard, and as `discard(lang)` in `ginga commit` messages.

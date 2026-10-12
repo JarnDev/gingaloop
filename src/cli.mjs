@@ -7,7 +7,7 @@ import { createInterface } from "node:readline/promises";
 import {
   isLocked, listChallenges, pickChallenge, readHints, unlockChallenge, writeEditorFiles,
 } from "./challenges.mjs";
-import { bootstrapProfile, generateChallenge, sandboxPrefix } from "./generate.mjs";
+import { bootstrapProfile, generateChallenge, parseClaudeCost, sandboxPrefix } from "./generate.mjs";
 import { resolveLevel, streakState } from "./levels.mjs";
 import { gateSummary, langLevel, promotionAreas, promotionDue } from "./progression.mjs";
 import { notify } from "./notify.mjs";
@@ -25,8 +25,8 @@ import { installSchedule, removeSchedule, scheduleStatus } from "./schedule.mjs"
 import { buildCommitMessage, ensureRepo, git, pushWorkspace, stagedFiles, stagedNewEvents } from "./gitops.mjs";
 import { VaultKeyError, readBundle } from "./vault.mjs";
 import {
-  CONFIG_FILE, DEFAULT_CONFIG, PKG_ROOT, UserError, daysBetween, findWorkspace, loadConfig,
-  readGlobalConfig, saveConfig, today, writeGlobalConfig,
+  CONFIG_FILE, CONFIG_KEYS, DEFAULT_CONFIG, PKG_ROOT, UserError, daysBetween, findWorkspace, getConfigValue, loadConfig,
+  parseConfigValue, readGlobalConfig, saveConfig, today, withConfigValue, writeGlobalConfig,
 } from "./workspace.mjs";
 
 const isTTY = () => Boolean(process.stdin.isTTY && process.stdout.isTTY);
@@ -752,6 +752,34 @@ export async function cmdCoverage(positionals, opts) {
   console.log("pick one yourself with `ginga new <lang> --area <id>`.");
 }
 
+export async function cmdConfig(positionals, opts) {
+  const { ws, config } = ctx(opts);
+  const [sub = "show", key, ...rest] = positionals;
+  if (sub === "show") {
+    console.log(JSON.stringify(config, null, 2));
+    console.log(`\n(effective config; ${CONFIG_FILE} only stores what differs from the defaults)`);
+    return;
+  }
+  if (!["get", "set", "unset"].includes(sub)) throw new UserError("Usage: ginga config [show] | get <key> | set <key> <value> | unset <key>");
+  if (!key) throw new UserError(`Usage: ginga config ${sub} <key>${sub === "set" ? " <value>" : ""}. Keys: ${Object.keys(CONFIG_KEYS).join(", ")}.`);
+  if (sub === "get") {
+    const v = getConfigValue(config, key);
+    if (v === undefined) throw new UserError(`No key "${key}".`);
+    console.log(typeof v === "string" ? v : JSON.stringify(v));
+    return;
+  }
+  if (sub === "set" && !rest.length) throw new UserError(`Usage: ginga config set ${key} <value>`);
+  if (sub === "unset" && !CONFIG_KEYS[key]) parseConfigValue(key, ""); // throws the right "unknown key" error
+  const value = sub === "set" ? parseConfigValue(key, rest.join(" ")) : undefined;
+  const next = withConfigValue(config, key, value);
+  saveConfig(ws, next);
+  const shown = getConfigValue(next, key);
+  console.log(`${key} = ${typeof shown === "string" ? shown : JSON.stringify(shown)}${sub === "unset" ? " (default)" : ""}`);
+  if (key === "sandbox.engine" && value === "none" && !next.sandbox.allowUnsandboxed) {
+    console.log("Note: engine none also needs `ginga config set sandbox.allowUnsandboxed true` (code then runs on your machine).");
+  }
+}
+
 export async function cmdStack(positionals, opts) {
   const { ws, config } = ctx(opts);
   const [lang, mode] = positionals;
@@ -988,8 +1016,9 @@ export async function cmdReview(positionals, opts) {
       const child = spawn(config.claude.command, [
         "-p", prompt, "--permission-mode", "acceptEdits",
         "--allowedTools", "Read", "Glob", "Grep", "Write", `Bash(${prefix}:*)`,
-        "--disallowedTools", "WebFetch", "WebSearch",
+        "--disallowedTools", "WebFetch", "WebSearch", "--output-format", "json",
         ...(config.claude.model ? ["--model", config.claude.model] : []),
+        ...(config.claude.maxBudgetUsd != null ? ["--max-budget-usd", String(config.claude.maxBudgetUsd)] : []),
       ], { cwd: staging, stdio: ["ignore", "pipe", "inherit"] });
       let text = "";
       child.stdout.on("data", (d) => (text += d));
@@ -999,9 +1028,13 @@ export async function cmdReview(positionals, opts) {
   } finally {
     removeDir(staging);
   }
+  const cost = parseClaudeCost(out);
+  try {
+    out = JSON.parse(out.split("\n").at(-1)).result?.trim() ?? out;
+  } catch {}
   appendFileSync(join(c.dir, "NOTES.md"), `\n## Review (${today()})\n\n${out}\n`);
   console.log(out);
-  console.log(`\n(appended to ${join(c.dir, "NOTES.md")})`);
+  console.log(`\n(appended to ${join(c.dir, "NOTES.md")}${cost != null ? `; Claude cost $${cost.toFixed(2)}, API list price` : ""})`);
 }
 
 // ---------------------------------------------------------------- workspace git
