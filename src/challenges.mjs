@@ -119,7 +119,7 @@ export function writeEditorFiles(dir, profile, { overwrite = false } = {}) {
 
 export function writeIndex(ws) {
   const events = readEvents(ws);
-  const icon = { open: "⬜", solved: "✅", gaveup: "🟥" };
+  const icon = { open: "⬜", solved: "✅", gaveup: "🟥", discarded: "⬛" };
   const rows = listChallenges(ws)
     .reverse()
     .map(({ manifest: m }) => {

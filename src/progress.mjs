@@ -1,5 +1,5 @@
 // Append-only event log: <workspace>/progress.jsonl
-// Event types: generated | hint | solved | gaveup
+// Event types: generated | hint | solved | gaveup | discarded
 import { appendFileSync, existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { today } from "./workspace.mjs";
@@ -41,7 +41,7 @@ export function eventDate(e) {
   return e.date ?? e.ts.slice(0, 10);
 }
 
-/** Status of one challenge: open | solved | gaveup, plus hints used. */
+/** Status of one challenge: open | solved | gaveup | discarded, plus hints used. */
 export function challengeStatus(events, id) {
   let status = "open";
   let hints = 0;
@@ -50,6 +50,16 @@ export function challengeStatus(events, id) {
     if (e.type === "hint") hints++;
     if (e.type === "solved") status = "solved";
     if (e.type === "gaveup" && status !== "solved") status = "gaveup";
+    if (e.type === "discarded" && status === "open") status = "discarded";
   }
   return { status, hints };
+}
+
+/**
+ * Events without discarded challenges: what generation decisions (area, type, domain, rotation,
+ * reviews, duplicates) should see. A discarded challenge never happened as far as they go.
+ */
+export function withoutDiscarded(events) {
+  const gone = new Set(events.filter((e) => e.type === "discarded").map((e) => e.id));
+  return gone.size ? events.filter((e) => !gone.has(e.id)) : events;
 }

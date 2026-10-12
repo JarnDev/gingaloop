@@ -13,7 +13,7 @@ import { refreshViews } from "./dashboard.mjs";
 import { findDuplicate } from "./dedupe.mjs";
 import { GENERAL, domainBrief } from "./domains.mjs";
 import { allProfiles, checkProfile, normalizeLang } from "./profiles.mjs";
-import { appendEvent, readEvents } from "./progress.mjs";
+import { appendEvent, readEvents, withoutDiscarded } from "./progress.mjs";
 import { readManifest, validateTree } from "./runner.mjs";
 import { ensureImage } from "./sandbox.mjs";
 import { PKG_ROOT, UserError, today, writeJson } from "./workspace.mjs";
@@ -91,18 +91,33 @@ function lastLines(file, n = 8) {
   }
 }
 
-/** Run `claude -p` in `cwd`; output goes to `logFile`. Kills the whole process group on timeout. */
-export function runClaude({ config, cwd, prompt, allowedTools, logFile, cont = false }) {
+/** Cost (USD, at API list price) from `claude -p --output-format json` stdout, or null. */
+export function parseClaudeCost(stdout) {
+  try {
+    const cost = JSON.parse(stdout.trim().split("\n").at(-1)).total_cost_usd;
+    return Number.isFinite(cost) ? cost : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Run `claude -p` in `cwd`; output goes to `logFile`. Kills the whole process group on timeout.
+ * The cost of the call is added to `usage.costUsd` when Claude reports it.
+ */
+export function runClaude({ config, cwd, prompt, allowedTools, logFile, cont = false, usage = null }) {
   // Tools as separate arguments: a path with a comma or space must not split a rule.
   const args = ["-p", prompt, "--permission-mode", "acceptEdits", "--allowedTools", ...allowedTools,
-    "--disallowedTools", "WebFetch", "WebSearch"];
+    "--disallowedTools", "WebFetch", "WebSearch", "--output-format", "json"];
   if (cont) args.push("--continue");
   if (config.claude.model) args.push("--model", config.claude.model);
+  if (config.claude.maxBudgetUsd != null) args.push("--max-budget-usd", String(config.claude.maxBudgetUsd));
   const log = createWriteStream(logFile, { flags: "a" });
   log.write(`\n===== claude ${cont ? "(continue) " : ""}${new Date().toISOString()} =====\n`);
   return new Promise((resolvePromise, reject) => {
     const child = spawn(config.claude.command, args, { cwd, detached: true, stdio: ["ignore", "pipe", "pipe"] });
-    child.stdout.pipe(log, { end: false });
+    let stdout = "";
+    child.stdout.setEncoding("utf8").on("data", (d) => { stdout += d; });
     child.stderr.pipe(log, { end: false });
     const killGroup = () => {
       try {
@@ -128,11 +143,19 @@ export function runClaude({ config, cwd, prompt, allowedTools, logFile, cont = f
     });
     child.on("close", (code) => {
       done();
-      log.end();
+      let text = stdout;
+      try {
+        text = JSON.parse(stdout.trim().split("\n").at(-1)).result ?? stdout;
+      } catch {}
+      const cost = parseClaudeCost(stdout);
+      if (cost != null && usage) usage.costUsd = (usage.costUsd ?? 0) + cost;
+      log.end(`${text}\n${cost != null ? `[gingaloop] cost of this call: $${cost.toFixed(4)} (API list price)\n` : ""}`);
       resolvePromise(code);
     });
   });
 }
+
+const costNote = (usage) => (usage.costUsd != null ? ` after $${usage.costUsd.toFixed(2)} of Claude usage` : "");
 
 function newStaging(ws, label) {
   const dir = join(ws, ".staging", `${today()}-${label}-${randomBytes(3).toString("hex")}`);
@@ -157,7 +180,7 @@ function formatProblems(problems) {
  * @returns {Promise<{id:string, dir:string, manifest:object}>}
  */
 export async function generateChallenge({ ws, config, profile, level, area, type = "implement", sourceLang = null, domain = GENERAL, promotion = null, source = "manual", reviewOf = null, log = console.error }) {
-  const events = readEvents(ws);
+  const events = withoutDiscarded(readEvents(ws));
   // Full history in this language (capped only to keep the prompt bounded).
   const history = events.filter((e) => e.type === "generated" && e.lang === profile.id);
   const weak = events.filter((e) => e.type === "gaveup" && e.lang === profile.id).slice(-10);
@@ -201,22 +224,23 @@ export async function generateChallenge({ ws, config, profile, level, area, type
   const stackLabel = profile.stack === "ecosystem" ? " (ecosystem)" : "";
   log(`Generating a level-${level} ${profile.name}${stackLabel} challenge${area ? ` on ${area.name}` : ""} with Claude (log: ${logFile}) …`);
   ensureImage(config.sandbox, profile);
+  const usage = { costUsd: null };
   const failFast = (code) => {
     if (code === 0) return;
     const dest = moveToFailed(ws, staging);
     throw new UserError(
-      `Claude exited with code ${code ?? "(killed: timeout)"}; is it installed and logged in? ` +
+      `Claude exited with code ${code ?? "(killed: timeout)"}${costNote(usage)}; is it installed and logged in? ` +
         `Attempt kept in ${dest}. Last lines of ${logFile}:\n${lastLines(logFile)}`,
     );
   };
-  failFast(await runClaude({ config, cwd: staging, prompt, allowedTools, logFile }));
+  failFast(await runClaude({ config, cwd: staging, prompt, allowedTools, logFile, usage }));
 
   let result = { ok: false, problems: ["no output"] };
   for (let attempt = 0; attempt <= config.claude.retries; attempt++) {
     if (attempt > 0) {
       log(`Validation failed; asking Claude to fix (retry ${attempt}/${config.claude.retries}) …`);
       failFast(await runClaude({
-        config, cwd: staging, logFile, allowedTools, cont: true,
+        config, cwd: staging, logFile, allowedTools, cont: true, usage,
         prompt: `The gingaloop validator rejected the challenge. Fix the files in place (same directory) so every check passes. Problems:\n${formatProblems(result.problems)}`,
       }));
     }
@@ -243,7 +267,7 @@ export async function generateChallenge({ ws, config, profile, level, area, type
   if (!result.ok) {
     const dest = moveToFailed(ws, staging);
     writeFileSync(join(dest, "VALIDATION.txt"), formatProblems(result.problems) + "\n");
-    throw new UserError(`Generation failed validation; kept in ${dest}\n${formatProblems(result.problems)}`);
+    throw new UserError(`Generation failed validation${costNote(usage)}; kept in ${dest}\n${formatProblems(result.problems)}`);
   }
 
   // Publish: stamp the manifest, move, lock, record.
@@ -277,7 +301,9 @@ export async function generateChallenge({ ws, config, profile, level, area, type
     ...(promotion ? { promotion: true } : {}),
     ...(area ? { area: area.id } : {}),
     ...(reviewOf ? { reviewOf: reviewOf.id } : {}),
+    ...(usage.costUsd != null ? { costUsd: Math.round(usage.costUsd * 10000) / 10000 } : {}),
   });
+  if (usage.costUsd != null) log(`Claude cost: $${usage.costUsd.toFixed(2)} (API list price).`);
   refreshViews(ws);
   return { id, dir, manifest };
 }

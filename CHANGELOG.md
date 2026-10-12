@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **`ginga discard [id] [--reason R]`** drops a broken, duplicate or unwanted challenge with no
+  penalty, review or reveal. Generation forgets it: its area, type, domain and daily slot come back.
+  Shown as ⬛ in INDEX and the dashboard, and as `discard(lang)` in `ginga commit` messages.
+- **Cost tracking:** each generation records its Claude cost (API list price) and `ginga rank` shows
+  the total and the last 30 days; a failed generation says what it spent. `claude.maxBudgetUsd` caps
+  each Claude call (`--max-budget-usd`).
+- **Config v2:** `gingaloop.json` only stores values you changed (plus rotation, domains, stacks and
+  schedule), so improved defaults reach existing workspaces. v1 files are upgraded once on their
+  first command, dropping frozen defaults such as the old `reviewAfterDays: [3, 7]`.
 - **More practice areas:** every level from 1 to 10 now opens generic areas (L5, L9 and L10 had
   none): linked lists, greedy, prefix sums, grids, regex, money and floating point, dates and time
   zones, tries and string algorithms, union-find, range queries, streaming, storage engines,

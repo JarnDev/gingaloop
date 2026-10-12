@@ -26,6 +26,7 @@ Practice
   hint [id]                  reveal the next hint (recorded)
   done [id] [--minutes N]    verify tests pass, record the solve, unlock the solution
   giveup [id] [--yes]        record a give-up and unlock the solution
+  discard [id] [--reason R]  drop a broken or unwanted challenge: no penalty, no reveal, not counted
   review [id]                ask Claude to review your solution (after unlock)
 
 Progress
@@ -46,7 +47,7 @@ Only daily, new, lang add and review use Claude (tokens); everything else is loc
 
 const commands = {
   init: cli.cmdInit, new: cli.cmdNew, daily: cli.cmdDaily, test: cli.cmdTest, hint: cli.cmdHint,
-  done: cli.cmdDone, giveup: cli.cmdGiveup, rank: cli.cmdRank, list: cli.cmdList,
+  done: cli.cmdDone, giveup: cli.cmdGiveup, discard: cli.cmdDiscard, rank: cli.cmdRank, list: cli.cmdList,
   validate: cli.cmdValidate, sandbox: cli.cmdSandbox, lang: cli.cmdLang, rotation: cli.cmdRotation, stack: cli.cmdStack, domains: cli.cmdDomains, coverage: cli.cmdCoverage, open: cli.cmdOpen, schedule: cli.cmdSchedule,
   doctor: cli.cmdDoctor, review: cli.cmdReview, commit: cli.cmdCommit, push: cli.cmdPush,
 };
@@ -64,6 +65,7 @@ const { values, positionals, tokens } = parseArgs({
     domain: { type: "string" },
     domains: { type: "string" },
     minutes: { type: "string" },
+    reason: { type: "string" },
     yes: { type: "boolean", short: "y" },
     force: { type: "boolean" },
     examples: { type: "boolean" },

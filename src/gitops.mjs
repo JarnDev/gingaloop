@@ -56,7 +56,7 @@ export function buildCommitMessage({ allEvents, newEvents, files, leveling, toda
   const titles = new Map(allEvents.filter((e) => e.type === "generated").map((e) => [e.id, e]));
   const title = (id) => titles.get(id)?.title ?? id;
   const lines = [];
-  const counts = { solve: 0, new: 0, giveup: 0 };
+  const counts = { solve: 0, new: 0, giveup: 0, discard: 0 };
   const before = new Map(); // lang -> level before this commit's events
 
   allEvents.forEach((e, i) => {
@@ -81,6 +81,9 @@ export function buildCommitMessage({ allEvents, newEvents, files, leveling, toda
     } else if (e.type === "gaveup") {
       counts.giveup++;
       lines.push(`- giveup(${e.lang}): ${title(e.id)} · L${e.level}`);
+    } else if (e.type === "discarded") {
+      counts.discard++;
+      lines.push(`- discard(${e.lang}): ${title(e.id)}${e.reason ? ` · ${e.reason}` : ""}`);
     } else if (e.type === "hint") {
       lines.push(`- hint(${e.lang}): ${title(e.id)} · hint ${e.hint}`);
     }
@@ -122,6 +125,7 @@ export function buildCommitMessage({ allEvents, newEvents, files, leveling, toda
     counts.solve && `solve ${counts.solve}`,
     counts.new && `new ${counts.new}`,
     counts.giveup && `give up ${counts.giveup}`,
+    counts.discard && `discard ${counts.discard}`,
   ].filter(Boolean);
   let subject;
   if (summary.length) {

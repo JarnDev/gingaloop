@@ -1,14 +1,16 @@
 // Workspace discovery and configuration.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
+import { isDeepStrictEqual } from "node:util";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const PKG_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 export const CONFIG_FILE = "gingaloop.json";
 
+export const CONFIG_VERSION = 2;
 export const DEFAULT_CONFIG = Object.freeze({
-  version: 1,
+  version: CONFIG_VERSION,
   rotation: ["python"],
   // "random": shuffle bag, each language once per cycle; "ordered": the list in order.
   rotationMode: "random",
@@ -30,7 +32,8 @@ export const DEFAULT_CONFIG = Object.freeze({
   // Days after a give-up when the topic comes back as a review challenge.
   reviewAfterDays: [3, 7, 21],
   schedule: { time: "08:00" },
-  claude: { command: "claude", model: null, timeoutMinutes: 20, retries: 1 },
+  // maxBudgetUsd: spending cap per Claude call (a generation makes 1 + retries calls); null = none.
+  claude: { command: "claude", model: null, timeoutMinutes: 20, retries: 1, maxBudgetUsd: null },
   sandbox: {
     engine: "docker", // docker | podman | none
     allowUnsandboxed: false, // must be true for engine "none"
@@ -87,8 +90,52 @@ export function findWorkspace(explicit) {
   throw new UserError("No gingaloop workspace found. Run `ginga init <dir>` to create one.");
 }
 
+// Always written, even when equal to the default: what a reader of gingaloop.json looks for first.
+const ALWAYS_WRITTEN = new Set(["version", "rotation", "rotationMode", "stack", "domains", "schedule"]);
+
+/**
+ * The config as it should be stored: only what differs from the defaults (per sub-key for the
+ * nested sections), plus the always-written keys. A value left at its default then follows the
+ * default when a new gingaloop version improves it, instead of being frozen in the file.
+ */
+export function storedConfig(config) {
+  const out = {};
+  for (const [k, v] of Object.entries(config)) {
+    const d = DEFAULT_CONFIG[k];
+    if (ALWAYS_WRITTEN.has(k) || d === undefined) out[k] = v;
+    else if (d && typeof d === "object" && !Array.isArray(d) && v && typeof v === "object" && !Array.isArray(v)) {
+      const sub = Object.fromEntries(Object.entries(v).filter(([sk, sv]) => !isDeepStrictEqual(sv, d[sk])));
+      if (Object.keys(sub).length) out[k] = sub;
+    } else if (!isDeepStrictEqual(v, d)) out[k] = v;
+  }
+  out.version = CONFIG_VERSION;
+  return out;
+}
+
+/**
+ * Bring a stored config up to CONFIG_VERSION. v1 files were written with every default frozen in;
+ * values equal to an old default are dropped so they follow the current one.
+ * @returns {{raw: object, changed: boolean}}
+ */
+export function migrateConfig(raw) {
+  const version = raw.version ?? 1;
+  if (version >= CONFIG_VERSION) return { raw, changed: false };
+  const { thresholds: _legacy, ...rest } = raw; // pre-0.2 solve-count ladder
+  if (isDeepStrictEqual(rest.reviewAfterDays, [3, 7])) delete rest.reviewAfterDays; // default until 0.3
+  return { raw: storedConfig(rest), changed: true };
+}
+
 export function loadConfig(ws) {
-  const { thresholds: _legacy, ...raw } = readJson(join(ws, CONFIG_FILE)); // pre-0.2 solve-count ladder
+  const path = join(ws, CONFIG_FILE);
+  const stored = readJson(path);
+  if ((stored.version ?? 1) > CONFIG_VERSION) {
+    console.error(`ginga: ${path} is from a newer gingaloop (config v${stored.version}); update gingaloop (npm install -g gingaloop).`);
+  }
+  const { raw, changed } = migrateConfig(stored);
+  if (changed) {
+    writeJson(path, raw);
+    console.error(`ginga: updated ${CONFIG_FILE} to config v${CONFIG_VERSION} (values left at their defaults now follow new releases).`);
+  }
   return {
     ...DEFAULT_CONFIG,
     ...raw,
@@ -100,7 +147,7 @@ export function loadConfig(ws) {
 }
 
 export function saveConfig(ws, config) {
-  writeJson(join(ws, CONFIG_FILE), config);
+  writeJson(join(ws, CONFIG_FILE), storedConfig(config));
 }
 
 /** Local calendar date as YYYY-MM-DD (the user's day, not UTC). */

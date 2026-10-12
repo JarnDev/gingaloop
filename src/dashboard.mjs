@@ -7,7 +7,7 @@ import { coverageCounts, unlockedAreas } from "./coverage.mjs";
 import { streakState } from "./levels.mjs";
 import { gateSummary, langLevel } from "./progression.mjs";
 import { findProfile } from "./profiles.mjs";
-import { challengeStatus, eventDate, readEvents } from "./progress.mjs";
+import { challengeStatus, eventDate, readEvents, withoutDiscarded } from "./progress.mjs";
 import { loadConfig, today } from "./workspace.mjs";
 
 export const START = "<!-- gingaloop:start -->";
@@ -101,7 +101,7 @@ export function renderDashboard(ws, config, date = today()) {
     const p = findProfile(ws, lang);
     if (!p) return [];
     const { level } = langLevel(ws, config, events, lang);
-    const counts = coverageCounts(events, lang);
+    const counts = coverageCounts(withoutDiscarded(events), lang);
     const open = unlockedAreas(p, level);
     const covered = open.filter((a) => counts.get(a.id)).length;
     const min = Math.min(...open.map((a) => counts.get(a.id) ?? 0));
@@ -109,7 +109,7 @@ export function renderDashboard(ws, config, date = today()) {
     return [`| ${p.name} | ${covered} / ${open.length} at L${level} | ${next.join(", ")} |`];
   });
 
-  const statusIcon = { open: "⬜ open", solved: "✅ solved", gaveup: "🟥 gave up" };
+  const statusIcon = { open: "⬜ open", solved: "✅ solved", gaveup: "🟥 gave up", discarded: "⬛ discarded" };
   const recent = challenges.slice(-10).reverse().map(({ manifest: m }) => {
     const s = challengeStatus(events, m.id);
     const solve = solvedEvents.find((e) => e.id === m.id);
@@ -160,7 +160,7 @@ export function renderDashboard(ws, config, date = today()) {
 /** "Domains: quant 4 · general 2" under the coverage table, once there are non-general domains. */
 function domainLine(events) {
   const counts = {};
-  for (const e of events) if (e.type === "generated") counts[e.domain ?? "general"] = (counts[e.domain ?? "general"] ?? 0) + 1;
+  for (const e of withoutDiscarded(events)) if (e.type === "generated") counts[e.domain ?? "general"] = (counts[e.domain ?? "general"] ?? 0) + 1;
   if (!Object.keys(counts).some((d) => d !== "general")) return [];
   return [`Domains: ${Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([dom, n]) => `${dom} ${n}`).join(" · ")}`, ""];
 }

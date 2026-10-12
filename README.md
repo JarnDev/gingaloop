@@ -405,8 +405,9 @@ kept in `.staging/_failed/` for inspection.
 | `ginga hint [id]` | next hint (recorded) |
 | `ginga done [id] [--minutes N]` | verify, record the solve, unlock the solution; suggests the minutes since your first `ginga open` (over 4 h it only shows them, since breaks are likely) |
 | `ginga giveup [id]` | record a give-up, unlock the solution |
+| `ginga discard [id] [--reason R]` | drop a broken, duplicate or unwanted challenge: no penalty, no review, no reveal; its area, type and daily slot come back (the folder stays, marked ⬛) |
 | `ginga review [id]` | Claude reviews your solution against the reference (after unlock), running the tests and its own edge-case probes in the sandbox |
-| `ginga rank` / `ginga list` | levels (with basics/ecosystem split), streak, weak topics / all challenges |
+| `ginga rank` / `ginga list` | levels (with basics/ecosystem split), streak, weak topics, Claude cost / all challenges |
 | `ginga coverage [lang…]` | practice areas per language and how often you've had each |
 | `ginga rotation [list\|set\|add\|remove\|mode]` | the daily's languages and order, e.g. `ginga rotation add typescript cpp`, `ginga rotation mode ordered` |
 | `ginga commit [--yes] [--push]` | commit the workspace with a structured message built from your progress (plain git, **no Claude tokens**) |
@@ -438,13 +439,17 @@ kept in `.staging/_failed/` for inspection.
   },
   "reviewAfterDays": [3, 7, 21],
   "schedule": { "time": "08:00" },
-  "claude": { "command": "claude", "model": null, "timeoutMinutes": 20, "retries": 1 },
+  "claude": { "command": "claude", "model": null, "timeoutMinutes": 20, "retries": 1, "maxBudgetUsd": null },
   "sandbox": { "engine": "docker", "memory": "1g", "cpus": "2", "pidsLimit": 256, "timeoutSeconds": 120 }
 }
 ```
 
-`editor` is what `ginga open` runs (`null` → `$VISUAL`, `$EDITOR`, then `vi`). Unknown keys keep their
-defaults, so you only need the ones you change.
+`editor` is what `ginga open` runs (`null` → `$VISUAL`, `$EDITOR`, then `vi`). `claude.maxBudgetUsd`
+caps each Claude call (a generation makes one, plus one per retry); `null` means no cap.
+
+Missing keys use their defaults, and ginga only writes the values you changed (plus your rotation,
+domains, stacks and schedule), so a default improved in a new release reaches you automatically.
+Workspaces from 0.3 or earlier are upgraded once, on their first command, with a one-line notice.
 
 ## Cost
 
@@ -461,6 +466,11 @@ session:
 `coverage`, `rotation`, `commit`, `push`, `doctor`, `schedule`, `validate` and `init`. In
 particular, `ginga commit` builds its message from your progress log with plain code, and `ginga
 push` is just `git push`.
+
+Each generation records what it cost (at API list price, as Claude Code reports it), and `ginga rank`
+shows the total and the last 30 days. On a Pro or Max plan that's a measure of usage, not a bill. A
+generation that fails says how much it spent before giving up. Set `claude.maxBudgetUsd` to cap each
+call.
 
 ## Roadmap
 

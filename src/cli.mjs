@@ -12,7 +12,7 @@ import { resolveLevel, streakState } from "./levels.mjs";
 import { gateSummary, langLevel, promotionAreas, promotionDue } from "./progression.mjs";
 import { notify } from "./notify.mjs";
 import { allProfiles, findProfile, requireProfile } from "./profiles.mjs";
-import { appendEvent, challengeStatus, eventDate, readEvents } from "./progress.mjs";
+import { appendEvent, challengeStatus, eventDate, readEvents, withoutDiscarded } from "./progress.mjs";
 import { gradeTarget, materialize, readManifest, validateTree } from "./runner.mjs";
 import { TYPE_IDS, choosePortSource, eligibleTypes, pickType, typeInfo } from "./types.mjs";
 import { engineAvailable, ensureImage, imagePresent, imageRef, makeTempDir, removeDir, runInSandbox } from "./sandbox.mjs";
@@ -167,18 +167,19 @@ export async function cmdNew(positionals, opts) {
   const lang = positionals[0];
   if (!lang) throw new UserError("Usage: ginga new <language> [--level N]");
   const base = await profileFor(ws, config, lang, opts);
-  const state = langLevel(ws, config, readEvents(ws), base.id);
+  const events = withoutDiscarded(readEvents(ws));
+  const state = langLevel(ws, config, events, base.id);
   const requestedLevel = resolveLevel(opts.level, state, base.id, config.leveling);
   // --stack wins; an ecosystem-only --area implies the ecosystem stack; else the config decides.
-  const domain = opts.domain ? requireDomain(opts.domain).id : pickDomain(readEvents(ws), configuredDomains(config));
+  const domain = opts.domain ? requireDomain(opts.domain).id : pickDomain(events, configuredDomains(config));
   let stack = opts.stack;
   if (!stack && opts.area && hasEcosystem(base) && findArea(profileForStack(base, "ecosystem"), opts.area)?.stack === "ecosystem") stack = "ecosystem";
   stack ??= pickStack(base, stackMode(config, base.id), { share: ecosystemShare(domain) });
   const profile = profileForStack(base, stack);
-  const promotion = opts.type || opts.level != null ? null : promotionFor(readEvents(ws), base.id, state);
+  const promotion = opts.type || opts.level != null ? null : promotionFor(events, base.id, state);
   const { type, sourceLang, level } = promotion
     ? { type: "implement", sourceLang: null, level: state.level }
-    : chooseType(ws, config, readEvents(ws), profile, requestedLevel, opts.type, { levelExplicit: opts.level != null });
+    : chooseType(ws, config, events, profile, requestedLevel, opts.type, { levelExplicit: opts.level != null });
   if (promotion) console.error(`🥋 Promotion challenge for level ${level + 1} (areas: ${promotion.join(", ")}).`);
   if (level !== requestedLevel) console.error(`Port at level ${level}: your ${sourceLang} level is the limit for reading the source.`);
   let area;
@@ -187,7 +188,7 @@ export async function cmdNew(positionals, opts) {
     if (!area) throw new UserError(`Unknown area "${opts.area}" for ${profile.id}. See \`ginga coverage ${profile.id}\`.`);
     if ((area.minLevel ?? 1) > level) throw new UserError(`Area "${area.id}" starts at level ${area.minLevel}; this challenge is level ${level}.`);
   } else {
-    area = (promotion && findArea(profile, promotion[0])) || pickArea(profile, level, readEvents(ws));
+    area = (promotion && findArea(profile, promotion[0])) || pickArea(profile, level, events);
   }
   const result = await generateChallenge({ ws, config, profile, level, area, type, sourceLang, domain, promotion, source: "manual" });
   printNew(result);
@@ -227,7 +228,7 @@ export function dueReview(events, reviewAfterDays, date) {
 
 /** Ids of challenges that are generated but not solved or given up yet. */
 function openChallengeIds(events) {
-  const closed = new Set(events.filter((e) => e.type === "solved" || e.type === "gaveup").map((e) => e.id));
+  const closed = new Set(events.filter((e) => e.type === "solved" || e.type === "gaveup" || e.type === "discarded").map((e) => e.id));
   return new Set(events.filter((e) => e.type === "generated" && !closed.has(e.id)).map((e) => e.id));
 }
 
@@ -255,7 +256,7 @@ function rotationIds(ws, config) {
 export async function cmdDaily(_positionals, opts) {
   const { ws, config } = ctx(opts);
   const date = today();
-  const events = readEvents(ws);
+  const events = withoutDiscarded(readEvents(ws));
   if (!opts.force && events.some((e) => e.type === "generated" && e.source === "daily" && eventDate(e) === date)) {
     console.log("Today's challenge already exists (use --force to make another).");
     return;
@@ -494,6 +495,23 @@ export async function cmdGiveup(positionals, opts) {
   refreshViews(ws);
 }
 
+/**
+ * Drop a challenge that shouldn't count: broken, a near-duplicate, or just not wanted. No penalty,
+ * no review, no solution reveal; generation forgets it (its area, type and daily slot come back).
+ */
+export async function cmdDiscard(positionals, opts) {
+  const { ws } = ctx(opts);
+  const c = pickChallenge(ws, positionals[0]);
+  const m = c.manifest;
+  const { status } = challengeStatus(readEvents(ws), m.id);
+  if (status !== "open") throw new UserError(`"${m.title}" is ${status === "gaveup" ? "given up" : status}; only open challenges can be discarded.`);
+  if (!(await confirm(`Discard "${m.title}"? It won't count anywhere (the folder stays).`, opts.yes))) return;
+  const reason = opts.reason?.trim();
+  appendEvent(ws, { type: "discarded", id: m.id, lang: m.lang, level: m.level, ...(reason ? { reason } : {}) });
+  console.log(`Discarded. ${m.source === "daily" ? "Run `ginga daily` for a replacement." : `Generate another with \`ginga new ${m.lang}\`.`}`);
+  refreshViews(ws);
+}
+
 // ---------------------------------------------------------------- progress views
 
 export function streak(events, date = today()) {
@@ -535,6 +553,21 @@ export async function cmdRank(_positionals, opts) {
   for (const e of events.filter((x) => x.type === "gaveup")) for (const t of e.topics ?? []) weak[t] = (weak[t] ?? 0) + 1;
   const top = Object.entries(weak).sort((a, b) => b[1] - a[1]).slice(0, 5);
   if (top.length) console.log(`\nWeak topics: ${top.map(([t, n]) => `${t} (${n})`).join(", ")}`);
+  const cost = costSummary(events, today());
+  if (cost) console.log(`\n${cost}`);
+}
+
+/**
+ * "Claude: $4.12 over 9 generations ($1.37 in the last 30 days)", from the cost recorded on each
+ * generated event (discarded ones included: they were paid for). null when nothing was recorded.
+ */
+export function costSummary(events, date) {
+  const paid = events.filter((e) => e.type === "generated" && Number.isFinite(e.costUsd));
+  if (!paid.length) return null;
+  const sum = (list) => list.reduce((a, e) => a + e.costUsd, 0);
+  const recent = paid.filter((e) => daysBetween(eventDate(e), date) < 30);
+  return `💸 Claude: $${sum(paid).toFixed(2)} over ${paid.length} generation${paid.length === 1 ? "" : "s"} ` +
+    `($${sum(recent).toFixed(2)} in the last 30 days; API list price, on a Pro/Max plan it's usage, not a bill)`;
 }
 
 export async function cmdList(_positionals, opts) {
@@ -544,7 +577,7 @@ export async function cmdList(_positionals, opts) {
   if (!all.length) return console.log("No challenges yet.");
   for (const { manifest: m } of all) {
     const s = challengeStatus(events, m.id);
-    console.log(`${s.status.padEnd(7)} ${m.id.padEnd(48)} L${m.level} ${m.type}`);
+    console.log(`${s.status.padEnd(9)} ${m.id.padEnd(48)} L${m.level} ${m.type}`);
   }
 }
 
@@ -681,7 +714,7 @@ export async function cmdSandbox(positionals, opts) {
 
 export async function cmdCoverage(positionals, opts) {
   const { ws, config } = ctx(opts);
-  const events = readEvents(ws);
+  const events = withoutDiscarded(readEvents(ws));
   const langs = positionals.length ? positionals.map((l) => requireProfile(ws, l).id) : rotationIds(ws, config);
   for (const lang of langs) {
     const profile = findProfile(ws, lang);
