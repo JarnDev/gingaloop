@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/logo.png" alt="gingaloop logo: a berimbau whose gourd is a loop arrow" width="160">
+  <img src="https://raw.githubusercontent.com/JarnDev/gingaloop/main/docs/logo.png" alt="gingaloop logo: a berimbau whose gourd is a loop arrow" width="160">
 </p>
 
 <h1 align="center">gingaloop</h1>
@@ -106,7 +106,7 @@ The workspace is a plain folder, separate from the tool (make it a git repo if y
 
 Levels, streak and the daily bag are all computed from `progress.jsonl`, so there is no other state.
 
-![Workspace dashboard: streak, levels per language, a 12-week activity grid, coverage and recent challenges](docs/dashboard-preview.png)
+![Workspace dashboard: streak, levels per language, a 12-week activity grid, coverage and recent challenges](https://raw.githubusercontent.com/JarnDev/gingaloop/main/docs/dashboard-preview.png)
 
 <sub>The workspace README after ten weeks of practice (sample data from `node scripts/sample-dashboard.mjs`).</sub>
 
@@ -238,7 +238,7 @@ point-chasing [distract from learning](https://arxiv.org/abs/2203.16175).
 ## Coverage map
 
 Every challenge targets a **practice area**. There are generic ones (strings, hashing, parsing, trees,
-graphs, dynamic programming, concurrency…, in [`prompts/areas.json`](prompts/areas.json)) plus areas
+graphs, dynamic programming, concurrency…, in [`prompts/areas.json`](https://github.com/JarnDev/gingaloop/blob/main/prompts/areas.json)) plus areas
 specific to each language (C pointers and memory, Node streams, TypeScript generics, C++ move
 semantics…, in each profile). Each area has a minimum level, so graphs don't show up at L1.
 
@@ -299,7 +299,7 @@ SELinux `:z` label for it).
 ## Languages
 
 Built-in profiles: **python, javascript, typescript, nodejs, c, cpp, sql** (SQLite) and **react**,
-each with a hand-validated reference challenge in [`examples/`](examples/).
+each with a hand-validated reference challenge in [`examples/`](https://github.com/JarnDev/gingaloop/tree/main/examples).
 
 ### Stacks: basics or ecosystem
 
@@ -341,8 +341,8 @@ int main() { /* try things here */ }
 #endif
 ```
 
-A profile is a small JSON file. See [`profiles/python.json`](profiles/python.json). Good profiles
-are very welcome as pull requests; see [CONTRIBUTING.md](CONTRIBUTING.md).
+A profile is a small JSON file. See [`profiles/python.json`](https://github.com/JarnDev/gingaloop/blob/main/profiles/python.json). Good profiles
+are very welcome as pull requests; see [CONTRIBUTING.md](https://github.com/JarnDev/gingaloop/blob/main/CONTRIBUTING.md).
 
 ## Domains
 
