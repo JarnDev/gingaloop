@@ -12,8 +12,9 @@ Usage: ginga <command> [args] [--workspace DIR]
 
 Setup
   init [dir]                 create a workspace (asks for rotation + time)
-  doctor [--pull]            check claude, docker/podman and language images
+  doctor [--pull|--prune [--all]]   check setup; pre-pull images, or remove stale built ones
   config [get|set|unset <key> [value]]   view or change gingaloop.json (model, budget, editor…)
+  completion bash|zsh        shell completion: source <(ginga completion zsh)
   rotation [list|set|add|remove <langs> | mode random|ordered]   the daily's languages and order
   stack [<lang> basics|mixed|ecosystem]   standard library only, or also pinned libraries (pandas…)
   domains [list|set|add|remove <ids>]     industries your challenges are framed in (general by default)
@@ -24,7 +25,7 @@ Practice
   new <lang> [--level N] [--area ID] [--stack S] [--type T] [--domain D]   generate a challenge now (N ≤ your earned level)
   daily [--force]            today's challenge from the rotation (used by the timer)
   open [id]                  open README + starter in $EDITOR, inside the challenge folder
-  test [id]                  run the tests against your starter/ (sandboxed)
+  test [id] [--watch]        run the tests against your starter/ (sandboxed); --watch reruns on save
   hint [id]                  reveal the next hint (recorded)
   done [id] [--minutes N]    verify tests pass, record the solve, unlock the solution
   giveup [id] [--yes]        record a give-up and unlock the solution
@@ -32,9 +33,9 @@ Practice
   review [id]                ask Claude to review your solution (after unlock)
 
 Progress
-  rank                       levels, progress to next level, streak, weak topics
-  coverage [lang…]           practice areas per language and how often you've had each
-  list                       all challenges with status
+  rank [--json]              levels, progress to next level, streak, weak topics, Claude cost
+  coverage [lang…] [--json]  practice areas per language and how often you've had each
+  list [--json]              all challenges with status
 
 Workspace repo (plain git, no Claude tokens)
   commit [--yes] [--push]    commit the workspace with a message built from your progress
@@ -51,7 +52,7 @@ const commands = {
   init: cli.cmdInit, new: cli.cmdNew, daily: cli.cmdDaily, test: cli.cmdTest, hint: cli.cmdHint,
   done: cli.cmdDone, giveup: cli.cmdGiveup, discard: cli.cmdDiscard, rank: cli.cmdRank, list: cli.cmdList,
   validate: cli.cmdValidate, sandbox: cli.cmdSandbox, lang: cli.cmdLang, rotation: cli.cmdRotation, stack: cli.cmdStack, domains: cli.cmdDomains, coverage: cli.cmdCoverage, open: cli.cmdOpen, schedule: cli.cmdSchedule,
-  doctor: cli.cmdDoctor, review: cli.cmdReview, commit: cli.cmdCommit, push: cli.cmdPush, config: cli.cmdConfig,
+  doctor: cli.cmdDoctor, review: cli.cmdReview, commit: cli.cmdCommit, push: cli.cmdPush, config: cli.cmdConfig, completion: cli.cmdCompletion,
 };
 
 const { values, positionals, tokens } = parseArgs({
@@ -68,6 +69,10 @@ const { values, positionals, tokens } = parseArgs({
     domains: { type: "string" },
     minutes: { type: "string" },
     reason: { type: "string" },
+    json: { type: "boolean" },
+    watch: { type: "boolean" },
+    prune: { type: "boolean" },
+    all: { type: "boolean" },
     yes: { type: "boolean", short: "y" },
     force: { type: "boolean" },
     examples: { type: "boolean" },

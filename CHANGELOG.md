@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- `ginga test --watch` reruns the tests on every save in starter/ or tests/.
+- `ginga hint` says what the hint costs (points, review, clean streak, promotion) before revealing it.
+- `--json` for `rank`, `list` and `coverage`.
+- `ginga completion bash|zsh` prints a completion script (commands, subcommands, flags, languages).
+- `ginga doctor --prune [--all]` removes images gingaloop built that no profile uses anymore.
+- Fix: a Claude run's log is flushed before the run is reported done, so a failure always shows its
+  last lines.
 - **Per-command help:** `ginga <command> --help` and `ginga help <command>`; an unknown command now
   says so instead of printing the full help.
 - **`ginga config [show|get|set|unset]`** changes `gingaloop.json` with type checks (model, budget,

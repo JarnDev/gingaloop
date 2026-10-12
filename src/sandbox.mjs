@@ -82,6 +82,29 @@ export function imagePresent(sandbox, profile) {
   return r.status === 0;
 }
 
+/** Images gingaloop built locally (the `gingaloop/*` tags), as [{ ref, size }]. */
+export function builtImages(sandbox) {
+  const bin = engineBin(sandbox);
+  if (!bin) return [];
+  const r = spawnSync(bin, ["images", "--filter", "reference=gingaloop/*", "--format", "{{.Repository}}:{{.Tag}}\t{{.Size}}"], { encoding: "utf8" });
+  if (r.error) throw engineMissing(bin, r.error);
+  return r.stdout.split("\n").filter(Boolean).map((l) => {
+    const [ref, size] = l.split("\t");
+    return { ref: ref.replace(/^localhost\//, ""), size };
+  }).filter((i) => !i.ref.endsWith(":<none>"));
+}
+
+/** Remove images by reference; returns the ones the engine refused (e.g. still in use). */
+export function removeImages(sandbox, refs) {
+  const bin = engineBin(sandbox);
+  const failed = [];
+  for (const ref of refs) {
+    const r = spawnSync(bin, ["rmi", ref], { encoding: "utf8" });
+    if (r.status !== 0) failed.push(`${ref}: ${(r.stderr || "").trim().split("\n")[0]}`);
+  }
+  return failed;
+}
+
 /** Pull or build the profile image if missing. Network is used here, never during test runs. */
 export function ensureImage(sandbox, profile, { quiet = false } = {}) {
   const bin = engineBin(sandbox);

@@ -406,14 +406,14 @@ kept in `.staging/_failed/` for inspection.
 | `ginga new <lang> [--level N] [--area ID] [--type T] [--stack S] [--domain D]` | generate a challenge now; every option is optional and capped by your level |
 | `ginga daily [--force]` | today's challenge from the rotation (what the timer runs) |
 | `ginga open [id]` | open README + starter files in your editor (`editor` in config, else `$VISUAL`/`$EDITOR`, else `vi`) |
-| `ginga test [id]` | run the tests against your starter |
-| `ginga hint [id]` | next hint (recorded) |
+| `ginga test [id] [--watch]` | run the tests against your starter; `--watch` reruns them on every save |
+| `ginga hint [id]` | next hint (recorded); says what it costs before revealing it |
 | `ginga done [id] [--minutes N]` | verify, record the solve, unlock the solution; suggests the minutes since your first `ginga open` (over 4 h it only shows them, since breaks are likely) |
 | `ginga giveup [id]` | record a give-up, unlock the solution |
 | `ginga discard [id] [--reason R]` | drop a broken, duplicate or unwanted challenge: no penalty, no review, no reveal; its area, type and daily slot come back (the folder stays, marked ⬛) |
 | `ginga review [id]` | Claude reviews your solution against the reference (after unlock), running the tests and its own edge-case probes in the sandbox |
-| `ginga rank` / `ginga list` | levels (with basics/ecosystem split), streak, weak topics, Claude cost / all challenges |
-| `ginga coverage [lang…]` | practice areas per language and how often you've had each |
+| `ginga rank` / `ginga list` | levels (with basics/ecosystem split), streak, weak topics, Claude cost / all challenges; `--json` for scripts |
+| `ginga coverage [lang…]` | practice areas per language and how often you've had each (`--json` too) |
 | `ginga rotation [list\|set\|add\|remove\|mode]` | the daily's languages and order, e.g. `ginga rotation add typescript cpp`, `ginga rotation mode ordered` |
 | `ginga commit [--yes] [--push]` | commit the workspace with a structured message built from your progress (plain git, **no Claude tokens**) |
 | `ginga push` | push the workspace, setting the upstream on the first push (plain git, **no Claude tokens**) |
@@ -422,6 +422,8 @@ kept in `.staging/_failed/` for inspection.
 | `ginga lang list` / `ginga lang add <name>` | profiles |
 | `ginga schedule install\|remove\|status` | systemd user timer |
 | `ginga doctor [--pull]` | check setup, pre-pull images |
+| `ginga doctor --prune [--all]` | remove images gingaloop built that no profile uses anymore (`--all`: every gingaloop image; official images are never touched) |
+| `ginga completion bash\|zsh` | shell completion: `source <(ginga completion zsh)` in your shell rc |
 | `ginga config [show\|get\|set\|unset]` | view or change `gingaloop.json` with type checks, e.g. `ginga config set claude.model opus` |
 | `ginga validate [dir] [--examples]` | validate a challenge or the built-in examples |
 

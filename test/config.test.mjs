@@ -80,3 +80,16 @@ test("every command has its own help; unknown commands fail", async () => {
   assert.match(spawnSync(process.execPath, [BIN, "help", "giveup"], { encoding: "utf8" }).stdout, /^ginga giveup/);
   assert.equal(spawnSync(process.execPath, [BIN, "frobnicate"], { encoding: "utf8" }).status, 2);
 });
+
+test("completion: valid bash that completes commands, languages and flags", async () => {
+  const { spawnSync } = await import("node:child_process");
+  const { completionScript } = await import("../src/help.mjs");
+  const script = completionScript("bash", ["python", "cpp"]);
+  const probe = `${script}
+COMP_WORDS=(ginga dis); COMP_CWORD=1; _ginga; echo "\${COMPREPLY[*]}"
+COMP_WORDS=(ginga new c); COMP_CWORD=2; _ginga; echo "\${COMPREPLY[*]}"
+COMP_WORDS=(ginga test --w); COMP_CWORD=2; _ginga; echo "\${COMPREPLY[*]}"`;
+  const r = spawnSync("bash", ["-c", probe], { encoding: "utf8" });
+  assert.equal(r.status, 0, r.stderr);
+  assert.deepEqual(r.stdout.trim().split("\n"), ["discard", "cpp", "--watch"]);
+});

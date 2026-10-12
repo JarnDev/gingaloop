@@ -1,12 +1,13 @@
 // Command implementations for `ginga`.
 import { spawn, spawnSync } from "node:child_process";
-import { appendFileSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, statSync, writeFileSync } from "node:fs";
+import { appendFileSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, statSync, watch, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { delimiter, isAbsolute, join, resolve, sep } from "node:path";
 import { createInterface } from "node:readline/promises";
 import {
   isLocked, listChallenges, pickChallenge, readHints, unlockChallenge, writeEditorFiles,
 } from "./challenges.mjs";
+import { completionScript } from "./help.mjs";
 import { bootstrapProfile, generateChallenge, parseClaudeCost, sandboxPrefix } from "./generate.mjs";
 import { resolveLevel, streakState } from "./levels.mjs";
 import { gateSummary, langLevel, promotionAreas, promotionDue } from "./progression.mjs";
@@ -15,7 +16,7 @@ import { allProfiles, findProfile, requireProfile } from "./profiles.mjs";
 import { appendEvent, challengeStatus, eventDate, readEvents, withoutDiscarded } from "./progress.mjs";
 import { gradeTarget, materialize, readManifest, validateTree } from "./runner.mjs";
 import { TYPE_IDS, choosePortSource, eligibleTypes, pickType, typeInfo } from "./types.mjs";
-import { engineAvailable, ensureImage, imagePresent, imageRef, makeTempDir, removeDir, runInSandbox } from "./sandbox.mjs";
+import { builtImages, engineAvailable, ensureImage, imagePresent, imageRef, makeTempDir, removeDir, removeImages, runInSandbox } from "./sandbox.mjs";
 import { refreshViews } from "./dashboard.mjs";
 import { allAreas, coverageCounts, findArea, pickArea, unlockedAreas } from "./coverage.mjs";
 import { STACK_MODES, hasEcosystem, pickStack, profileForStack, stackMode } from "./stacks.mjs";
@@ -348,16 +349,58 @@ export function chooseType(ws, config, events, profile, level, requested, { leve
 export async function cmdTest(positionals, opts) {
   const { ws, config } = ctx(opts);
   const c = pickChallenge(ws, positionals[0]);
-  console.log(`Testing ${c.manifest.id} (sandboxed) …\n`);
-  const r = await runStarter(ws, config, c);
-  console.log(tail(r.output));
-  const warn = readmeKeyWarning(c.dir);
-  if (warn) console.log(`\n⚠ ${warn}`);
-  if (r.passed) console.log("\n✔ All tests pass. Record it with `ginga done`.");
-  else {
-    console.log(`\n✘ Not passing yet${r.timedOut ? " (timed out)" : ""}.`);
-    process.exitCode = 1;
+  const once = async () => {
+    console.log(`Testing ${c.manifest.id} (sandboxed) …\n`);
+    const r = await runStarter(ws, config, c);
+    console.log(tail(r.output));
+    const warn = readmeKeyWarning(c.dir);
+    if (warn) console.log(`\n⚠ ${warn}`);
+    if (r.passed) console.log("\n✔ All tests pass. Record it with `ginga done`.");
+    else console.log(`\n✘ Not passing yet${r.timedOut ? " (timed out)" : ""}.`);
+    return r.passed;
+  };
+  if (!opts.watch) {
+    if (!(await once())) process.exitCode = 1;
+    return;
   }
+  await watchTests(c.dir, once);
+}
+
+// Editor temp files that shouldn't trigger a run (vim swap/backup, the 4913 probe, emacs locks).
+const EDITOR_NOISE = /(^|\/)(\.#|#.*#$|4913$)|\.sw[a-p]$|~$/;
+
+/** Rerun `run` whenever a file under starter/ or tests/ changes, until Ctrl+C. */
+function watchTests(dir, run) {
+  const watched = ["starter", "tests"].map((d) => join(dir, d)).filter((d) => existsSync(d));
+  let timer = null;
+  let running = false;
+  let again = false;
+  const trigger = async () => {
+    if (running) return void (again = true);
+    running = true;
+    process.stdout.write("\x1bc"); // clear the screen between runs
+    await run().catch((e) => console.error(e.message));
+    console.log("\n👀 Watching starter/ and tests/ (Ctrl+C to stop) …");
+    running = false;
+    if (again) {
+      again = false;
+      trigger();
+    }
+  };
+  const watchers = watched.map((d) => watch(d, { recursive: true }, (_event, file) => {
+    if (file && EDITOR_NOISE.test(String(file))) return;
+    clearTimeout(timer);
+    timer = setTimeout(trigger, 300);
+  }));
+  trigger();
+  return new Promise((resolvePromise) => {
+    process.once("SIGINT", () => {
+      for (const w of watchers) w.close();
+      clearTimeout(timer);
+      console.log("");
+      resolvePromise();
+    });
+  });
 }
 
 export async function cmdHint(positionals, opts) {
@@ -375,11 +418,16 @@ export async function cmdHint(positionals, opts) {
     return;
   }
   for (let i = 0; i < used; i++) console.log(`## Hint ${i + 1}\n${hints[i]}\n`);
-  console.log(`## Hint ${used + 1}\n${hints[used]}\n`);
-  appendEvent(ws, { type: "hint", id: c.manifest.id, lang: c.manifest.lang, level: c.manifest.level, hint: used + 1 });
-  refreshViews(ws);
   const hm = config.leveling.hintMultiplier;
   const pct = Math.round(hm[Math.min(used + 1, hm.length - 1)] * 100);
+  // Say what the hint costs before it's revealed, not after.
+  const costs = [`this solve drops to ${pct}% of its points`];
+  if (used + 1 === 2) costs.push("2 hints bring the challenge back as a review and break your clean streak");
+  if (c.manifest.promotion && used + 1 === 2) costs.push("a promotion needs at most 1 hint");
+  if (!(await confirm(`Reveal hint ${used + 1}/${hints.length}? (${costs.join("; ")})`, opts.yes))) return;
+  console.log(`\n## Hint ${used + 1}\n${hints[used]}\n`);
+  appendEvent(ws, { type: "hint", id: c.manifest.id, lang: c.manifest.lang, level: c.manifest.level, hint: used + 1 });
+  refreshViews(ws);
   console.log(`(${used + 1}/${hints.length} hints used · this solve is now worth ${pct}% of its points)`);
 }
 
@@ -534,6 +582,7 @@ export async function cmdRank(_positionals, opts) {
   refreshViews(ws); // keep README/INDEX current after config edits
   const langs = [...new Set([...rotationIds(ws, config), ...events.map((e) => e.lang).filter(Boolean)])];
   const st = streak(events);
+  if (opts.json) return console.log(JSON.stringify(rankData(ws, config, events, langs, st), null, 2));
   const freezes = st.freezes ? `  ·  ❄️ ${st.freezes} freeze${st.freezes === 1 ? "" : "s"}` : "";
   const next = 7 - (st.days % 7);
   console.log(`🔥 Streak: ${st.days} day${st.days === 1 ? "" : "s"}${freezes}  (next freeze in ${next} solve day${next === 1 ? "" : "s"}, max 2)`);
@@ -557,6 +606,29 @@ export async function cmdRank(_positionals, opts) {
   if (cost) console.log(`\n${cost}`);
 }
 
+/** `ginga rank --json`: the same facts as the text view, for scripts and dashboards. */
+function rankData(ws, config, events, langs, st) {
+  const weak = {};
+  for (const e of events.filter((x) => x.type === "gaveup")) for (const t of e.topics ?? []) weak[t] = (weak[t] ?? 0) + 1;
+  const paid = events.filter((e) => e.type === "generated" && Number.isFinite(e.costUsd));
+  const sum = (list) => Math.round(list.reduce((a, e) => a + e.costUsd, 0) * 100) / 100;
+  return {
+    streak: { days: st.days, freezes: st.freezes, frozeOn: st.frozeOn },
+    languages: langs.map((lang) => {
+      const s = langLevel(ws, config, events, lang);
+      const solved = events.filter((e) => e.type === "solved" && e.lang === lang);
+      const mins = solved.map((e) => e.minutes).filter(Number.isFinite);
+      return {
+        lang, level: s.level, points: s.points, nextAt: s.nextAt, gates: s.gates ?? null,
+        solved: solved.length, gaveUp: events.filter((e) => e.type === "gaveup" && e.lang === lang).length,
+        avgMinutes: mins.length ? Math.round(mins.reduce((a, b) => a + b, 0) / mins.length) : null,
+      };
+    }),
+    weakTopics: Object.fromEntries(Object.entries(weak).sort((a, b) => b[1] - a[1])),
+    claudeCostUsd: paid.length ? { total: sum(paid), last30Days: sum(paid.filter((e) => daysBetween(eventDate(e), today()) < 30)), generations: paid.length } : null,
+  };
+}
+
 /**
  * "Claude: $4.12 over 9 generations ($1.37 in the last 30 days)", from the cost recorded on each
  * generated event (discarded ones included: they were paid for). null when nothing was recorded.
@@ -574,6 +646,12 @@ export async function cmdList(_positionals, opts) {
   const { ws } = ctx(opts);
   const events = readEvents(ws);
   const all = listChallenges(ws);
+  if (opts.json) {
+    return console.log(JSON.stringify(all.map(({ manifest: m, dir }) => {
+      const s = challengeStatus(events, m.id);
+      return { id: m.id, title: m.title, date: m.date, lang: m.lang, level: m.level, type: m.type, status: s.status, hints: s.hints, dir };
+    }), null, 2));
+  }
   if (!all.length) return console.log("No challenges yet.");
   for (const { manifest: m } of all) {
     const s = challengeStatus(events, m.id);
@@ -716,6 +794,23 @@ export async function cmdCoverage(positionals, opts) {
   const { ws, config } = ctx(opts);
   const events = withoutDiscarded(readEvents(ws));
   const langs = positionals.length ? positionals.map((l) => requireProfile(ws, l).id) : rotationIds(ws, config);
+  if (opts.json) {
+    const out = langs.map((lang) => {
+      const profile = findProfile(ws, lang);
+      if (!profile) return { lang, profile: false };
+      const { level } = langLevel(ws, config, events, lang);
+      const counts = coverageCounts(events, lang);
+      const shown = hasEcosystem(profile) ? allAreas(profileForStack(profile, "ecosystem")) : allAreas(profile);
+      return {
+        lang, level,
+        areas: shown.map((a) => ({
+          id: a.id, name: a.name, minLevel: a.minLevel ?? 1, specific: a.specific, stack: a.stack ?? "basics",
+          unlocked: (a.minLevel ?? 1) <= level, challenges: counts.get(a.id) ?? 0,
+        })),
+      };
+    });
+    return console.log(JSON.stringify(out, null, 2));
+  }
   for (const lang of langs) {
     const profile = findProfile(ws, lang);
     if (!profile) {
@@ -778,6 +873,12 @@ export async function cmdConfig(positionals, opts) {
   if (key === "sandbox.engine" && value === "none" && !next.sandbox.allowUnsandboxed) {
     console.log("Note: engine none also needs `ginga config set sandbox.allowUnsandboxed true` (code then runs on your machine).");
   }
+}
+
+export async function cmdCompletion(positionals) {
+  const shell = positionals[0] ?? "bash";
+  if (!["bash", "zsh"].includes(shell)) throw new UserError("Usage: ginga completion bash|zsh");
+  process.stdout.write(completionScript(shell, allProfiles(null).map((p) => p.id)));
 }
 
 export async function cmdStack(positionals, opts) {
@@ -950,8 +1051,30 @@ function hasBin(bin) {
   return (process.env.PATH ?? "").split(delimiter).some((d) => d && existsSync(join(d, bin)));
 }
 
+/**
+ * `doctor --prune`: remove gingaloop-built images no current profile uses (older versions left by
+ * upgrades); with --all, every gingaloop image (they're rebuilt on the next run that needs them).
+ * Official images such as python:3.12-slim are never touched: other projects may use them.
+ */
+async function pruneImages(ws, config, opts) {
+  const inUse = new Set();
+  for (const p of allProfiles(ws)) {
+    for (const stack of hasEcosystem(p) ? ["basics", "ecosystem"] : ["basics"]) {
+      const sp = profileForStack(p, stack);
+      if (sp.image?.tag) inUse.add(sp.image.tag);
+    }
+  }
+  const images = builtImages(config.sandbox).filter((i) => opts.all || !inUse.has(i.ref));
+  if (!images.length) return console.log(opts.all ? "No gingaloop images to remove." : "No stale gingaloop images (add --all to remove the current ones too).");
+  for (const i of images) console.log(`  ${i.ref}  ${i.size}`);
+  if (!(await confirm(`Remove ${images.length} image${images.length === 1 ? "" : "s"}?${opts.all ? " They're rebuilt when next needed." : ""}`, opts.yes))) return;
+  const failed = removeImages(config.sandbox, images.map((i) => i.ref));
+  console.log(`Removed ${images.length - failed.length}.${failed.length ? `\nNot removed:\n  ${failed.join("\n  ")}` : ""}`);
+}
+
 export async function cmdDoctor(_positionals, opts) {
   const { ws, config } = ctxOrDefaults(opts);
+  if (opts.prune) return pruneImages(ws, config, opts);
   const line = (ok, label, detail = "") => console.log(`${ok ? "✔" : "✘"} ${label}${detail ? `: ${detail}` : ""}`);
   const [major, minor] = process.versions.node.split(".").map(Number);
   line(major > 22 || (major === 22 && minor >= 18), "node", process.versions.node);
