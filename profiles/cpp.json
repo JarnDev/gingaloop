@@ -35,13 +35,38 @@
       "minLevel": 2
     },
     {
+      "id": "lambdas",
+      "name": "Lambdas and captures",
+      "minLevel": 2
+    },
+    {
       "id": "raii",
       "name": "RAII and ownership (unique_ptr, rule of zero)",
       "minLevel": 3
     },
     {
+      "id": "smart-pointers",
+      "name": "Smart pointers (unique_ptr, shared_ptr, weak_ptr)",
+      "minLevel": 3
+    },
+    {
+      "id": "optional-expected",
+      "name": "std::optional and std::expected for fallible results",
+      "minLevel": 3
+    },
+    {
+      "id": "operator-overloading",
+      "name": "Operator overloading and comparison (<=>)",
+      "minLevel": 3
+    },
+    {
       "id": "move-semantics",
       "name": "Move semantics and the rule of five",
+      "minLevel": 4
+    },
+    {
+      "id": "inheritance-virtual",
+      "name": "Inheritance, virtual functions and interfaces",
       "minLevel": 4
     },
     {
@@ -58,6 +83,11 @@
       "id": "variant-visit",
       "name": "std::variant and visit",
       "minLevel": 5
+    },
+    {
+      "id": "constexpr",
+      "name": "constexpr and compile-time computation",
+      "minLevel": 6
     },
     {
       "id": "exception-safety",

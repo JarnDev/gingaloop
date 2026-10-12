@@ -18,6 +18,11 @@
   },
   "areas": [
     {
+      "id": "types-interfaces",
+      "name": "Types, interfaces and strict null checks",
+      "minLevel": 1
+    },
+    {
       "id": "unions-narrowing",
       "name": "Union types and narrowing",
       "minLevel": 2
@@ -25,6 +30,11 @@
     {
       "id": "readonly",
       "name": "readonly and immutability in types",
+      "minLevel": 2
+    },
+    {
+      "id": "utility-types",
+      "name": "Utility types (Partial, Pick, Omit, Record, ReturnType)",
       "minLevel": 2
     },
     {
@@ -36,6 +46,16 @@
       "id": "type-guards",
       "name": "Type guards and assertion functions",
       "minLevel": 3
+    },
+    {
+      "id": "satisfies-const",
+      "name": "satisfies, as const and literal inference",
+      "minLevel": 3
+    },
+    {
+      "id": "overloads",
+      "name": "Function overloads and generic constraints",
+      "minLevel": 4
     },
     {
       "id": "branded-types",

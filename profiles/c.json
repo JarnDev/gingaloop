@@ -40,6 +40,11 @@
       "minLevel": 2
     },
     {
+      "id": "const-correctness",
+      "name": "const correctness and safe function contracts",
+      "minLevel": 2
+    },
+    {
       "id": "dynamic-memory",
       "name": "malloc/realloc/free and growth strategies",
       "minLevel": 3
@@ -50,9 +55,34 @@
       "minLevel": 3
     },
     {
+      "id": "safe-parsing",
+      "name": "Safe input parsing (strtol, strtod, sscanf limits)",
+      "minLevel": 3
+    },
+    {
+      "id": "unions-enums",
+      "name": "Unions, enums and tagged unions",
+      "minLevel": 3
+    },
+    {
       "id": "function-pointers",
       "name": "Function pointers and callbacks",
       "minLevel": 4
+    },
+    {
+      "id": "preprocessor",
+      "name": "The preprocessor (macros, X-macros, include guards)",
+      "minLevel": 4
+    },
+    {
+      "id": "undefined-behavior",
+      "name": "Undefined behavior (overflow, aliasing, sequencing) and how to avoid it",
+      "minLevel": 5
+    },
+    {
+      "id": "variadic-functions",
+      "name": "Variadic functions (stdarg)",
+      "minLevel": 5
     },
     {
       "id": "allocators",

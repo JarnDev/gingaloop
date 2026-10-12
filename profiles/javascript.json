@@ -18,6 +18,16 @@
   },
   "areas": [
     {
+      "id": "array-methods",
+      "name": "Array methods (map, filter, reduce, flatMap, sort with comparators)",
+      "minLevel": 1
+    },
+    {
+      "id": "destructuring-spread",
+      "name": "Destructuring, spread and default parameters",
+      "minLevel": 1
+    },
+    {
       "id": "immutability",
       "name": "Immutability and copying (spread, structuredClone)",
       "minLevel": 2
@@ -25,6 +35,11 @@
     {
       "id": "closures-scope",
       "name": "Closures and scope",
+      "minLevel": 2
+    },
+    {
+      "id": "maps-sets-weak",
+      "name": "Map, Set, WeakMap and WeakRef",
       "minLevel": 2
     },
     {

@@ -11,11 +11,18 @@ export function genericAreas() {
   return generic;
 }
 
-/** All areas for a profile (profile areas first; they override generic ones with the same id). */
+/**
+ * All areas for a profile (profile areas first; they override generic ones with the same id).
+ * A profile may list `genericAreas` (ids) to keep only the generic areas that make sense for it:
+ * SQL has no heaps or linked lists, and the breadth gate must not require them.
+ */
 export function allAreas(profile) {
   const byId = new Map();
+  const keep = Array.isArray(profile.genericAreas) ? new Set(profile.genericAreas) : null;
   for (const a of profile.areas ?? []) byId.set(a.id, { ...a, specific: true });
-  for (const a of genericAreas()) if (!byId.has(a.id)) byId.set(a.id, { ...a, specific: false });
+  for (const a of genericAreas()) {
+    if (!byId.has(a.id) && (!keep || keep.has(a.id))) byId.set(a.id, { ...a, specific: false });
+  }
   return [...byId.values()];
 }
 

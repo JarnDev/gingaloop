@@ -23,6 +23,11 @@
       "minLevel": 1
     },
     {
+      "id": "path-url",
+      "name": "path, url and URLSearchParams",
+      "minLevel": 1
+    },
+    {
       "id": "buffers-encoding",
       "name": "Buffers and encodings",
       "minLevel": 2
@@ -33,13 +38,28 @@
       "minLevel": 2
     },
     {
+      "id": "cli-process",
+      "name": "CLI tools (argv, env, stdin/stdout, exit codes)",
+      "minLevel": 2
+    },
+    {
       "id": "streams",
       "name": "Streams and backpressure",
       "minLevel": 3
     },
     {
+      "id": "http-core",
+      "name": "node:http servers and clients without a framework",
+      "minLevel": 3
+    },
+    {
       "id": "timers-abort",
       "name": "Timers, AbortController and cancellation",
+      "minLevel": 4
+    },
+    {
+      "id": "crypto",
+      "name": "node:crypto (hashing, HMAC, random IDs, timing-safe compare)",
       "minLevel": 4
     },
     {

@@ -18,14 +18,39 @@
   },
   "areas": [
     {
-      "id": "iterators-generators",
-      "name": "Iterators and generators",
-      "minLevel": 3
+      "id": "comprehensions-slicing",
+      "name": "Comprehensions, slicing and unpacking",
+      "minLevel": 1
+    },
+    {
+      "id": "collections-module",
+      "name": "collections (Counter, defaultdict, deque, namedtuple)",
+      "minLevel": 1
     },
     {
       "id": "functools-itertools",
       "name": "functools, itertools and collections",
       "minLevel": 2
+    },
+    {
+      "id": "pathlib-io",
+      "name": "Files and paths (pathlib, io, csv, json)",
+      "minLevel": 2
+    },
+    {
+      "id": "iterators-generators",
+      "name": "Iterators and generators",
+      "minLevel": 3
+    },
+    {
+      "id": "pattern-matching",
+      "name": "Structural pattern matching (match/case)",
+      "minLevel": 3
+    },
+    {
+      "id": "data-model",
+      "name": "The data model (dunder methods, equality, hashing, ordering)",
+      "minLevel": 3
     },
     {
       "id": "dataclasses-protocols",
@@ -46,6 +71,11 @@
       "id": "asyncio",
       "name": "asyncio (tasks, cancellation, ordering)",
       "minLevel": 6
+    },
+    {
+      "id": "descriptors-metaclasses",
+      "name": "Descriptors, __init_subclass__ and metaclasses",
+      "minLevel": 7
     }
   ],
   "stacks": {
@@ -81,6 +111,11 @@
         {
           "id": "missing-data",
           "name": "Missing data, dtypes and cleaning in pandas",
+          "minLevel": 2
+        },
+        {
+          "id": "pytest-fixtures",
+          "name": "pytest fixtures and parametrize",
           "minLevel": 2
         },
         {

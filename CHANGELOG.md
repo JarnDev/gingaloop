@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **More practice areas:** every level from 1 to 10 now opens generic areas (L5, L9 and L10 had
+  none): linked lists, greedy, prefix sums, grids, regex, money and floating point, dates and time
+  zones, tries and string algorithms, union-find, range queries, streaming, storage engines,
+  distributed-systems patterns, runtimes and query engines. Each built-in language gains its missing
+  staples (C++ smart pointers and lambdas, Python comprehensions and the data model, TS utility
+  types, React custom hooks, SQL subqueries and transactions, and more). New areas count toward the
+  breadth gate of your current level.
+- **`genericAreas` in a profile** keeps only the generic areas that make sense for the language; SQL
+  and React use it, so their breadth gate no longer requires heaps or linked lists.
 - `ginga init` also ignores `node_modules/` in the workspace (editor installs for type checking or
   autocomplete in JS/TS challenges); existing workspaces get the line on their next `init`.
 - **Mastery gates:** reaching the next level needs the points **and** a clean solve (<= 1 hint, not

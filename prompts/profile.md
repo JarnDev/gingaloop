@@ -32,6 +32,9 @@ Rules:
   `[{ "id": "kebab-case", "name": "Human name", "minLevel": 1-10 }]`. Examples for C:
   `pointers-arrays` (1), `dynamic-memory` (3), `allocators` (6). Cover the language's signature
   mechanics: ownership, concurrency model, type system features, standard library staples.
+- `genericAreas`: optional; only for languages where most generic areas make no sense (a query
+  language, a UI framework): the ids of the generic areas to keep, e.g. `["intervals", "graphs"]`.
+  Omit it for general-purpose languages.
 - `levelNotes`: optional per-level hints for this language on the 1–10 scale ({"1": "...", "5": "..."}).
 
 # example/

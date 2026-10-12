@@ -29,6 +29,11 @@
       "minLevel": 2
     },
     {
+      "id": "composition-children",
+      "name": "Composition (children, render props, compound components)",
+      "minLevel": 2
+    },
+    {
       "id": "effects-and-data",
       "name": "Effects and data loading (loading, error, cancel)",
       "minLevel": 3
@@ -36,6 +41,16 @@
     {
       "id": "accessibility",
       "name": "Accessibility (roles, labels, keyboard navigation)",
+      "minLevel": 3
+    },
+    {
+      "id": "custom-hooks",
+      "name": "Custom hooks",
+      "minLevel": 3
+    },
+    {
+      "id": "refs-focus",
+      "name": "Refs, uncontrolled inputs and focus management",
       "minLevel": 3
     },
     {
@@ -47,7 +62,23 @@
       "id": "performance-react",
       "name": "Rendering performance (memo, useMemo, avoiding re-renders)",
       "minLevel": 5
+    },
+    {
+      "id": "error-boundaries",
+      "name": "Error boundaries and failure states",
+      "minLevel": 5
+    },
+    {
+      "id": "suspense-transitions",
+      "name": "Suspense, lazy loading and transitions",
+      "minLevel": 6
     }
+  ],
+  "genericAreas": [
+    "error-handling",
+    "simulation",
+    "caching",
+    "api-design"
   ],
   "editorFiles": {}
 }

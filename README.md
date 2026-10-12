@@ -240,7 +240,10 @@ point-chasing [distract from learning](https://arxiv.org/abs/2203.16175).
 Every challenge targets a **practice area**. There are generic ones (strings, hashing, parsing, trees,
 graphs, dynamic programming, concurrency…, in [`prompts/areas.json`](https://github.com/JarnDev/gingaloop/blob/main/prompts/areas.json)) plus areas
 specific to each language (C pointers and memory, Node streams, TypeScript generics, C++ move
-semantics…, in each profile). Each area has a minimum level, so graphs don't show up at L1.
+semantics…, in each profile). Each area has a minimum level, so graphs don't show up at L1, and
+every level from 1 to 10 opens new ones, up to storage engines, runtimes and query engines at the
+top. SQL and React keep only the generic areas that make sense for them (`genericAreas` in the
+profile), so the breadth gate never asks a query for a linked list.
 
 The generator picks the **least-covered area unlocked at your level** (ties at random), so practice
 spreads out instead of circling a few favorite topics. Reviews keep the area of the challenge you gave
