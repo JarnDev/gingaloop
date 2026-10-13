@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.5.0 (2026-10-13)
 
 - **`ginga learn`** turns a review's findings about the challenge itself (a wrong reference, a
   promise no test checks, an ambiguous README) into rules. They go to the workspace's `LESSONS.md`,
