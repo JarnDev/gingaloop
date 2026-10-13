@@ -25,7 +25,7 @@ import { ROTATION_MODES, bagState, nextOrdered, pickDailyLang } from "./rotation
 import { installSchedule, removeSchedule, scheduleStatus } from "./schedule.mjs";
 import { buildCommitMessage, ensureRepo, git, pushWorkspace, stagedFiles, stagedNewEvents } from "./gitops.mjs";
 import { VaultKeyError, readBundle } from "./vault.mjs";
-import { PACE_DEFAULTS, paceFor, paceReport, solvePace } from "./pace.mjs";
+import { PACE_DEFAULTS, PACE_FOOTNOTE, paceFor, paceLabel, paceReport, solvePace } from "./pace.mjs";
 import { dueReview, openReview, reviewCycles, reviewOpts, reviewSummary } from "./reviews.mjs";
 import {
   IMPROVEMENTS_FILE, LESSONS_FILE, addImprovements, addLessons, builtInRules, issueUrl, latestReview, learnPrompt, learnedFrom, parseLearnResult, readLessons,
@@ -599,35 +599,74 @@ export async function cmdRank(_positionals, opts) {
   const langs = [...new Set([...rotationIds(ws, config), ...events.map((e) => e.lang).filter(Boolean)])];
   const st = streak(events);
   if (opts.json) return console.log(JSON.stringify(rankData(ws, config, events, langs, st), null, 2));
-  const freezes = st.freezes ? `  ·  ❄️ ${st.freezes} freeze${st.freezes === 1 ? "" : "s"}` : "";
+  const freezes = st.freezes ? ` · ❄️ ${st.freezes} freeze${st.freezes === 1 ? "" : "s"}` : "";
   const next = 7 - (st.days % 7);
-  console.log(`🔥 Streak: ${st.days} day${st.days === 1 ? "" : "s"}${freezes}  (next freeze in ${next} solve day${next === 1 ? "" : "s"}, max 2)`);
+  console.log(`🔥 Streak ${st.days} day${st.days === 1 ? "" : "s"}${freezes} · next freeze in ${next} solve day${next === 1 ? "" : "s"} (max 2)`);
   if (st.frozeOn.length) console.log(`   freezes used on ${st.frozeOn.join(", ")}`);
-  console.log("");
-  for (const lang of langs) {
-    const s = langLevel(ws, config, events, lang);
-    const solved = events.filter((e) => e.type === "solved" && e.lang === lang);
-    const gaveup = events.filter((e) => e.type === "gaveup" && e.lang === lang);
-    const mins = solved.map((e) => e.minutes).filter((x) => Number.isFinite(x));
-    const avg = mins.length ? `${Math.round(mins.reduce((a, b) => a + b, 0) / mins.length)} min avg` : "";
-    const ecoSolved = solved.filter((e) => generatedEvent(events, e.id)?.stack === "ecosystem").length;
-    const split = ecoSolved ? ` (${solved.length - ecoSolved} basics · ${ecoSolved} ecosystem)` : "";
-    const pace = paceFor(events, lang, config.pace);
-    const paceNote = pace.basis ? `  pace ×${pace.factor}${pace.basis === "lang" ? "" : " (all languages)"}` : "";
-    console.log(`${lang.padEnd(12)} ${levelLine(s, config.leveling).padEnd(52)} ${solved.length} solved${split}, ${gaveup.length} gave up  ${avg}${paceNote}`);
-  }
-  const overall = paceFor(events, null, config.pace);
-  console.log(overall.calibrated
-    ? "\nPace = your time ÷ Claude's estimate (median of recent clean solves): ×2 means you usually take twice the estimate."
-    : `\nPace calibrates after ${PACE_DEFAULTS.minSolves} clean timed solves (${overall.solves} so far); until then time alone never triggers a review.`);
   const reviewLine = reviewSummary(events, config);
   if (reviewLine) console.log(reviewLine);
+  console.log("");
+
+  const rows = langs.map((lang) => {
+    const s = langLevel(ws, config, events, lang);
+    const solved = events.filter((e) => e.type === "solved" && e.lang === lang);
+    const mins = solved.map((e) => e.minutes).filter(Number.isFinite);
+    const eco = solved.filter((e) => generatedEvent(events, e.id)?.stack === "ecosystem").length;
+    const floor = s.level === 1 ? 0 : config.leveling.thresholds[s.level - 2];
+    const atMax = s.level >= s.max;
+    return {
+      s, atMax, name: findProfile(ws, lang)?.name ?? lang,
+      share: atMax ? 1 : (Math.min(s.points, s.nextAt) - floor) / (s.nextAt - floor),
+      progress: atMax ? `max level · ${s.points} pts` : `${bar(Math.min(s.points, s.nextAt) - floor, s.nextAt - floor)}  ${s.points}/${s.nextAt}`,
+      solved: `${solved.length}${eco ? ` (${eco} ⚙)` : ""}`,
+      gaveUp: String(events.filter((e) => e.type === "gaveup" && e.lang === lang).length),
+      avg: mins.length ? `${Math.round(mins.reduce((a, b) => a + b, 0) / mins.length)} min` : "–",
+      pace: paceLabel(paceFor(events, lang, config.pace)),
+    };
+  }).sort((a, b) => b.s.level - a.s.level || b.share - a.share);
+  console.log(table(
+    ["Language", "Level", "Progress", "Solved", "Gave up", "Avg time", "Pace"],
+    rows.map((r) => [r.name, `L${r.s.level}`, r.progress, r.solved, r.gaveUp, r.avg, r.pace]),
+    ["left", "left", "left", "right", "right", "right", "left"],
+  ));
+  const needs = rows.filter((r) => !r.atMax);
+  if (needs.length) {
+    console.log("\nStill needed for the next level");
+    const w = Math.max(...needs.map((r) => r.name.length));
+    for (const r of needs) console.log(`  ${r.name.padEnd(w)}  ${stillNeeded(r.s)}`);
+  }
+  console.log(`\n${PACE_FOOTNOTE}`);
+  const overall = paceFor(events, null, config.pace);
+  if (!overall.calibrated) console.log(`Pace calibrates after ${PACE_DEFAULTS.minSolves} clean timed solves (${overall.solves} so far); until then time alone never triggers a review.`);
   const weak = {};
   for (const e of events.filter((x) => x.type === "gaveup")) for (const t of e.topics ?? []) weak[t] = (weak[t] ?? 0) + 1;
   const top = Object.entries(weak).sort((a, b) => b[1] - a[1]).slice(0, 5);
-  if (top.length) console.log(`\nWeak topics: ${top.map(([t, n]) => `${t} (${n})`).join(", ")}`);
+  console.log(`Weak topics: ${top.length ? top.map(([t, n]) => `${t} (${n})`).join(", ") : "none yet"}`);
   const cost = costSummary(events, today());
-  if (cost) console.log(`\n${cost}`);
+  if (cost) console.log(cost);
+}
+
+/** "300 pts · areas: a, b, c (+1) · clean streak 1/3", or the promotion state. */
+export function stillNeeded(s, maxAreas = 3) {
+  const g = s.gates;
+  const parts = [s.needed > 0 ? `${s.needed} pts` : "points done"];
+  if (g?.promotionPending) parts.push(gateSummary(s));
+  else if (g) {
+    if (g.areasMissing.length) {
+      const more = g.areasMissing.length - maxAreas;
+      parts.push(`areas: ${g.areasMissing.slice(0, maxAreas).join(", ")}${more > 0 ? ` (+${more})` : ""}`);
+    }
+    if (g.streak < g.streakNeeded) parts.push(`clean streak ${g.streak}/${g.streakNeeded}`);
+  }
+  return parts.join(" · ");
+}
+
+/** A plain-text table: header, a rule, rows; columns padded to their widest cell. */
+export function table(header, rows, align = []) {
+  const width = header.map((h, i) => Math.max(h.length, ...rows.map((r) => String(r[i]).length)));
+  const cell = (v, i) => (align[i] === "right" ? String(v).padStart(width[i]) : String(v).padEnd(width[i]));
+  const line = (r) => r.map(cell).join("  ").trimEnd();
+  return [line(header), width.map((w) => "─".repeat(w)).join("  "), ...rows.map(line)].join("\n");
 }
 
 /** `ginga rank --json`: the same facts as the text view, for scripts and dashboards. */

@@ -13,6 +13,8 @@
   time ÷ estimate over recent clean solves), what it took and the difference, on a bar with an
   "on pace" band (`pace.tolerance`, ±25%) and a struggle line (`pace.struggle`, +50%). `rank` shows
   the pace per language and the dashboard expected vs. actual per challenge.
+- `ginga rank` is a table now (level, progress, solved, gave up, average time, pace), sorted by
+  progress, with "still needed for the next level" as its own section and the review status up top.
 - **Struggle** is now measured against your own pace instead of "twice Claude's estimate", which
   flagged ordinary solves (the estimates run low), and time alone only counts after 5 clean timed
   solves. 2+ hints still count from the start.

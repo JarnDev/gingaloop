@@ -99,6 +99,13 @@ export function isStruggle(events, solved, opts = {}) {
   return solvePace(events, solved, opts)?.band === "struggle";
 }
 
+/** "×2.1", "×1.75*" (* = all languages: too few clean solves in this one), or "–". */
+export function paceLabel(p) {
+  return p.basis === "lang" ? `×${p.factor}` : p.basis === "all" ? `×${p.factor}*` : "–";
+}
+
+export const PACE_FOOTNOTE = "Pace = your time ÷ Claude's estimate (×2 = twice the estimate). * all languages: fewer than 3 clean solves in that one.";
+
 const BAND_ICON = { faster: "🟢", "on pace": "🟢", slower: "🟡", struggle: "🔴" };
 
 /** "42 min · expected 31 (+36%) 🟡" for tables. */

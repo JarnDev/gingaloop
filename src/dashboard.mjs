@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { listChallenges, writeIndex } from "./challenges.mjs";
 import { coverageCounts, unlockedAreas } from "./coverage.mjs";
 import { streakState } from "./levels.mjs";
-import { paceCell, paceFor, solvePace } from "./pace.mjs";
+import { PACE_FOOTNOTE, paceCell, paceFor, paceLabel, solvePace } from "./pace.mjs";
 import { reviewSummary } from "./reviews.mjs";
 import { gateSummary, langLevel } from "./progression.mjs";
 import { findProfile } from "./profiles.mjs";
@@ -96,8 +96,7 @@ export function renderDashboard(ws, config, date = today()) {
     const eco = solved.filter((e) => generatedStack.get(e.id) === "ecosystem").length;
     const m = solved.map((e) => e.minutes).filter(Number.isFinite);
     const avg = m.length ? `${Math.round(m.reduce((a, b) => a + b, 0) / m.length)} min` : "–";
-    const pace = paceFor(events, lang, config.pace);
-    const paceText = pace.basis === "lang" ? `×${pace.factor}` : "–";
+    const paceText = paceLabel(paceFor(events, lang, config.pace));
     return `| ${p?.name ?? lang} | L${s.level} | ${progress} | ${solved.length}${eco ? ` (${eco} ⚙)` : ""} | ${avg} | ${paceText} |`;
   });
 
@@ -136,6 +135,8 @@ export function renderDashboard(ws, config, date = today()) {
     "| Language | Level | Progress to next | Solved | Avg time | Pace |",
     "|---|---|---|---|---|---|",
     ...levelRows,
+    "",
+    `<sub>${PACE_FOOTNOTE}</sub>`,
     "",
     `## Activity (last ${WEEKS} weeks)`,
     "",
