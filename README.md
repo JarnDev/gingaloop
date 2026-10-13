@@ -232,9 +232,30 @@ gates existed are kept.
   more levels below is 20× slower than playing at your level.
 - **Reviews** (a new problem on the same idea) come back **3, 7 and 21 days** later, spaced the way
   memory research recommends, for every challenge you gave up on **or struggled with** (2+ hints, or
-  more than twice the estimated time). If the machine was off, they come on the first daily after.
+  a time far above your own pace, see below). A review is an **extra**, optional challenge next to
+  the daily one, so the rotation never stalls, and there's never more than one open: the next waits
+  until you finish it. Struggling with a review (or giving it up) adds one more step to the same
+  cycle, 14 days after the last (3/7/21 → 3/7/21/35); a review never starts a cycle of its own. If
+  the machine was off, reviews come on the first daily after.
 - Levels are recomputed from `progress.jsonl`, so tuning `leveling` in `gingaloop.json` re-scores
   your history.
+
+**Pace.** Claude estimates each challenge's time, but estimates are rarely right for *you*. Your
+pace is the median of your time ÷ the estimate over your recent clean solves (per language once you
+have 3 there), so `expected = estimate × pace`. `ginga done` shows it:
+
+```
+✔ Solved Hop around a ring.  +100 points
+  expected   31 min   (estimate 20 × your pace 1.54)
+  took       42 min   +11 min (+35%)
+  0 ───────────┆──────┆─●─╎─────── 2×   ┆ on pace ±25%  ╎ struggle +50%
+  → slower than usual (no review)
+```
+
+Within ±25% (`pace.tolerance`) is on pace; more than 50% over (`pace.struggle`) is a struggle and
+brings the topic back as a review. Time alone counts only after 5 clean timed solves, when the
+pace means something; hints and give-ups count from day one. `ginga rank` shows your pace per
+language and the dashboard shows expected vs. actual for each recent challenge.
 
 **Streak.** Count of consecutive days with at least one solve. Every 7 solve days earns a
 ❄️ **freeze** (hold up to 2); a missed day uses one automatically instead of breaking the streak.
@@ -484,6 +505,8 @@ Every command has its own help: `ginga <command> --help` or `ginga help <command
     "promotionRetryDays": 3
   },
   "reviewAfterDays": [3, 7, 21],
+  "reviewExtendDays": 14,
+  "pace": { "tolerance": 0.25, "struggle": 0.5 },
   "schedule": { "time": "08:00" },
   "claude": { "command": "claude", "model": null, "timeoutMinutes": 20, "retries": 1, "maxBudgetUsd": null },
   "sandbox": { "engine": "docker", "memory": "1g", "cpus": "2", "pidsLimit": 256, "timeoutSeconds": 120 }

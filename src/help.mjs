@@ -19,8 +19,9 @@ Generate a challenge now (uses Claude). Every option is optional:
 
   daily: `ginga daily [--force]
 
-Today's challenge (uses Claude): a due review first, else a promotion when your gates are met, else
-the next language from the rotation. Runs once per day; --force makes another. This is what the
+Today's challenge (uses Claude): the next language from the rotation, or a promotion when your gates
+are met. When a review is due and no other review is open, it also makes the review, as an
+optional extra. Runs once per day; --force makes another rotation challenge. This is what the
 systemd timer runs.`,
 
   open: `ginga open [id]
@@ -41,7 +42,9 @@ Reveal the next hint, after saying what it costs (--yes skips the question). Rec
   done: `ginga done [id] [--minutes N]
 
 Run the tests; when they pass, record the solve (points, streak, gates) and unlock the reference
-solution and explanation. Asks for the minutes spent, suggesting the time since your first \`open\`.`,
+solution and explanation. Asks for the minutes spent, suggesting the time since your first \`open\`,
+then compares them with the expected time (Claude's estimate × your pace): on pace within
+±pace.tolerance, a struggle (the topic comes back as a review) above +pace.struggle.`,
 
   giveup: `ginga giveup [id] [--yes]
 
@@ -72,8 +75,9 @@ rule without asking. Default id: the newest reviewed challenge nothing was learn
 
   rank: `ginga rank [--json]
 
-Per language: level, points to the next one and what the gates still need, solves, give-ups and
-average time. Also your streak and freezes, weak topics and what Claude has cost so far.
+Per language: level, points to the next one and what the gates still need, solves, give-ups,
+average time and pace (your time ÷ Claude's estimate). Also your streak and freezes, the review
+that's open, due or next, weak topics and what Claude has cost so far.
 --json prints the same facts as JSON, for scripts.`,
 
   coverage: `ginga coverage [lang…] [--json]

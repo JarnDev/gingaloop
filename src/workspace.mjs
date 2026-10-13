@@ -33,8 +33,13 @@ export const DEFAULT_CONFIG = Object.freeze({
     promotion: true,
     promotionRetryDays: 3,
   },
-  // Days after a give-up when the topic comes back as a review challenge.
+  // Days after a give-up or a struggle when the topic comes back as a review challenge; struggling
+  // with a review (or giving it up) adds one more step reviewExtendDays after the last.
   reviewAfterDays: [3, 7, 21],
+  reviewExtendDays: 14,
+  // Time vs. expected (Claude's estimate × your pace): ± tolerance is "on pace"; over by more than
+  // `struggle` is a struggle, once your pace is calibrated.
+  pace: { tolerance: 0.25, struggle: 0.5 },
   schedule: { time: "08:00" },
   // maxBudgetUsd: spending cap per Claude call (a generation makes 1 + retries calls); null = none.
   claude: { command: "claude", model: null, timeoutMinutes: 20, retries: 1, maxBudgetUsd: null },
@@ -146,6 +151,7 @@ export function loadConfig(ws) {
     leveling: { ...DEFAULT_CONFIG.leveling, ...raw.leveling },
     schedule: { ...DEFAULT_CONFIG.schedule, ...raw.schedule },
     claude: { ...DEFAULT_CONFIG.claude, ...raw.claude },
+    pace: { ...DEFAULT_CONFIG.pace, ...raw.pace },
     sandbox: { ...DEFAULT_CONFIG.sandbox, ...raw.sandbox },
   };
 }
@@ -162,6 +168,9 @@ export const CONFIG_KEYS = {
   "leveling.promotion": "boolean",
   "leveling.promotionRetryDays": "integer",
   reviewAfterDays: "numbers",
+  reviewExtendDays: "integer",
+  "pace.tolerance": "number",
+  "pace.struggle": "number",
   "claude.command": "string",
   "claude.model": "string?",
   "claude.timeoutMinutes": "number",

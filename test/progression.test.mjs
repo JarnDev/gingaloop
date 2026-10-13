@@ -62,9 +62,10 @@ test("without a gate (old callers), points alone decide, as before", () => {
 test("struggled solves come back for review at 3, 7 and 21 days", () => {
   const gen = { type: "generated", id: "x", lang: "py", level: 1, title: "X", estMinutes: 20, date: "2026-10-01", ts: "2026-10-01T08:00:00Z" };
   const hinted = { type: "solved", id: "x", lang: "py", level: 1, hints: 2, date: "2026-10-01", ts: "2026-10-01T20:00:00Z" };
-  assert.ok(isStruggle(hinted, gen));
-  assert.ok(isStruggle({ ...hinted, hints: 0, minutes: 41 }, gen), "more than twice the estimate");
-  assert.ok(!isStruggle({ ...hinted, hints: 1, minutes: 40 }, gen));
+  assert.ok(isStruggle([gen, hinted], hinted));
+  const slow = { ...hinted, hints: 0, minutes: 90 };
+  assert.ok(!isStruggle([gen, slow], slow), "time alone needs a calibrated pace");
+  assert.ok(!isStruggle([gen, { ...hinted, hints: 1 }], { ...hinted, hints: 1 }));
   assert.equal(dueReview([gen, hinted], [3, 7, 21], "2026-10-03"), null);
   assert.equal(dueReview([gen, hinted], [3, 7, 21], "2026-10-04")?.id, "x");
   const r1 = { type: "generated", id: "r1", reviewOf: "x", date: "2026-10-04", ts: "2026-10-04T08:00:00Z" };

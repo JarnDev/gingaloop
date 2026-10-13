@@ -9,6 +9,19 @@
   (`--report`), reviewed by you before submitting. `ginga commit` lists them (`learn 1`).
 - Generation prompt: references must be exact across the whole numeric range README.md allows, and
   tests must use its extremes (a review caught a TypeScript reference that lost precision above 2^53).
+- **Pace:** `ginga done` shows the expected time (Claude's estimate × your pace, the median of your
+  time ÷ estimate over recent clean solves), what it took and the difference, on a bar with an
+  "on pace" band (`pace.tolerance`, ±25%) and a struggle line (`pace.struggle`, +50%). `rank` shows
+  the pace per language and the dashboard expected vs. actual per challenge.
+- **Struggle** is now measured against your own pace instead of "twice Claude's estimate", which
+  flagged ordinary solves (the estimates run low), and time alone only counts after 5 clean timed
+  solves. 2+ hints still count from the start.
+- **Reviews are an extra, never a replacement:** `daily` always makes the rotation's challenge, plus
+  the due review when no other review is open. Before, reviews took the daily's place and could
+  starve the rotation for days.
+- **One review cycle per topic:** struggling with a review (or giving it up) extends the original's
+  cycle by `reviewExtendDays` (14) after its last step, instead of starting a new 3/7/21 cycle of
+  its own. Reviews of reviews point back to the original.
 - `ginga review` points at `ginga learn` when it's done.
 - Releases: the workflow also creates the GitHub release from the CHANGELOG section. A "lesson" issue
   form, and CONTRIBUTING explains how lessons become fixes.

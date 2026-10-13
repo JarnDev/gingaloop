@@ -215,7 +215,7 @@ export async function generateChallenge({ ws, config, profile, level, area, type
     LESSONS: lessonsFor(ws, profile.id),
     AREA: area ? `${area.name} (area id \`${area.id}\`)` : "any",
     REVIEW: reviewOf
-      ? `This is a REVIEW challenge: the user gave up on "${reviewOf.title}" (topics: ${(reviewOf.topics ?? []).join(", ")}). ` +
+      ? `This is a REVIEW challenge: the user gave up on or struggled with "${reviewOf.title}" (topics: ${(reviewOf.topics ?? []).join(", ")}). ` +
         "Write a NEW problem that exercises the same core idea from a different angle. Do not reuse its statement."
       : "Not a review challenge.",
     STACK: profile.stack === "ecosystem"

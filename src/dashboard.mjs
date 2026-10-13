@@ -5,6 +5,8 @@ import { join } from "node:path";
 import { listChallenges, writeIndex } from "./challenges.mjs";
 import { coverageCounts, unlockedAreas } from "./coverage.mjs";
 import { streakState } from "./levels.mjs";
+import { paceCell, paceFor, solvePace } from "./pace.mjs";
+import { reviewSummary } from "./reviews.mjs";
 import { gateSummary, langLevel } from "./progression.mjs";
 import { findProfile } from "./profiles.mjs";
 import { challengeStatus, eventDate, readEvents, withoutDiscarded } from "./progress.mjs";
@@ -94,7 +96,9 @@ export function renderDashboard(ws, config, date = today()) {
     const eco = solved.filter((e) => generatedStack.get(e.id) === "ecosystem").length;
     const m = solved.map((e) => e.minutes).filter(Number.isFinite);
     const avg = m.length ? `${Math.round(m.reduce((a, b) => a + b, 0) / m.length)} min` : "–";
-    return `| ${p?.name ?? lang} | L${s.level} | ${progress} | ${solved.length}${eco ? ` (${eco} ⚙)` : ""} | ${avg} |`;
+    const pace = paceFor(events, lang, config.pace);
+    const paceText = pace.basis === "lang" ? `×${pace.factor}` : "–";
+    return `| ${p?.name ?? lang} | L${s.level} | ${progress} | ${solved.length}${eco ? ` (${eco} ⚙)` : ""} | ${avg} | ${paceText} |`;
   });
 
   const coverageRows = langs.flatMap((lang) => {
@@ -113,7 +117,7 @@ export function renderDashboard(ws, config, date = today()) {
   const recent = challenges.slice(-10).reverse().map(({ manifest: m }) => {
     const s = challengeStatus(events, m.id);
     const solve = solvedEvents.find((e) => e.id === m.id);
-    const time = Number.isFinite(solve?.minutes) ? `${solve.minutes} min` : "";
+    const time = paceCell(solve && solvePace(events, solve, config.pace)) ?? (Number.isFinite(solve?.minutes) ? `${solve.minutes} min` : "");
     const hints = s.hints ? String(s.hints) : "";
     return `| ${m.date} | ${m.lang} | L${m.level} | [${m.title}](challenges/${m.id}/README.md) | ${statusIcon[s.status]} | ${time} | ${hints} |`;
   });
@@ -124,12 +128,13 @@ export function renderDashboard(ws, config, date = today()) {
     "",
     head,
     "",
+    ...((r) => (r ? [r, ""] : []))(reviewSummary(events, config, date)),
     `_Updated ${date} by [gingaloop](https://github.com/JarnDev/gingaloop). Do not edit between the markers._`,
     "",
     "## Levels",
     "",
-    "| Language | Level | Progress to next | Solved | Avg time |",
-    "|---|---|---|---|---|",
+    "| Language | Level | Progress to next | Solved | Avg time | Pace |",
+    "|---|---|---|---|---|---|",
     ...levelRows,
     "",
     `## Activity (last ${WEEKS} weeks)`,
@@ -149,7 +154,7 @@ export function renderDashboard(ws, config, date = today()) {
     "## Recent challenges",
     "",
     ...(recent.length
-      ? ["| Date | Lang | Lvl | Challenge | Status | Time | Hints |", "|---|---|---|---|---|---|---|", ...recent]
+      ? ["| Date | Lang | Lvl | Challenge | Status | Time vs expected | Hints |", "|---|---|---|---|---|---|---|", ...recent]
       : ["No challenges yet: run `ginga new <lang>`."]),
     "",
     `Full list: [INDEX.md](INDEX.md)`,

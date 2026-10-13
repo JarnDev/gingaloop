@@ -25,6 +25,8 @@ import { ROTATION_MODES, bagState, nextOrdered, pickDailyLang } from "./rotation
 import { installSchedule, removeSchedule, scheduleStatus } from "./schedule.mjs";
 import { buildCommitMessage, ensureRepo, git, pushWorkspace, stagedFiles, stagedNewEvents } from "./gitops.mjs";
 import { VaultKeyError, readBundle } from "./vault.mjs";
+import { PACE_DEFAULTS, paceFor, paceReport, solvePace } from "./pace.mjs";
+import { dueReview, openReview, reviewCycles, reviewOpts, reviewSummary } from "./reviews.mjs";
 import {
   IMPROVEMENTS_FILE, LESSONS_FILE, addImprovements, addLessons, builtInRules, issueUrl, latestReview, learnPrompt, learnedFrom, parseLearnResult, readLessons,
 } from "./lessons.mjs";
@@ -198,39 +200,9 @@ export async function cmdNew(positionals, opts) {
   printNew(result);
 }
 
-/** A solve that should come back for review: 2+ hints, or more than twice the estimated time. */
-export function isStruggle(e, generated) {
-  if (e.type !== "solved" || e.afterGiveup) return false;
-  const est = generated?.estMinutes;
-  return (e.hints ?? 0) >= 2 || (Number.isFinite(e.minutes) && Number.isFinite(est) && e.minutes > 2 * est);
-}
+export { dueReview } from "./reviews.mjs";
+export { isStruggle } from "./pace.mjs";
 
-/**
- * The oldest challenge with a review due. Give-ups and struggled solves come back once per
- * `reviewAfterDays` entry their age has reached (3, 7, 21 days by default), so a day the machine
- * was off only delays a review, never skips it.
- */
-export function dueReview(events, reviewAfterDays, date) {
-  const generated = new Map(events.filter((e) => e.type === "generated").map((e) => [e.id, e]));
-  const reviews = new Map();
-  for (const e of events) if (e.type === "generated" && e.reviewOf) reviews.set(e.reviewOf, (reviews.get(e.reviewOf) ?? 0) + 1);
-  // First trigger per challenge: its give-up, or a struggled solve.
-  const triggers = new Map();
-  for (const e of events) {
-    if (triggers.has(e.id)) continue;
-    if (e.type === "gaveup" || isStruggle(e, generated.get(e.id))) triggers.set(e.id, e);
-  }
-  for (const e of triggers.values()) {
-    const age = daysBetween(eventDate(e), date);
-    const due = reviewAfterDays.filter((n) => age >= n).length;
-    if ((reviews.get(e.id) ?? 0) >= due) continue;
-    const g = generated.get(e.id);
-    return { id: e.id, lang: e.lang, level: e.level, title: g?.title ?? e.id, topics: g?.topics ?? e.topics ?? [], ...(g?.area ? { area: g.area } : {}) };
-  }
-  return null;
-}
-
-/** Ids of challenges that are generated but not solved or given up yet. */
 function openChallengeIds(events) {
   const closed = new Set(events.filter((e) => e.type === "solved" || e.type === "gaveup" || e.type === "discarded").map((e) => e.id));
   return new Set(events.filter((e) => e.type === "generated" && !closed.has(e.id)).map((e) => e.id));
@@ -257,18 +229,53 @@ function rotationIds(ws, config) {
   return [...new Set(config.rotation.map((l) => findProfile(ws, l)?.id ?? l))];
 }
 
+/**
+ * Today's challenges: one from the rotation, plus a review when one is due and no other review is
+ * still open (reviews never take the rotation's place, and never pile up). Each runs once a day;
+ * --force makes another rotation challenge.
+ */
 export async function cmdDaily(_positionals, opts) {
   const { ws, config } = ctx(opts);
   const date = today();
   const events = withoutDiscarded(readEvents(ws));
-  if (!opts.force && events.some((e) => e.type === "generated" && e.source === "daily" && eventDate(e) === date)) {
+  const plan = dailyPlan(events, config, date, { force: opts.force });
+  const failures = [];
+  if (plan.rotation) {
+    const lang = pickDailyLang(events, rotationIds(ws, config), config.rotationMode);
+    await dailyOne(ws, config, events, { lang }).catch((e) => failures.push(e));
+  } else {
     console.log("Today's challenge already exists (use --force to make another).");
-    return;
   }
-  const review = dueReview(events, config.reviewAfterDays, date);
-  const lang = review?.lang ?? pickDailyLang(events, rotationIds(ws, config), config.rotationMode);
+  if (plan.review) {
+    console.log("");
+    await dailyOne(ws, config, withoutDiscarded(readEvents(ws)), { review: plan.review }).catch((e) => failures.push(e));
+  } else if (plan.waiting) {
+    console.log(`A review of "${plan.waiting.title}" is due; it comes once you finish the open one (${plan.openReview.id}).`);
+  }
+  if (failures.length) throw failures[0];
+}
+
+/**
+ * What `daily` makes today: a rotation challenge unless one exists (or --force), and the due review
+ * unless a review is still open or one was made today.
+ */
+export function dailyPlan(events, config, date, { force = false } = {}) {
+  const todays = events.filter((e) => e.type === "generated" && e.source === "daily" && eventDate(e) === date);
+  const due = dueReview(events, config.reviewAfterDays, date, reviewOpts(config));
+  const open = openReview(events);
+  const reviewToday = todays.some((e) => e.reviewOf);
+  return {
+    rotation: force || !todays.some((e) => !e.reviewOf),
+    review: due && !open && !reviewToday ? due : null,
+    waiting: due && open && !reviewToday ? due : null,
+    openReview: open,
+  };
+}
+
+/** Generate one daily challenge: from the rotation (`lang`) or a review of `review`. */
+async function dailyOne(ws, config, events, { lang, review = null }) {
   try {
-    const base = await profileFor(ws, config, lang, { yes: true });
+    const base = await profileFor(ws, config, review?.lang ?? lang, { yes: true });
     const reviewed = review && generatedEvent(events, review.id);
     const domain = reviewed?.domain ?? pickDomain(events, configuredDomains(config));
     const profile = profileForStack(base, reviewed?.stack ?? pickStack(base, stackMode(config, base.id), { share: ecosystemShare(domain) }));
@@ -281,11 +288,11 @@ export async function cmdDaily(_positionals, opts) {
     const area = (review?.area && findArea(profile, review.area)) || (promotion && findArea(profile, promotion[0])) || pickArea(profile, level, events);
     const result = await generateChallenge({ ws, config, profile, level, area, type, sourceLang, domain, promotion, source: "daily", reviewOf: review });
     notify(
-      `gingaloop · ${profile.name} · L${level}${review ? " · review" : ""}${promotion ? ` · 🥋 promotion to L${level + 1}` : ""}`,
+      `gingaloop · ${profile.name} · L${level}${review ? " · 🔁 review (optional)" : ""}${promotion ? ` · 🥋 promotion to L${level + 1}` : ""}`,
       `${result.manifest.title} (~${result.manifest.estMinutes} min)\n${result.dir}`,
     );
   } catch (e) {
-    notify("gingaloop: daily generation failed", e.message.split("\n")[0], { urgent: true });
+    notify(`gingaloop: daily ${review ? "review " : ""}generation failed`, e.message.split("\n")[0], { urgent: true });
     throw e;
   }
 }
@@ -509,9 +516,11 @@ export async function cmdDone(positionals, opts) {
     minutes = null;
     minutesSource = null;
   }
-  appendEvent(ws, {
+  // Your pace as it was before this solve, stored so this solve's verdict never shifts later.
+  const pace = paceFor(events, m.lang, config.pace);
+  const solved = appendEvent(ws, {
     type: "solved", id: m.id, lang: m.lang, level: m.level, topics: m.topics,
-    minutes, ...(minutesSource ? { minutesSource } : {}), hints,
+    minutes, ...(minutesSource ? { minutesSource } : {}), hints, pace: pace.factor, paceCalibrated: pace.calibrated,
     ...(m.promotion ? { promotion: true } : {}),
     ...(status === "gaveup" ? { afterGiveup: true } : {}),
   });
@@ -524,6 +533,10 @@ export async function cmdDone(positionals, opts) {
     if (hints) why.push(`${hints} hint${hints === 1 ? "" : "s"}`);
   }
   console.log(`\n✔ Solved ${m.title}.  +${earned} points${why.length ? ` (${why.join(", ")})` : ""}`);
+  const p = solvePace(readEvents(ws), solved, config.pace);
+  if (p) console.log(paceReport(p, config.pace));
+  if (hints >= 2 && status !== "gaveup") console.log("  2+ hints: this topic comes back as a review.");
+  else if (minutes == null) console.log("  (no time recorded, so no pace comparison)");
   if (after.level > before.level) console.log(`🎉 Level ${after.level} unlocked for ${m.lang}!`);
   else if (m.promotion) console.log(`Promotion not passed yet (it needs at most 1 hint); another one comes in ${config.leveling.promotionRetryDays ?? 3} days.`);
   else if (after.gates?.promotionPending && !before.gates?.promotionPending) console.log(`🥋 Gates met: your next ${m.lang} challenge is a promotion to level ${after.level + 1}.`);
@@ -599,8 +612,16 @@ export async function cmdRank(_positionals, opts) {
     const avg = mins.length ? `${Math.round(mins.reduce((a, b) => a + b, 0) / mins.length)} min avg` : "";
     const ecoSolved = solved.filter((e) => generatedEvent(events, e.id)?.stack === "ecosystem").length;
     const split = ecoSolved ? ` (${solved.length - ecoSolved} basics · ${ecoSolved} ecosystem)` : "";
-    console.log(`${lang.padEnd(12)} ${levelLine(s, config.leveling).padEnd(52)} ${solved.length} solved${split}, ${gaveup.length} gave up  ${avg}`);
+    const pace = paceFor(events, lang, config.pace);
+    const paceNote = pace.basis ? `  pace ×${pace.factor}${pace.basis === "lang" ? "" : " (all languages)"}` : "";
+    console.log(`${lang.padEnd(12)} ${levelLine(s, config.leveling).padEnd(52)} ${solved.length} solved${split}, ${gaveup.length} gave up  ${avg}${paceNote}`);
   }
+  const overall = paceFor(events, null, config.pace);
+  console.log(overall.calibrated
+    ? "\nPace = your time ÷ Claude's estimate (median of recent clean solves): ×2 means you usually take twice the estimate."
+    : `\nPace calibrates after ${PACE_DEFAULTS.minSolves} clean timed solves (${overall.solves} so far); until then time alone never triggers a review.`);
+  const reviewLine = reviewSummary(events, config);
+  if (reviewLine) console.log(reviewLine);
   const weak = {};
   for (const e of events.filter((x) => x.type === "gaveup")) for (const t of e.topics ?? []) weak[t] = (weak[t] ?? 0) + 1;
   const top = Object.entries(weak).sort((a, b) => b[1] - a[1]).slice(0, 5);
@@ -625,9 +646,13 @@ function rankData(ws, config, events, langs, st) {
         lang, level: s.level, points: s.points, nextAt: s.nextAt, gates: s.gates ?? null,
         solved: solved.length, gaveUp: events.filter((e) => e.type === "gaveup" && e.lang === lang).length,
         avgMinutes: mins.length ? Math.round(mins.reduce((a, b) => a + b, 0) / mins.length) : null,
+        pace: paceFor(events, lang, config.pace),
       };
     }),
     weakTopics: Object.fromEntries(Object.entries(weak).sort((a, b) => b[1] - a[1])),
+    reviews: reviewCycles(withoutDiscarded(events), config.reviewAfterDays, today(), reviewOpts(config))
+      .map((c) => ({ of: c.root, steps: c.steps, done: c.done, due: c.due, nextAtDay: c.next })),
+    openReview: openReview(withoutDiscarded(events))?.id ?? null,
     claudeCostUsd: paid.length ? { total: sum(paid), last30Days: sum(paid.filter((e) => daysBetween(eventDate(e), today()) < 30)), generations: paid.length } : null,
   };
 }
