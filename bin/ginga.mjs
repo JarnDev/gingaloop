@@ -31,6 +31,7 @@ Practice
   giveup [id] [--yes]        record a give-up and unlock the solution
   discard [id] [--reason R]  drop a broken or unwanted challenge: no penalty, no reveal, not counted
   review [id]                ask Claude to review your solution (after unlock)
+  learn [id] [--report]      turn a review's findings about the challenge into rules for future ones
 
 Progress
   rank [--json]              levels, progress to next level, streak, weak topics, Claude cost
@@ -46,13 +47,13 @@ Authoring
   sandbox run --lang L [--dir D] [--cwd C] [--target T] -- <cmd>
 
 [id] defaults to your newest open challenge. \`ginga <command> --help\` (or \`ginga help <command>\`) for details.
-Only daily, new, lang add and review use Claude (tokens); everything else is local. Docs: README.md`;
+Only daily, new, lang add, review and learn use Claude (tokens); everything else is local. Docs: README.md`;
 
 const commands = {
   init: cli.cmdInit, new: cli.cmdNew, daily: cli.cmdDaily, test: cli.cmdTest, hint: cli.cmdHint,
   done: cli.cmdDone, giveup: cli.cmdGiveup, discard: cli.cmdDiscard, rank: cli.cmdRank, list: cli.cmdList,
   validate: cli.cmdValidate, sandbox: cli.cmdSandbox, lang: cli.cmdLang, rotation: cli.cmdRotation, stack: cli.cmdStack, domains: cli.cmdDomains, coverage: cli.cmdCoverage, open: cli.cmdOpen, schedule: cli.cmdSchedule,
-  doctor: cli.cmdDoctor, review: cli.cmdReview, commit: cli.cmdCommit, push: cli.cmdPush, config: cli.cmdConfig, completion: cli.cmdCompletion,
+  doctor: cli.cmdDoctor, review: cli.cmdReview, learn: cli.cmdLearn, commit: cli.cmdCommit, push: cli.cmdPush, config: cli.cmdConfig, completion: cli.cmdCompletion,
 };
 
 const { values, positionals, tokens } = parseArgs({
@@ -88,6 +89,7 @@ const { values, positionals, tokens } = parseArgs({
     "profile-file": { type: "string" },
     jail: { type: "boolean" },
     push: { type: "boolean" },
+    report: { type: "boolean" },
     default: { type: "boolean" },
     help: { type: "boolean", short: "h" },
     version: { type: "boolean", short: "v" },

@@ -45,3 +45,27 @@ jobs:
       - name: npm with trusted publishing (11.5.1+)
         run: npm install -g npm@^11.5.1
       - run: npm publish --provenance --access public
+  github-release:
+    # Its own job, so the only job with write access to the repo runs no npm code.
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Release notes from CHANGELOG.md
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          {
+            echo "**Install:** \`npm install -g gingaloop\`, then \`ginga init ~/gingaloop\`."
+            echo
+            echo "## What's new in $version"
+            awk -v v="$version" '$0 ~ "^## "v"( |$)" {f=1; next} /^## / {if (f) exit} f' CHANGELOG.md
+          } > notes.md
+          grep -q '^- ' notes.md || { echo "No CHANGELOG section for $version" >&2; exit 1; }
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" --verify-tag --title "gingaloop ${GITHUB_REF_NAME#v}" --notes-file notes.md --latest

@@ -11,6 +11,7 @@ import { join, relative, sep } from "node:path";
 import { lockChallenge, writeEditorFiles } from "./challenges.mjs";
 import { refreshViews } from "./dashboard.mjs";
 import { findDuplicate } from "./dedupe.mjs";
+import { lessonsFor } from "./lessons.mjs";
 import { GENERAL, domainBrief } from "./domains.mjs";
 import { allProfiles, checkProfile, normalizeLang } from "./profiles.mjs";
 import { appendEvent, readEvents, withoutDiscarded } from "./progress.mjs";
@@ -103,9 +104,10 @@ export function parseClaudeCost(stdout) {
 
 /**
  * Run `claude -p` in `cwd`; output goes to `logFile`. Kills the whole process group on timeout.
- * The cost of the call is added to `usage.costUsd` when Claude reports it.
+ * The cost of the call is added to `usage.costUsd` when Claude reports it, and its final text is put
+ * in `output.text` when `output` is given.
  */
-export function runClaude({ config, cwd, prompt, allowedTools, logFile, cont = false, usage = null }) {
+export function runClaude({ config, cwd, prompt, allowedTools, logFile, cont = false, usage = null, output = null }) {
   // Tools as separate arguments: a path with a comma or space must not split a rule.
   const args = ["-p", prompt, "--permission-mode", "acceptEdits", "--allowedTools", ...allowedTools,
     "--disallowedTools", "WebFetch", "WebSearch", "--output-format", "json"];
@@ -147,6 +149,7 @@ export function runClaude({ config, cwd, prompt, allowedTools, logFile, cont = f
       try {
         text = JSON.parse(stdout.trim().split("\n").at(-1)).result ?? stdout;
       } catch {}
+      if (output) output.text = text;
       const cost = parseClaudeCost(stdout);
       if (cost != null && usage) usage.costUsd = (usage.costUsd ?? 0) + cost;
       // Resolve once the log is flushed: callers read its last lines right after a failure.
@@ -209,6 +212,7 @@ export async function generateChallenge({ ws, config, profile, level, area, type
     EXAMPLE: dumpDir(profile.exampleDir),
     AVOID: history.slice(-400).map((e) => `- ${e.title} [${(e.topics ?? []).join(", ")}]`).join("\n") || "(none yet)",
     WEAK: weak.map((e) => `- ${(e.topics ?? []).join(", ")}`).join("\n") || "(none)",
+    LESSONS: lessonsFor(ws, profile.id),
     AREA: area ? `${area.name} (area id \`${area.id}\`)` : "any",
     REVIEW: reviewOf
       ? `This is a REVIEW challenge: the user gave up on "${reviewOf.title}" (topics: ${(reviewOf.topics ?? []).join(", ")}). ` +

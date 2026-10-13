@@ -36,6 +36,11 @@ A repeat of an earlier problem is rejected automatically, so pick a genuinely di
 ## Topics the user struggled with (fair game to revisit from a NEW angle)
 {{WEAK}}
 
+## Lessons from reviews of past challenges (MUST follow)
+Each rule below comes from a real mistake found in an earlier generated challenge. Check your
+README, reference, tests and bug variants against every one before finishing.
+{{LESSONS}}
+
 # Required layout (exactly this)
 
 ```
@@ -129,6 +134,12 @@ suite so that cannot happen:
    reference (another data structure, a regex instead of a loop, a negated condition, a library
    call with different semantics). Put the subtly wrong ones in bugs/ as `kind: "alternative"`.
    If any of them passes, the suite has a gap: add the missing test, then re-run everything.
+7. **The whole numeric range.** When README.md allows a range of numbers ("any integer", "up to
+   10^18", "any size"), the REFERENCE must be exact across all of it, and a test must use the
+   extremes. Know where your language stops being exact: JS/TS numbers lose integer precision above
+   2^53 (`2**60 + 1 === 2**60`), fixed-width integers overflow (C/C++ signed overflow is undefined
+   behavior), floats round. Order arithmetic so intermediates stay in range (reduce modulo first,
+   then add), or narrow the contract in README.md to what the reference really handles.
 
 # Quality bar (non-negotiable)
 

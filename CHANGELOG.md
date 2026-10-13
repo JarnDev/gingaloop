@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+- **`ginga learn`** turns a review's findings about the challenge itself (a wrong reference, a
+  promise no test checks, an ambiguous README) into rules. They go to the workspace's `LESSONS.md`,
+  which every later generation prompt follows, or to `IMPROVEMENTS.md` when only a change to
+  gingaloop would prevent them. General rules can be sent upstream as a pre-filled GitHub issue
+  (`--report`), reviewed by you before submitting. `ginga commit` lists them (`learn 1`).
+- Generation prompt: references must be exact across the whole numeric range README.md allows, and
+  tests must use its extremes (a review caught a TypeScript reference that lost precision above 2^53).
+- `ginga review` points at `ginga learn` when it's done.
+- Releases: the workflow also creates the GitHub release from the CHANGELOG section. A "lesson" issue
+  form, and CONTRIBUTING explains how lessons become fixes.
+
 ## 0.4.0 (2026-10-12)
 
 - `ginga test --watch` reruns the tests on every save in starter/ or tests/.

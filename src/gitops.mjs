@@ -56,7 +56,7 @@ export function buildCommitMessage({ allEvents, newEvents, files, leveling, toda
   const titles = new Map(allEvents.filter((e) => e.type === "generated").map((e) => [e.id, e]));
   const title = (id) => titles.get(id)?.title ?? id;
   const lines = [];
-  const counts = { solve: 0, new: 0, giveup: 0, discard: 0 };
+  const counts = { solve: 0, new: 0, giveup: 0, discard: 0, learn: 0 };
   const before = new Map(); // lang -> level before this commit's events
 
   allEvents.forEach((e, i) => {
@@ -84,6 +84,10 @@ export function buildCommitMessage({ allEvents, newEvents, files, leveling, toda
     } else if (e.type === "discarded") {
       counts.discard++;
       lines.push(`- discard(${e.lang}): ${title(e.id)}${e.reason ? ` · ${e.reason}` : ""}`);
+    } else if (e.type === "learned") {
+      counts.learn++;
+      const parts = [e.lessons && plural(e.lessons, "lesson"), e.improvements && plural(e.improvements, "tool idea")].filter(Boolean);
+      lines.push(`- learn(${e.lang}): ${title(e.id)}${parts.length ? ` · ${parts.join(", ")}` : ""}`);
     } else if (e.type === "hint") {
       lines.push(`- hint(${e.lang}): ${title(e.id)} · hint ${e.hint}`);
     }
@@ -102,6 +106,7 @@ export function buildCommitMessage({ allEvents, newEvents, files, leveling, toda
   const notes = new Set();
   const other = [];
   const DERIVED = new Set(["README.md", "INDEX.md", "progress.jsonl"]);
+  if (counts.learn) DERIVED.add("LESSONS.md").add("IMPROVEMENTS.md"); // implied by the learn lines
   for (const f of files) {
     const m = /^challenges\/([^/]+)\/NOTES\.md$/.exec(f);
     if (m) notes.add(m[1]);
@@ -126,6 +131,7 @@ export function buildCommitMessage({ allEvents, newEvents, files, leveling, toda
     counts.new && `new ${counts.new}`,
     counts.giveup && `give up ${counts.giveup}`,
     counts.discard && `discard ${counts.discard}`,
+    counts.learn && `learn ${counts.learn}`,
   ].filter(Boolean);
   let subject;
   if (summary.length) {

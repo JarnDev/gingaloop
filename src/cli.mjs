@@ -5,10 +5,10 @@ import { homedir } from "node:os";
 import { delimiter, isAbsolute, join, resolve, sep } from "node:path";
 import { createInterface } from "node:readline/promises";
 import {
-  isLocked, listChallenges, pickChallenge, readHints, unlockChallenge, writeEditorFiles,
+  byCreation, isLocked, listChallenges, pickChallenge, readHints, unlockChallenge, writeEditorFiles,
 } from "./challenges.mjs";
 import { completionScript } from "./help.mjs";
-import { bootstrapProfile, generateChallenge, parseClaudeCost, sandboxPrefix } from "./generate.mjs";
+import { bootstrapProfile, generateChallenge, parseClaudeCost, runClaude, sandboxPrefix } from "./generate.mjs";
 import { resolveLevel, streakState } from "./levels.mjs";
 import { gateSummary, langLevel, promotionAreas, promotionDue } from "./progression.mjs";
 import { notify } from "./notify.mjs";
@@ -25,6 +25,9 @@ import { ROTATION_MODES, bagState, nextOrdered, pickDailyLang } from "./rotation
 import { installSchedule, removeSchedule, scheduleStatus } from "./schedule.mjs";
 import { buildCommitMessage, ensureRepo, git, pushWorkspace, stagedFiles, stagedNewEvents } from "./gitops.mjs";
 import { VaultKeyError, readBundle } from "./vault.mjs";
+import {
+  IMPROVEMENTS_FILE, LESSONS_FILE, addImprovements, addLessons, builtInRules, issueUrl, latestReview, learnPrompt, learnedFrom, parseLearnResult, readLessons,
+} from "./lessons.mjs";
 import {
   CONFIG_FILE, CONFIG_KEYS, DEFAULT_CONFIG, PKG_ROOT, UserError, daysBetween, findWorkspace, getConfigValue, loadConfig,
   parseConfigValue, readGlobalConfig, saveConfig, today, withConfigValue, writeGlobalConfig,
@@ -1158,6 +1161,108 @@ export async function cmdReview(positionals, opts) {
   appendFileSync(join(c.dir, "NOTES.md"), `\n## Review (${today()})\n\n${out}\n`);
   console.log(out);
   console.log(`\n(appended to ${join(c.dir, "NOTES.md")}${cost != null ? `; Claude cost $${cost.toFixed(2)}, API list price` : ""})`);
+  console.log(`If it found a problem with the challenge itself, \`ginga learn ${c.manifest.id}\` keeps future challenges from repeating it.`);
+}
+
+function reviewOf(c) {
+  const notes = join(c.dir, "NOTES.md");
+  return existsSync(notes) ? latestReview(readFileSync(notes, "utf8")) : null;
+}
+
+/** Turn a review's findings about the challenge itself into rules for the generator. */
+export async function cmdLearn(positionals, opts) {
+  const { ws, config } = ctx(opts);
+  let c;
+  if (positionals[0]) {
+    c = pickChallenge(ws, positionals[0]);
+  } else {
+    // Default: the newest reviewed challenge nothing was learned from yet.
+    const reviewed = byCreation(listChallenges(ws), readEvents(ws)).filter((x) => reviewOf(x));
+    c = reviewed.filter((x) => !learnedFrom(ws, x.manifest.id)).at(-1) ?? reviewed.at(-1);
+    if (!c) throw new UserError("No reviewed challenge yet: run `ginga review [id]` on a solved or given-up one first.");
+  }
+  const m = c.manifest;
+  const review = reviewOf(c);
+  if (!review) throw new UserError(`"${m.title}" has no review yet: run \`ginga review ${m.id}\` first.`);
+  if (learnedFrom(ws, m.id) && !(await confirm(`Lessons from "${m.title}" were already saved. Learn from its review again?`, opts.yes))) return;
+
+  const known = readLessons(ws);
+  const improvements = existsSync(join(ws, IMPROVEMENTS_FILE))
+    ? readFileSync(join(ws, IMPROVEMENTS_FILE), "utf8").split("\n").filter((l) => l.startsWith("- ")).map((l) => `- (tool) ${l.slice(2)}`)
+    : [];
+  const existing = [
+    ...(known.all ?? []).map((l) => `- (all) ${l}`),
+    ...(known[m.lang] ?? []).map((l) => `- (${m.lang}) ${l}`),
+    ...improvements,
+  ].join("\n");
+  const readme = existsSync(join(c.dir, "README.md")) ? readFileSync(join(c.dir, "README.md"), "utf8") : "(missing)";
+  const builtIn = builtInRules(readFileSync(join(PKG_ROOT, "prompts", "generate.md"), "utf8"));
+  const prompt = learnPrompt({ review: review.text, readme, manifest: m, lang: m.lang, existing, builtIn });
+
+  mkdirSync(join(ws, ".logs"), { recursive: true });
+  const logFile = join(ws, ".logs", `learn-${m.id}.log`);
+  const cwd = makeTempDir("gingaloop-learn-"); // no files to read: everything is in the prompt
+  const usage = { costUsd: null };
+  const output = { text: "" };
+  console.log(`Asking Claude which findings of the ${review.date} review are about the challenge itself …`);
+  let code;
+  try {
+    code = await runClaude({ config, cwd, prompt, allowedTools: ["Read"], logFile, usage, output });
+  } finally {
+    removeDir(cwd);
+  }
+  const costNote = usage.costUsd != null ? ` (Claude cost $${usage.costUsd.toFixed(2)}, API list price)` : "";
+  if (code !== 0) throw new UserError(`Claude exited with code ${code ?? "(killed: timeout)"}${costNote}. Log: ${logFile}`);
+  const items = parseLearnResult(output.text, m.lang);
+  if (!items) throw new UserError(`Could not read Claude's answer as JSON${costNote}. Log: ${logFile}`);
+  if (!items.length) {
+    console.log(`Nothing to learn: the review found no problem with the challenge itself${costNote}.`);
+    return;
+  }
+
+  console.log(`\nFrom the review of "${m.title}"${costNote}:\n`);
+  items.forEach((it, i) => {
+    const where = it.kind === "tool" ? `gingaloop itself → ${IMPROVEMENTS_FILE}` : `${it.scope === "all" ? "all languages" : it.scope} → ${LESSONS_FILE}`;
+    console.log(`${String(i + 1).padStart(2)}. ${it.rule}\n    [${where}]${it.evidence ? `\n    why: ${it.evidence}` : ""}\n`);
+  });
+  let chosen = items;
+  if (!opts.yes) {
+    if (!isTTY()) throw new UserError("Re-run with --yes to save them non-interactively.");
+    const answer = (await ask("Save which? [a]ll, [n]one, or numbers like 1,3", "a")).toLowerCase();
+    if (answer.startsWith("n")) return console.log("Nothing saved.");
+    if (!answer.startsWith("a")) {
+      const picked = new Set(answer.split(/[\s,]+/).map(Number).filter((n) => n >= 1 && n <= items.length));
+      chosen = items.filter((_, i) => picked.has(i + 1));
+      if (!chosen.length) return console.log("Nothing saved.");
+    }
+  }
+  const lessons = chosen.filter((i) => i.kind === "lesson");
+  const tools = chosen.filter((i) => i.kind === "tool");
+  if (lessons.length) addLessons(ws, lessons, m.id);
+  if (tools.length) addImprovements(ws, tools, m.id);
+  appendEvent(ws, { type: "learned", id: m.id, lang: m.lang, lessons: lessons.length, improvements: tools.length });
+  console.log(
+    [lessons.length && `✔ ${lessons.length} lesson${lessons.length > 1 ? "s" : ""} in ${LESSONS_FILE}: the next ${m.lang} challenges follow ${lessons.length > 1 ? "them" : "it"}`,
+      tools.length && `✔ ${tools.length} idea${tools.length > 1 ? "s" : ""} for gingaloop in ${IMPROVEMENTS_FILE}`].filter(Boolean).join("\n"),
+  );
+
+  // General rules help every user once they're in the tool: offer a pre-filled issue for each.
+  const general = chosen.filter((i) => i.kind === "tool" || i.scope === "all");
+  if (!general.length) return;
+  const report = opts.report || (isTTY() && /^y(es)?$/i.test(await ask(
+    `\n${general.length} of them could help every gingaloop user. Open a pre-filled GitHub issue for ${general.length > 1 ? "each" : "it"}? (you review it before submitting) [y/N]`,
+  )));
+  if (!report) {
+    console.log("To share them later: https://github.com/JarnDev/gingaloop/blob/main/CONTRIBUTING.md#lessons-from-your-reviews");
+    return;
+  }
+  const opener = ["xdg-open", "open"].find(hasBin);
+  const { version } = JSON.parse(readFileSync(join(PKG_ROOT, "package.json"), "utf8"));
+  for (const it of general) {
+    const url = issueUrl(it, m, version);
+    if (opener) spawn(opener, [url], { detached: true, stdio: "ignore" }).unref();
+    console.log(`${opener ? "Opened" : "Open"}: ${url}`);
+  }
 }
 
 // ---------------------------------------------------------------- workspace git

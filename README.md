@@ -102,6 +102,8 @@ The workspace is a plain folder, separate from the tool (make it a git repo if y
 ~/gingaloop/
   gingaloop.json     your settings (see Configuration)
   progress.jsonl     append-only log: generated / hint / solved / gaveup events
+  LESSONS.md         rules for the generator learned from your reviews (`ginga learn`)
+  IMPROVEMENTS.md    problems a review traced to gingaloop itself, to report upstream
   INDEX.md           table of all challenges and their status (regenerated)
   challenges/        one folder per challenge, from `ginga daily` and `ginga new` alike
   profiles/          language profiles bootstrapped for languages without a built-in one
@@ -398,6 +400,37 @@ These rules come from real misses, where the tests passed but the solution was s
 If validation fails, Claude gets the validator output and one retry. After that, the attempt is
 kept in `.staging/_failed/` for inspection.
 
+## Learning from reviews
+
+Generated challenges are validated (the reference passes, the starter and every bug variant fail),
+but a validator can't know what the tests forgot. `ginga review` sometimes finds that the
+**challenge** was wrong, not you: a reference that loses precision on a value the README allows, a
+promise no test checks, an ambiguous contract. `ginga learn` closes that loop:
+
+```
+$ ginga review          # Claude reviews your solution against the reference
+$ ginga learn           # …and turns what it found about the challenge into rules
+
+ 1. When README.md allows integers of any size, the reference must reduce before adding (JS
+    numbers lose precision above 2^53) and a test must use a value ≥ 2^53.
+    [all languages → LESSONS.md]
+    why: the reference computed at + jumps[at] before wrapping and returned [1] for [0, 2**60, 0].
+
+Save which? [a]ll, [n]one, or numbers like 1,3 [a]
+```
+
+- **`LESSONS.md`** goes into every later generation prompt: the "all languages" rules plus that
+  language's own (newest 30 of each). It's plain Markdown in your workspace: edit or delete lines
+  freely, and `ginga commit` versions it with everything else.
+- **`IMPROVEMENTS.md`** collects problems only a change to gingaloop itself would prevent, such as a
+  check the validator should make.
+- Advice about **your** code stays in the review; only the generator's mistakes become lessons.
+
+Your lessons improve **your** challenges right away. To fix it for **everyone**, a rule has to go
+into gingaloop itself: `ginga learn` offers to open a pre-filled GitHub issue for each general rule
+(`--report` does it without asking). You read it before submitting, and it holds the rule and a short
+summary, never your code. See [CONTRIBUTING](https://github.com/JarnDev/gingaloop/blob/main/CONTRIBUTING.md#lessons-from-your-reviews).
+
 ## Commands
 
 | Command | |
@@ -412,6 +445,7 @@ kept in `.staging/_failed/` for inspection.
 | `ginga giveup [id]` | record a give-up, unlock the solution |
 | `ginga discard [id] [--reason R]` | drop a broken, duplicate or unwanted challenge: no penalty, no review, no reveal; its area, type and daily slot come back (the folder stays, marked ⬛) |
 | `ginga review [id]` | Claude reviews your solution against the reference (after unlock), running the tests and its own edge-case probes in the sandbox |
+| `ginga learn [id] [--report]` | turn the review's findings about the challenge itself (wrong reference, untested promise…) into rules every future generation follows; `--report` opens a pre-filled issue to fix it for everyone |
 | `ginga rank` / `ginga list` | levels (with basics/ecosystem split), streak, weak topics, Claude cost / all challenges; `--json` for scripts |
 | `ginga coverage [lang…]` | practice areas per language and how often you've had each (`--json` too) |
 | `ginga rotation [list\|set\|add\|remove\|mode]` | the daily's languages and order, e.g. `ginga rotation add typescript cpp`, `ginga rotation mode ordered` |
@@ -465,7 +499,7 @@ Workspaces from 0.3 or earlier are upgraded once, on their first command, with a
 
 ## Cost
 
-Only four commands call Claude, and they use your Claude plan or API key like any other Claude Code
+Only five commands call Claude, and they use your Claude plan or API key like any other Claude Code
 session:
 
 | Uses Claude tokens | When |
@@ -473,6 +507,7 @@ session:
 | `ginga daily`, `ginga new` | one session per generated challenge, plus at most one retry if validation fails |
 | `ginga lang add` | once per new language (also when a challenge first needs that language) |
 | `ginga review` | only when you ask for a review |
+| `ginga learn` | only when you ask; one short call with no tools (the review and README are in the prompt) |
 
 **Everything else is local and free**: `open`, `test`, `hint`, `done`, `giveup`, `rank`, `list`,
 `coverage`, `rotation`, `commit`, `push`, `doctor`, `schedule`, `validate` and `init`. In

@@ -1,0 +1,40 @@
+name: Lesson from a review
+description: A mistake a generated challenge made, as a rule that could prevent it for every user (usually opened by `ginga learn --report`).
+title: "[lesson] "
+labels: ["lesson"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks! A maintainer turns accepted lessons into a prompt rule (`prompts/generate.md`, a
+        profile) or, better, a validator check. Please don't paste your solution or the challenge's
+        files: the rule and a short summary are enough.
+  - type: textarea
+    id: rule
+    attributes:
+      label: Rule
+      description: General and checkable, naming the concrete trap.
+    validations:
+      required: true
+  - type: input
+    id: kind
+    attributes:
+      label: Where the fix belongs
+      description: '"challenge generation (prompt rule)" or "gingaloop itself (validator, runner, prompts)"'
+  - type: textarea
+    id: evidence
+    attributes:
+      label: What went wrong
+      description: One or two sentences about the challenge where it happened.
+    validations:
+      required: true
+  - type: input
+    id: context
+    attributes:
+      label: Challenge
+      description: language · level · type · area
+  - type: input
+    id: version
+    attributes:
+      label: gingaloop version
+      description: "`ginga --version`"

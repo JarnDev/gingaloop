@@ -58,6 +58,18 @@ review, no reveal. Generation forgets it, so its area, type and daily slot come 
 Ask Claude (uses tokens) to review your solution against the reference, after it's unlocked. It runs
 the tests and its own edge-case probes in the sandbox and appends the review to NOTES.md.`,
 
+  learn: `ginga learn [id] [--report] [--yes]
+
+Turn the latest review of a challenge (\`ginga review\`) into rules for the generator, so future
+challenges don't repeat its mistakes: a wrong reference, a promise no test checks, an ambiguous
+README. Advice about your own code is left out. Claude (uses tokens) proposes the rules, you pick
+which to save:
+  LESSONS.md       rules added to every future generation prompt (all languages, or one)
+  IMPROVEMENTS.md  problems only a change to gingaloop itself would prevent
+Both live in your workspace, so \`ginga commit\` versions them. Rules that could help every user can
+go upstream as a pre-filled GitHub issue that you review before submitting: --report opens one per
+rule without asking. Default id: the newest reviewed challenge nothing was learned from yet.`,
+
   rank: `ginga rank [--json]
 
 Per language: level, points to the next one and what the gates still need, solves, give-ups and
