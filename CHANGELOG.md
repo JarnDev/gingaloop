@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.6.0 (2026-10-14)
 
 - **Reviews fit the challenge type.** fix-the-bug reviews judge the fix (each bug in the handed code:
   fixed, at the cause or the symptom; focused change or rewrite) instead of reviewing the result as
