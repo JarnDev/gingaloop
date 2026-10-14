@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
 import { isLocked, lockChallenge, readHints, unlockChallenge } from "../src/challenges.mjs";
+import { reviewTypeNote } from "../src/cli.mjs";
 import { VaultKeyError, decryptBundle, decryptBundleTolerant, encryptBundle, normalizeReadme, parseHints, writeFiles } from "../src/vault.mjs";
 
 const tmp = mkdtempSync(join(tmpdir(), "gingaloop-vault-"));
@@ -11,12 +12,12 @@ after(() => rmSync(tmp, { recursive: true, force: true }));
 
 const MARKER = "SECRET_SOLUTION_MARKER_42";
 
-function makeChallenge(name) {
+function makeChallenge(name, type) {
   const dir = join(tmp, name);
   mkdirSync(join(dir, "solution"), { recursive: true });
   mkdirSync(join(dir, "bugs", "b1"), { recursive: true });
   writeFileSync(join(dir, "README.md"), "# Problem\nDo the thing.\n");
-  writeFileSync(join(dir, "challenge.json"), JSON.stringify({ slug: name, bugs: [{ name: "b1", expect: "SPOILER_TEST_NAME" }] }));
+  writeFileSync(join(dir, "challenge.json"), JSON.stringify({ slug: name, ...(type ? { type } : {}), bugs: [{ name: "b1", expect: "SPOILER_TEST_NAME" }] }));
   writeFileSync(join(dir, "solution", "solution.py"), `# ${MARKER}\n`);
   writeFileSync(join(dir, "solution", "EXPLANATION.md"), "## Approach\n");
   writeFileSync(join(dir, "bugs", "b1", "solution.py"), "# buggy\n");
@@ -71,6 +72,34 @@ test("lock removes every plaintext copy; unlock restores it", () => {
   assert.ok(readFileSync(join(dir, "solution", "solution.py"), "utf8").includes(MARKER));
   assert.equal(readFileSync(join(dir, "bugs", "b1", "solution.py"), "utf8"), "# buggy\n");
   assert.ok(readFileSync(join(dir, "bugs", "bugs.json"), "utf8").includes("SPOILER_TEST_NAME"));
+});
+
+test("code handed to the user is locked as original/ and comes back with the solution", () => {
+  const dir = makeChallenge("fix1", "fix-the-bug");
+  mkdirSync(join(dir, "starter"));
+  writeFileSync(join(dir, "starter", "solution.py"), "# HANDED_BUGGY_CODE\n");
+  lockChallenge(dir);
+  assert.ok(!existsSync(join(dir, "original")), "nothing in plaintext while locked");
+  assert.equal(readFileSync(join(dir, "starter", "solution.py"), "utf8"), "# HANDED_BUGGY_CODE\n", "starter/ stays for the user");
+  writeFileSync(join(dir, "starter", "solution.py"), "# the user's fix\n");
+  unlockChallenge(dir);
+  assert.equal(readFileSync(join(dir, "original", "solution.py"), "utf8"), "# HANDED_BUGGY_CODE\n");
+  assert.equal(readFileSync(join(dir, "starter", "solution.py"), "utf8"), "# the user's fix\n", "unlock leaves the user's work alone");
+
+  const impl = makeChallenge("impl1", "implement");
+  mkdirSync(join(impl, "starter"));
+  writeFileSync(join(impl, "starter", "solution.py"), "# TODO\n");
+  lockChallenge(impl);
+  unlockChallenge(impl);
+  assert.ok(!existsSync(join(impl, "original")), "a stub is not worth keeping");
+});
+
+test("reviews focus on what the challenge type asks for", () => {
+  assert.match(reviewTypeNote("fix-the-bug", true), /original\/ is the code the user was handed[\s\S]*Review the FIX/);
+  assert.match(reviewTypeNote("fix-the-bug", false), /was not kept[\s\S]*bugs\.json/);
+  for (const t of ["refactor", "extend", "debug-from-symptom", "optimize"]) assert.match(reviewTypeNote(t, true), /original\//, t);
+  assert.doesNotMatch(reviewTypeNote("trace", true), /original/);
+  assert.equal(reviewTypeNote("implement", true), "");
 });
 
 test("editing the README after locking blocks unlock with a helpful message", () => {

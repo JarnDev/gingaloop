@@ -3,10 +3,13 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, wr
 import { join } from "node:path";
 import { challengeStatus, readEvents } from "./progress.mjs";
 import { BUGS_FILE, readManifest } from "./runner.mjs";
+import { typeInfo } from "./types.mjs";
 import { LOCK_FILE, collectFiles, encryptBundle, normalizeReadme, parseHints, readBundle, writeFiles } from "./vault.mjs";
 import { UserError, writeJson } from "./workspace.mjs";
 
 export const LOCKED_PARTS = ["solution", "bugs", "hints.md"];
+/** Where the code handed to the user (fix-the-bug, refactor, …) comes back on unlock, for reviews. */
+export const ORIGINAL_DIR = "original";
 
 export function challengesDir(ws) {
   return join(ws, "challenges");
@@ -63,6 +66,8 @@ export function isLocked(dir) {
  * Encrypt solution/, bugs/ and hints.md with the README key, then delete the plaintext.
  * The bug list (names + expected failing tests) moves from challenge.json into the bundle,
  * since it spoils the common mistakes. README.md becomes read-only: it is the key.
+ * For types that hand the user code (`fromCode`), a copy of starter/ goes into the bundle as
+ * original/, so after done or give-up a review can compare it with the user's version.
  */
 export function lockChallenge(dir) {
   const manifest = readManifest(dir);
@@ -75,6 +80,9 @@ export function lockChallenge(dir) {
   const readme = Buffer.from(normalizeReadme(readFileSync(join(dir, "README.md"), "utf8")));
   writeFileSync(join(dir, "README.md"), readme);
   const files = collectFiles(dir, LOCKED_PARTS);
+  if (typeInfo(manifest.type).fromCode) {
+    for (const [rel, buf] of Object.entries(collectFiles(dir, ["starter"]))) files[`${ORIGINAL_DIR}/${rel.slice("starter/".length)}`] = buf;
+  }
   writeFileSync(join(dir, LOCK_FILE), encryptBundle(files, readme));
   for (const part of LOCKED_PARTS) rmSync(join(dir, part), { recursive: true, force: true });
   chmodSync(join(dir, "README.md"), 0o444);

@@ -159,13 +159,16 @@ challenges/2026-10-02-c-ring-buffer/
   challenge.json   level, type, topics, test command, source (daily | manual)
   starter/         ← you work here
   tests/           the test suite (visible; read it!)
-  locked.bin       encrypted: solution/, solution/EXPLANATION.md, bugs/, hints
+  locked.bin       encrypted: solution/, solution/EXPLANATION.md, bugs/, hints (+ original/)
   NOTES.md         your notes
 ```
 
 After `ginga done` or `ginga giveup`, `locked.bin` is replaced by `solution/` (with `EXPLANATION.md`:
 the approach, a traced example, complexity, alternatives, the common bugs, language idioms and two
-"level up" follow-ups), `bugs/` (the typical mistakes the tests catch) and `hints.md`.
+"level up" follow-ups), `bugs/` (the typical mistakes the tests catch) and `hints.md`. Types that hand
+you code (fix-the-bug, refactor, extend, debug-from-symptom, optimize) also get `original/`, the code
+as you received it, so `ginga review` judges your fix or change against it instead of reviewing the
+result as if you had written it from scratch.
 
 ### Challenge types
 

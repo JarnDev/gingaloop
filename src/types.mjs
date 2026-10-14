@@ -1,18 +1,19 @@
 // Challenge types. Each has a minimum level, a weight for the daily mix (implement keeps ≥ 50%
 // at every level), extra README sections the validator requires, and the dirs `ginga open` shows
-// besides README + starter/. The detailed authoring rules for the non-classic types live in
+// besides README + starter/. `fromCode`: starter/ is code handed to the user (buggy, messy or to
+// extend), so the lock also keeps a copy of it as original/ for `ginga review`. The detailed authoring rules for the non-classic types live in
 // prompts/types/<type>.md.
 
 export const TYPES = {
   implement: { minLevel: 1, weight: 50, readme: [], open: [] },
-  "fix-the-bug": { minLevel: 1, weight: 8, readme: [], open: [] },
-  refactor: { minLevel: 1, weight: 6, readme: [], open: [] },
-  extend: { minLevel: 1, weight: 6, readme: [], open: [] },
+  "fix-the-bug": { minLevel: 1, weight: 8, readme: [], open: [], fromCode: true },
+  refactor: { minLevel: 1, weight: 6, readme: [], open: [], fromCode: true },
+  extend: { minLevel: 1, weight: 6, readme: [], open: [], fromCode: true },
   "write-the-tests": { minLevel: 1, weight: 8, readme: ["Subject", "What to test"], open: ["subject"], grader: "mutation" },
   trace: { minLevel: 1, weight: 6, readme: ["Program", "Answer format"], open: ["program"] },
   port: { minLevel: 2, weight: 5, readme: ["Source"], open: ["source"], needsSecondLanguage: true },
-  "debug-from-symptom": { minLevel: 3, weight: 6, readme: ["Symptom"], open: [] },
-  optimize: { minLevel: 3, weight: 5, readme: ["Budget"], open: [], grader: "budget" },
+  "debug-from-symptom": { minLevel: 3, weight: 6, readme: ["Symptom"], open: [], fromCode: true },
+  optimize: { minLevel: 3, weight: 5, readme: ["Budget"], open: [], grader: "budget", fromCode: true },
 };
 
 export const TYPE_IDS = Object.keys(TYPES);

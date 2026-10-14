@@ -5,7 +5,7 @@ import { homedir } from "node:os";
 import { delimiter, isAbsolute, join, resolve, sep } from "node:path";
 import { createInterface } from "node:readline/promises";
 import {
-  byCreation, isLocked, listChallenges, pickChallenge, readHints, unlockChallenge, writeEditorFiles,
+  ORIGINAL_DIR, byCreation, isLocked, listChallenges, pickChallenge, readHints, unlockChallenge, writeEditorFiles,
 } from "./challenges.mjs";
 import { completionScript } from "./help.mjs";
 import { bootstrapProfile, generateChallenge, parseClaudeCost, runClaude, sandboxPrefix } from "./generate.mjs";
@@ -1169,6 +1169,30 @@ export async function cmdDoctor(_positionals, opts) {
   }
 }
 
+/** What a review should look at for each challenge type ("" for implement: the generic prompt fits). */
+export function reviewTypeNote(type, hasOriginal) {
+  const original = hasOriginal
+    ? `${ORIGINAL_DIR}/ is the code the user was handed; compare it with starter/ (diff them). `
+    : "The code the user was handed was not kept for this challenge; bugs/ (the planted variants, see bugs/bugs.json) shows what was wrong with it. ";
+  return {
+    "fix-the-bug": "This is a fix-the-bug challenge: the user was handed buggy code and had to fix it, not write it. " + original +
+      "Review the FIX, not the code as if they wrote it: for each bug that was in the handed code, say whether it was fixed and whether " +
+      "the fix addresses the cause or only a symptom; whether the change is focused or a rewrite; any bug left in or introduced. " +
+      "Style and idioms only for lines the user changed, briefly, at the end. ",
+    refactor: "This is a refactor challenge: the user was handed working-but-poor code and a new requirement. " + original +
+      "Review the refactor: is the structure clearly better than the handed code, is behavior preserved, does it meet the new requirement for the right reason? ",
+    extend: "This is an extend challenge: the user was handed a small working module and added a feature. " + original +
+      "Review the extension: does it fit the existing design and naming, did anything that worked before break, is the change in the right place? ",
+    "debug-from-symptom": "This is a debug-from-symptom challenge: " + original +
+      "Check that the user found and fixed the root cause, not just the symptom, and that nothing else changed by accident. ",
+    optimize: "This is an optimize challenge: " + original +
+      "Check the complexity of the user's version against the handed one, and any behavior change between them. ",
+    "write-the-tests": "This is a write-the-tests challenge: starter/ holds the USER'S TESTS for subject/, and solution/ the reference tests. Review the test suite: missing input classes, weak assertions, unclear names, redundant tests. ",
+    trace: "This is a trace challenge: starter/answer.txt is the user's predicted output of program/. Explain each wrong line's misconception. ",
+    port: "This is a port challenge from source/ (another language): check idiomatic use of the target language and every semantic difference that could bite. ",
+  }[type] ?? "";
+}
+
 export async function cmdReview(positionals, opts) {
   const { ws, config } = ctx(opts);
   const c = pickChallenge(ws, positionals[0]);
@@ -1179,18 +1203,13 @@ export async function cmdReview(positionals, opts) {
   cpSync(c.dir, staging, { recursive: true });
   const prefix = sandboxPrefix({ lang: profile.id, stack: profile.stack });
   const testCmd = c.manifest.test?.command ?? profile.testCommand;
-  const typeNote = {
-    "write-the-tests": "This is a write-the-tests challenge: starter/ holds the USER'S TESTS for subject/, and solution/ the reference tests. Review the test suite: missing input classes, weak assertions, unclear names, redundant tests. ",
-    trace: "This is a trace challenge: starter/answer.txt is the user's predicted output of program/. Explain each wrong line's misconception. ",
-    port: "This is a port challenge from source/ (another language): check idiomatic use of the target language and every semantic difference that could bite. ",
-    optimize: "This is an optimize challenge: check the complexity of the user's version, and any behavior change against the original. ",
-    "debug-from-symptom": "This is a debug-from-symptom challenge: check that the user fixed the root cause, not just the symptom. ",
-  }[c.manifest.type] ?? "";
+  const typeNote = reviewTypeNote(c.manifest.type, existsSync(join(c.dir, ORIGINAL_DIR)));
   const prompt =
     typeNote +
     "You are reviewing a practice solution. starter/ is the user's solution, solution/ the reference, " +
-    "README.md the problem, tests/ the suite. Write a short, direct code review in Markdown: correctness " +
-    "risks the tests miss, complexity, idiomatic improvements for this language, and one thing done well. " +
+    "README.md the problem, tests/ the suite. Write a short, direct code review in Markdown. The challenge-type " +
+    "note above, when there is one, sets the focus; otherwise cover correctness risks the tests miss, complexity, " +
+    "idiomatic improvements for this language, and one thing done well. " +
     "No praise padding. Do not modify any file.\n\n" +
     "VERIFY your claims by running code; do not guess. You can only run code in a sandbox with this exact " +
     "prefix (type it exactly, from this directory, each option once):\n" +

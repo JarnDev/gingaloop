@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- **Reviews fit the challenge type.** fix-the-bug reviews judge the fix (each bug in the handed code:
+  fixed, at the cause or the symptom; focused change or rewrite) instead of reviewing the result as
+  new code; refactor, extend, debug-from-symptom and optimize get their own focus too. Types that
+  hand you code now keep it in the lock as `original/`, unlocked with the solution after `done` or
+  `giveup`, so the review can compare against it. Challenges generated before this have no
+  `original/`; their reviews use the planted bug variants instead.
+
 ## 0.5.0 (2026-10-13)
 
 - **`ginga learn`** turns a review's findings about the challenge itself (a wrong reference, a
