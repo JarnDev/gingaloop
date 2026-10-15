@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Without an id, a command run inside `challenges/<id>/` (at any depth) uses that challenge, instead
+  of always the newest open one. `ginga review` elsewhere defaults to the newest unlocked challenge,
+  so an open, still-locked one no longer blocks it.
+
 ## 0.6.0 (2026-10-14)
 
 - **Reviews fit the challenge type.** fix-the-bug reviews judge the fix (each bug in the handed code:

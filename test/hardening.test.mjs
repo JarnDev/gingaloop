@@ -111,8 +111,21 @@ test("picking: exact id beats prefix; default is the most recently created open 
   writeFileSync(join(ws, "progress.jsonl"), [gen("2026-10-02-python-bar"), gen("2026-10-02-c-foo"), gen("2026-10-02-c-foo-2")].join("\n") + "\n");
   assert.equal(pickChallenge(ws, "2026-10-02-c-foo").manifest.id, "2026-10-02-c-foo");
   assert.throws(() => pickChallenge(ws, "2026-10-02-c-fo"), /ambiguous/);
-  assert.equal(pickChallenge(ws).manifest.id, "2026-10-02-c-foo-2");
+  const outside = { cwd: ws };
+  assert.equal(pickChallenge(ws, undefined, outside).manifest.id, "2026-10-02-c-foo-2");
   assert.equal(byCreation([], []).length, 0);
+
+  // Inside a challenge folder (at any depth), that challenge is the default; an id still wins.
+  const bar = join(ws, "challenges", "2026-10-02-python-bar");
+  mkdirSync(join(bar, "starter"));
+  assert.equal(pickChallenge(ws, undefined, { cwd: bar }).manifest.id, "2026-10-02-python-bar");
+  assert.equal(pickChallenge(ws, undefined, { cwd: join(bar, "starter") }).manifest.id, "2026-10-02-python-bar");
+  assert.equal(pickChallenge(ws, "2026-10-02-c-foo", { cwd: bar }).manifest.id, "2026-10-02-c-foo");
+
+  // review wants an unlocked one: the newest open challenge is still locked, so it is skipped.
+  writeFileSync(join(ws, "challenges", "2026-10-02-c-foo-2", "locked.bin"), "x");
+  assert.equal(pickChallenge(ws, undefined, outside).manifest.id, "2026-10-02-c-foo-2");
+  assert.equal(pickChallenge(ws, undefined, { ...outside, unlocked: true }).manifest.id, "2026-10-02-c-foo");
 });
 
 test("shell quoting keeps plain paths as-is and quotes the rest", () => {

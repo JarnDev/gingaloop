@@ -1195,7 +1195,7 @@ export function reviewTypeNote(type, hasOriginal) {
 
 export async function cmdReview(positionals, opts) {
   const { ws, config } = ctx(opts);
-  const c = pickChallenge(ws, positionals[0]);
+  const c = pickChallenge(ws, positionals[0], { unlocked: true });
   if (isLocked(c.dir)) throw new UserError("Review needs the reference solution: solve it (`ginga done`) or `ginga giveup` first.");
   const profile = challengeProfile(ws, c.manifest);
   // Work on a staging copy so Claude can run code through the jailed sandbox command.

@@ -1,6 +1,6 @@
 // Published challenges in a workspace: listing, locking, unlocking, index.
-import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { basename, isAbsolute, join, relative, sep } from "node:path";
 import { challengeStatus, readEvents } from "./progress.mjs";
 import { BUGS_FILE, readManifest } from "./runner.mjs";
 import { typeInfo } from "./types.mjs";
@@ -41,8 +41,12 @@ export function byCreation(all, events) {
   return [...all].sort((a, b) => (order.get(a.manifest.id) ?? -1) - (order.get(b.manifest.id) ?? -1));
 }
 
-/** By exact id, unique prefix, or else the most recently created open challenge (or newest). */
-export function pickChallenge(ws, idOrPrefix) {
+/**
+ * By exact id or unique prefix; else the challenge whose folder you are in (`cwd`, any depth);
+ * else the most recently created open challenge (or the newest). `unlocked`: the default skips
+ * challenges still locked (for commands that need the solution, like review).
+ */
+export function pickChallenge(ws, idOrPrefix, { cwd = process.cwd(), unlocked = false } = {}) {
   const events = readEvents(ws);
   const all = byCreation(listChallenges(ws), events);
   if (all.length === 0) throw new UserError("No challenges yet. Run `ginga new <lang>` or `ginga daily`.");
@@ -54,8 +58,26 @@ export function pickChallenge(ws, idOrPrefix) {
     if (hits.length === 0) throw new UserError(`No challenge matches "${idOrPrefix}".`);
     throw new UserError(`"${idOrPrefix}" is ambiguous: ${hits.map((h) => h.manifest.id).join(", ")}`);
   }
-  const open = all.filter((c) => challengeStatus(events, c.manifest.id).status === "open");
-  return (open.length ? open : all).at(-1);
+  const here = challengeFolderOf(ws, cwd);
+  const inHere = here && all.find((c) => basename(c.dir) === here);
+  if (inHere) return inHere;
+  const pool = unlocked && all.some((c) => !isLocked(c.dir)) ? all.filter((c) => !isLocked(c.dir)) : all;
+  const open = pool.filter((c) => challengeStatus(events, c.manifest.id).status === "open");
+  return (open.length ? open : pool).at(-1);
+}
+
+/** The challenge folder name `cwd` is inside (at any depth), or null. */
+function challengeFolderOf(ws, cwd) {
+  const real = (p) => {
+    try {
+      return realpathSync(p);
+    } catch {
+      return p;
+    }
+  };
+  const rel = relative(real(challengesDir(ws)), real(cwd));
+  if (!rel || rel.startsWith("..") || isAbsolute(rel)) return null;
+  return rel.split(sep)[0];
 }
 
 export function isLocked(dir) {

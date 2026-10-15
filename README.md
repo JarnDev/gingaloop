@@ -492,7 +492,8 @@ summary, never your code. See [CONTRIBUTING](https://github.com/JarnDev/gingaloo
 | `ginga validate [dir] [--examples]` | validate a challenge or the built-in examples |
 
 Every command has its own help: `ginga <command> --help` or `ginga help <command>`.
-`[id]` can be a prefix and defaults to your newest open challenge. Use `--workspace DIR` (or
+`[id]` can be a prefix. Without it, a command run inside a challenge's folder uses that challenge;
+elsewhere it uses your newest open challenge (`review`: your newest unlocked one). Use `--workspace DIR` (or
 `GINGALOOP_WORKSPACE`) to point at a workspace explicitly.
 
 ## Configuration (`gingaloop.json`)
