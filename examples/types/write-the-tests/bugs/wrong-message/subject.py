@@ -1,4 +1,4 @@
-# BUG: the message drops the quotes around the text (no !r), so "invalid duration: 1x" instead
+# Planted bug: the message drops the quotes around the text (no !r), so "invalid duration: 1x" instead
 # of "invalid duration: '1x'". Only a test that checks the exact message catches it.
 import re
 
