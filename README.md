@@ -476,7 +476,7 @@ summary, never your code. See [CONTRIBUTING](https://github.com/JarnDev/gingaloo
 | `ginga discard [id] [--reason R]` | drop a broken, duplicate or unwanted challenge: no penalty, no review, no reveal; its area, type and daily slot come back (the folder stays, marked ⬛) |
 | `ginga review [id]` | Claude reviews your solution against the reference (after unlock), running the tests and its own edge-case probes in the sandbox |
 | `ginga learn [id] [--report]` | turn the review's findings about the challenge itself (wrong reference, untested promise…) into rules every future generation follows; `--report` opens a pre-filled issue to fix it for everyone |
-| `ginga rank` / `ginga list` | levels (with basics/ecosystem split), streak, weak topics, Claude cost / all challenges; `--json` for scripts |
+| `ginga rank` / `ginga list` | levels (with basics/ecosystem split), streak, weak topics, Claude cost / all challenges, in creation order, with where each came from (daily, manual or a review of which topic); `--json` for scripts |
 | `ginga coverage [lang…]` | practice areas per language and how often you've had each (`--json` too) |
 | `ginga rotation [list\|set\|add\|remove\|mode]` | the daily's languages and order, e.g. `ginga rotation add typescript cpp`, `ginga rotation mode ordered` |
 | `ginga commit [--yes] [--push]` | commit the workspace with a structured message built from your progress (plain git, **no Claude tokens**) |
