@@ -26,7 +26,7 @@ import { installSchedule, removeSchedule, scheduleStatus } from "./schedule.mjs"
 import { buildCommitMessage, ensureRepo, git, pushWorkspace, stagedFiles, stagedNewEvents } from "./gitops.mjs";
 import { VaultKeyError, readBundle } from "./vault.mjs";
 import { PACE_DEFAULTS, PACE_FOOTNOTE, paceFor, paceLabel, paceReport, solvePace } from "./pace.mjs";
-import { dueReview, openReview, reviewCycles, reviewOpts, reviewSummary } from "./reviews.mjs";
+import { dueReview, openReview, reviewCycles, reviewOpts, reviewSummary, rootOf } from "./reviews.mjs";
 import {
   IMPROVEMENTS_FILE, LESSONS_FILE, addImprovements, addLessons, builtInRules, issueUrl, latestReview, learnPrompt, learnedFrom, parseLearnResult, readLessons,
 } from "./lessons.mjs";
@@ -712,18 +712,35 @@ export function costSummary(events, date) {
 export async function cmdList(_positionals, opts) {
   const { ws } = ctx(opts);
   const events = readEvents(ws);
-  const all = listChallenges(ws);
+  const all = byCreation(listChallenges(ws), events);
+  const generated = new Map(events.filter((e) => e.type === "generated").map((e) => [e.id, e]));
+  const origin = (m) => {
+    const g = generated.get(m.id);
+    const reviewOf = g?.reviewOf ?? m.reviewOf ?? null;
+    return { source: g?.source ?? m.source ?? null, reviewOf, root: reviewOf ? rootOf(generated, m.id) : null };
+  };
   if (opts.json) {
     return console.log(JSON.stringify(all.map(({ manifest: m, dir }) => {
       const s = challengeStatus(events, m.id);
-      return { id: m.id, title: m.title, date: m.date, lang: m.lang, level: m.level, type: m.type, status: s.status, hints: s.hints, dir };
+      const o = origin(m);
+      return {
+        id: m.id, title: m.title, date: m.date, lang: m.lang, level: m.level, type: m.type, status: s.status, hints: s.hints,
+        source: o.source, reviewOf: o.reviewOf, dir,
+      };
     }), null, 2));
   }
   if (!all.length) return console.log("No challenges yet.");
-  for (const { manifest: m } of all) {
-    const s = challengeStatus(events, m.id);
-    console.log(`${s.status.padEnd(9)} ${m.id.padEnd(48)} L${m.level} ${m.type}`);
-  }
+  const names = new Map();
+  const langName = (lang) => {
+    if (!names.has(lang)) names.set(lang, findProfile(ws, lang)?.name ?? lang);
+    return names.get(lang);
+  };
+  const rows = all.map(({ manifest: m }) => {
+    const o = origin(m);
+    const from = o.reviewOf ? `🔁 review: ${generated.get(o.root)?.title ?? o.root}` : (o.source ?? "–");
+    return [m.date ?? generated.get(m.id)?.date ?? "", langName(m.lang), `L${m.level}`, m.type ?? "implement", from, challengeStatus(events, m.id).status, m.id];
+  });
+  console.log(table(["Created", "Language", "Lvl", "Type", "From", "Status", "Id"], rows));
 }
 
 // ---------------------------------------------------------------- validate / sandbox / lang

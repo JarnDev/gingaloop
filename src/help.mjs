@@ -87,7 +87,9 @@ and the level each one unlocks at. Default: your rotation.`,
 
   list: `ginga list [--json]
 
-Every challenge with its status: open, solved, gaveup or discarded.`,
+Every challenge in the order it was created: date, language, level, type, where it came from
+(daily, manual, or "🔁 review: <topic>" for a review, named after the original challenge),
+status (open, solved, gaveup or discarded) and the id to pass to other commands.`,
 
   rotation: `ginga rotation [list]
 ginga rotation set|add|remove <lang…>
