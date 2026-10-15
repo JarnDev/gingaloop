@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.6.1 (2026-10-15)
 
 - Without an id, a command run inside `challenges/<id>/` (at any depth) uses that challenge, instead
   of always the newest open one. `ginga review` elsewhere defaults to the newest unlocked challenge,
