@@ -22,9 +22,14 @@ The contract to pin down:
 
 ## What to test
 
-The happy path for each unit and their combinations, the weight of each unit, and every way the
-input can be invalid listed above, including the exact error message. Think in input classes, and
-test each rule on its own.
+1. The weight of each unit, alone and combined (`"1h30m"` → 5400).
+2. Units out of order are rejected.
+3. A repeated unit is rejected.
+4. Empty text is rejected.
+5. The exact error type and message, `ValueError("invalid duration: '<text>'")`.
+
+Also try unknown units, missing numbers, spaces and signs. Think in input classes, and test each
+rule on its own.
 
 ## Examples
 

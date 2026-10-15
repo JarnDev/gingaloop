@@ -145,6 +145,42 @@ export function symptomLines(readmeText) {
   return block ? block[1].split("\n").map((l) => l.trim()).filter(Boolean) : [];
 }
 
+/** The items of the "## What to test" list in a README (bullets or numbered), in order. */
+export function whatToTestItems(readmeText) {
+  const section = (readmeText.split(/^##\s+What to test[^\n]*\n/im)[1] ?? "").split(/^##\s/m)[0];
+  const items = [];
+  for (const line of section.split("\n")) {
+    const item = /^(?:[-*]|\d+[.)])\s+(.*\S)/.exec(line);
+    if (item) items.push(item[1]);
+    else if (items.length && /^\s+\S/.test(line)) items[items.length - 1] += ` ${line.trim()}`;
+  }
+  return items;
+}
+
+/**
+ * write-the-tests: every promise in "## What to test" must be broken by some hidden bug, or a suite
+ * that never tests it still catches every bug and passes (gingaloop#2). Each bug names the item(s)
+ * it breaks in `breaks` (1-based).
+ */
+function promiseProblems(readmeText, bugs) {
+  const items = whatToTestItems(readmeText);
+  if (!items.length) return ['README.md: "## What to test" must be a list, one item per behavior the tests must pin down'];
+  const out = [];
+  const covered = new Set();
+  for (const b of bugs) {
+    const breaks = [b.breaks].flat().filter((n) => n != null);
+    if (!breaks.length) out.push(`bugs[] ${b.name}: "breaks" must name the "What to test" item(s) it breaks (1-${items.length})`);
+    for (const n of breaks) {
+      if (Number.isInteger(n) && n >= 1 && n <= items.length) covered.add(n);
+      else out.push(`bugs[] ${b.name}: breaks ${JSON.stringify(n)} is not an item of "What to test" (1-${items.length})`);
+    }
+  }
+  items.forEach((text, i) => {
+    if (!covered.has(i + 1)) out.push(`"What to test" item ${i + 1} has no hidden bug that breaks it, so a suite that never tests it still passes: add one, or drop the item ("${text.slice(0, 80)}")`);
+  });
+  return out;
+}
+
 /** Static checks on a plaintext challenge tree (staging, example, or materialized). */
 export function staticProblems(dir) {
   const problems = [];
@@ -203,6 +239,7 @@ export function staticProblems(dir) {
     if (!b.name || !b.expect) problems.push("bugs[]: each entry needs name and expect");
     else if (!nonEmptyDir(join(dir, "bugs", b.name))) problems.push(`bugs/${b.name}/ is missing or empty`);
   }
+  if (m.type === "write-the-tests" && existsSync(readme)) problems.push(...promiseProblems(readFileSync(readme, "utf8"), bugs));
   return problems;
 }
 

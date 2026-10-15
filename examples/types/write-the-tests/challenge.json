@@ -8,9 +8,10 @@
   "estMinutes": 25,
   "test": { "command": "PYTHONPATH=../$IMPL python3 -m unittest discover -s ../$TESTS -p \"test_*.py\" -v", "successPattern": null, "timeoutSeconds": 60 },
   "bugs": [
-    { "name": "accepts-any-order", "kind": "mutation", "expect": "test_units_out_of_order_are_rejected" },
-    { "name": "minutes-as-seconds", "kind": "mutation", "expect": "test_each_unit_has_its_own_weight" },
-    { "name": "regex-allows-empty", "kind": "alternative", "expect": "test_empty_text_is_rejected" },
-    { "name": "split-allows-repeats", "kind": "alternative", "expect": "test_repeated_unit_is_rejected" }
+    { "name": "accepts-any-order", "kind": "mutation", "expect": "test_units_out_of_order_are_rejected", "breaks": 2 },
+    { "name": "minutes-as-seconds", "kind": "mutation", "expect": "test_each_unit_has_its_own_weight", "breaks": 1 },
+    { "name": "regex-allows-empty", "kind": "alternative", "expect": "test_empty_text_is_rejected", "breaks": 4 },
+    { "name": "split-allows-repeats", "kind": "alternative", "expect": "test_repeated_unit_is_rejected", "breaks": 3 },
+    { "name": "wrong-message", "kind": "mutation", "expect": "test_unknown_unit_is_rejected", "breaks": 5 }
   ]
 }
