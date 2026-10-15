@@ -6,7 +6,9 @@ Layout (differs from the generic one):
 subject/            # the correct implementation, VISIBLE to the user (what they test)
 starter/            # the user's test file(s): imports + 1 trivial example test + TODOs; this suite
                     # must NOT catch all bugs yet (it fails the grading)
-solution/           # the reference test suite (same file names as starter/) + EXPLANATION.md
+solution/           # the reference test suite, ONE FILE PER "What to test" item with "item<N>" in
+                    # its name (test_item2_order.py, item2-order.test.mjs), plus EXPLANATION.md;
+                    # tests for nothing in the list go in a file without "item"
 bugs/<name>/        # buggy copies of subject/ (same file names), at least one per "What to test"
                     # item, each a realistic bug a good test suite must catch; at least one kind
                     # "alternative" (a different approach)
@@ -26,6 +28,12 @@ tests/              # the harness: runs the test suite in ../$TESTS against the 
   the easy-to-forget ones: the exact error type and message, empty input, falsy values, returning a
   new object vs the same reference. The validator rejects an item without a bug; when a promise is
   not worth a bug, leave it out of "What to test".
+- Each bug breaks ONLY its promise: the reference suite WITHOUT the item's file must still PASS on
+  that bug (the validator runs exactly this). Otherwise a suite that never tests the promise catches
+  the bug by luck through another one. Keep the bug minimal: an "accepts fractional sizes" bug must
+  still reject 0, NaN and Infinity; a "returns the input array" bug must still return `[]` for an
+  empty one. And keep each reference file to its item: only the message item's file checks the exact
+  message, the others just check that the right error is raised.
 - README: `## Problem` describes the subject's contract precisely (what the tests should pin down);
   `## Subject` names the files in subject/; `## What to test` is a numbered list of the behaviors
   to pin down, 3–7 items, one behavior each (not the bugs!);
