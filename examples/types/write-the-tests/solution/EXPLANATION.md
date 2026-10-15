@@ -11,7 +11,11 @@ you exactly which rule broke:
 | order h → m → s | `test_units_out_of_order_are_rejected` | `accepts-any-order` |
 | each unit at most once | `test_repeated_unit_is_rejected` | `split-allows-repeats` |
 | empty text is invalid | `test_empty_text_is_rejected` | `regex-allows-empty` |
-| exact error message | `assert_invalid` checks `str(exc)` | any version with a different message |
+| exact error message | `test_exact_error_message` checks `str(exc)` | `wrong-message` |
+
+The reference keeps each rule in its own file (`test_item<N>_….py`, numbered like "What to test"),
+and only the message file checks the message. One test that checks everything at once would still
+catch every bug, but it can't tell you which rule a failure is about.
 
 `"1h30m" == 5400` alone catches none of the bugs. Every buggy version gets it right, which is why
 the starter's single test isn't enough.

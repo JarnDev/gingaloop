@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
-import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { staticProblems, symptomLines, whatToTestItems } from "../src/runner.mjs";
+import { itemTag, staticProblems, symptomLines, whatToTestItems } from "../src/runner.mjs";
 import { TYPES, eligibleTypes, pickType } from "../src/types.mjs";
 
 const EX = join(import.meta.dirname, "..", "examples", "types");
@@ -69,6 +69,23 @@ test("write-the-tests: every What to test item needs a hidden bug that breaks it
     const readme = readFileSync(join(dir, "README.md"), "utf8");
     writeFileSync(join(dir, "README.md"), readme.replace(/## What to test[\s\S]*?(?=## Examples)/, "## What to test\n\nEverything.\n\n"));
     assert.ok(staticProblems(dir).some((p) => /must be a list/.test(p)));
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test("write-the-tests: one reference test file per What to test item, so each bug can be run without its item (#3)", () => {
+  assert.deepEqual(["test_item2_order.py", "item10-x.test.mjs", "sub/item4.py", "test_subject.py", "items.py", "subitem3.py"].map(itemTag),
+    [2, 10, 4, null, null, null]);
+  const tmp = mkdtempSync(join(tmpdir(), "gingaloop-wtt-"));
+  try {
+    const dir = join(tmp, "c");
+    cpSync(join(EX, "write-the-tests"), dir, { recursive: true });
+    const sol = join(dir, "solution");
+    renameSync(join(sol, "test_item3_repeats.py"), join(sol, "test_item9_repeats.py"));
+    const problems = staticProblems(dir);
+    assert.ok(problems.some((p) => /test_item9_repeats\.py: item9 is not an item/.test(p)), problems.join("\n"));
+    assert.ok(problems.some((p) => /no reference test file for "What to test" item 3/.test(p)), problems.join("\n"));
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }

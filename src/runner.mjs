@@ -5,7 +5,7 @@ import { join, resolve, sep } from "node:path";
 import { tmpdir } from "node:os";
 import { UserError } from "./workspace.mjs";
 import { makeTempDir, removeDir, runInSandbox } from "./sandbox.mjs";
-import { LOCK_FILE, parseHints, writeFiles } from "./vault.mjs";
+import { LOCK_FILE, collectFiles, parseHints, writeFiles } from "./vault.mjs";
 
 import { CODE_TYPES, TYPE_IDS, typeInfo } from "./types.mjs";
 
@@ -157,15 +157,59 @@ export function whatToTestItems(readmeText) {
   return items;
 }
 
+/** The "What to test" item a reference test file belongs to ("test_item2_order.py" → 2), or null. */
+export function itemTag(fileName) {
+  const m = /(?:^|[^a-z0-9])item(\d+)(?![0-9])/i.exec(fileName.split("/").pop());
+  return m ? Number(m[1]) : null;
+}
+
+/**
+ * write-the-tests: each hidden bug must break ONLY its promise (gingaloop#3), or a suite that never
+ * tests that promise still catches it by luck through another one. Runs the reference suite without
+ * the test files of the bug's item(s) against the bug: it must pass. One sandbox run per bug.
+ */
+async function isolationProblems({ config, profile, dir, manifest, bugs, log }) {
+  const out = [];
+  const suite = collectFiles(dir, ["solution"]);
+  for (const bug of bugs) {
+    const own = new Set([bug.breaks].flat().filter((n) => n != null));
+    if (!own.size) continue;
+    const rest = {};
+    for (const [rel, buf] of Object.entries(suite)) {
+      if (!own.has(itemTag(rel))) rest[`isolate/${rel.slice("solution/".length)}`] = buf;
+    }
+    log(`bugs/${bug.name} breaks only item ${[...own].join(", ")} …`);
+    const r = await runTarget({
+      config, profile, challengeDir: dir, manifest, target: `bugs/${bug.name}`, bundle: rest,
+      env: { TESTS: "isolate", IMPL: `bugs/${bug.name}` },
+    });
+    if (!r.passed) {
+      out.push(`bugs/${bug.name} is also caught by reference tests outside "What to test" item ${[...own].join(", ")}: ` +
+        `make it break only that promise (or list every item it breaks in "breaks"):\n${tail(r.output, 25)}`);
+    }
+  }
+  return out;
+}
+
 /**
  * write-the-tests: every promise in "## What to test" must be broken by some hidden bug, or a suite
  * that never tests it still catches every bug and passes (gingaloop#2). Each bug names the item(s)
  * it breaks in `breaks` (1-based).
  */
-function promiseProblems(readmeText, bugs) {
+function promiseProblems(readmeText, bugs, solutionFiles = []) {
   const items = whatToTestItems(readmeText);
   if (!items.length) return ['README.md: "## What to test" must be a list, one item per behavior the tests must pin down'];
   const out = [];
+  const tagged = new Set();
+  for (const f of solutionFiles) {
+    const n = itemTag(f);
+    if (n == null) continue;
+    if (n >= 1 && n <= items.length) tagged.add(n);
+    else out.push(`solution/${f}: item${n} is not an item of "What to test" (1-${items.length})`);
+  }
+  items.forEach((_, i) => {
+    if (!tagged.has(i + 1)) out.push(`solution/: no reference test file for "What to test" item ${i + 1} (one file per item, "item${i + 1}" in its name)`);
+  });
   const covered = new Set();
   for (const b of bugs) {
     const breaks = [b.breaks].flat().filter((n) => n != null);
@@ -239,7 +283,11 @@ export function staticProblems(dir) {
     if (!b.name || !b.expect) problems.push("bugs[]: each entry needs name and expect");
     else if (!nonEmptyDir(join(dir, "bugs", b.name))) problems.push(`bugs/${b.name}/ is missing or empty`);
   }
-  if (m.type === "write-the-tests" && existsSync(readme)) problems.push(...promiseProblems(readFileSync(readme, "utf8"), bugs));
+  if (m.type === "write-the-tests" && existsSync(readme)) {
+    const solution = join(dir, "solution");
+    const files = existsSync(solution) ? readdirSync(solution, { recursive: true }).map(String) : [];
+    problems.push(...promiseProblems(readFileSync(readme, "utf8"), bugs, files));
+  }
   return problems;
 }
 
@@ -267,6 +315,9 @@ export async function validateTree({ config, profile, dir, log = () => {} }) {
     for (const v of ref.variants) {
       if (!v.caught) problems.push(`the reference tests do not catch bugs/${v.bug.name}`);
       else if (!expectIn(v.bug, v.output)) problems.push(`bugs/${v.bug.name} is caught, but not by the expected test ("${v.bug.expect}" not in output):\n${tail(v.output, 25)}`);
+    }
+    if (manifest.type === "write-the-tests" && !problems.length) {
+      problems.push(...await isolationProblems({ config, profile, dir, manifest, bugs, log }));
     }
     log("starter test suite …");
     const st = await gradeMutation({ config, profile, challengeDir: dir, manifest, suite: "starter" });

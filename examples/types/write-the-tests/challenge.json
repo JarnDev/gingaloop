@@ -12,6 +12,6 @@
     { "name": "minutes-as-seconds", "kind": "mutation", "expect": "test_each_unit_has_its_own_weight", "breaks": 1 },
     { "name": "regex-allows-empty", "kind": "alternative", "expect": "test_empty_text_is_rejected", "breaks": 4 },
     { "name": "split-allows-repeats", "kind": "alternative", "expect": "test_repeated_unit_is_rejected", "breaks": 3 },
-    { "name": "wrong-message", "kind": "mutation", "expect": "test_unknown_unit_is_rejected", "breaks": 5 }
+    { "name": "wrong-message", "kind": "mutation", "expect": "test_exact_error_message", "breaks": 5 }
   ]
 }
