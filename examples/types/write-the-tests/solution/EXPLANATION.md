@@ -38,6 +38,9 @@ of them:
   combinations whose sum happens to look plausible.
 - **A regex with all-optional groups** (`bugs/regex-allows-empty`): `""` matches and returns 0.
 - **Order checked between neighbors with `>`** (`bugs/split-allows-repeats`): `1h2h` passes.
+- **A message that drifts** (`bugs/wrong-message`): still a `ValueError`, but without the quotes
+  around the text. Only an exact `assertEqual` on `str(exception)` notices; `assertRaises` alone
+  does not.
 
 ## Idioms
 

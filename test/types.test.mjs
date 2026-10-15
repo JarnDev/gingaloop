@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
+import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { staticProblems, symptomLines } from "../src/runner.mjs";
+import { staticProblems, symptomLines, whatToTestItems } from "../src/runner.mjs";
 import { TYPES, eligibleTypes, pickType } from "../src/types.mjs";
 
 const EX = join(import.meta.dirname, "..", "examples", "types");
@@ -44,6 +46,31 @@ test("symptomLines reads the fenced block under ## Symptom", () => {
 test("the type examples satisfy their type-specific static rules", () => {
   for (const t of ["write-the-tests", "trace", "port", "debug-from-symptom", "optimize"]) {
     assert.deepEqual(staticProblems(join(EX, t)), [], t);
+  }
+});
+
+test("write-the-tests: every What to test item needs a hidden bug that breaks it (#2)", () => {
+  assert.deepEqual(whatToTestItems("## What to test\n\n1. Weights.\n2. Order is\n   checked.\n- Empty.\n\nProse after.\n\n## Examples\n- not this\n"),
+    ["Weights.", "Order is checked.", "Empty."]);
+  const tmp = mkdtempSync(join(tmpdir(), "gingaloop-wtt-"));
+  try {
+    const dir = join(tmp, "c");
+    cpSync(join(EX, "write-the-tests"), dir, { recursive: true });
+    const manifest = JSON.parse(readFileSync(join(dir, "challenge.json"), "utf8"));
+    const write = (bugs) => writeFileSync(join(dir, "challenge.json"), JSON.stringify({ ...manifest, bugs }));
+    // Drop the only bug that breaks item 5 (the exact message): a suite without that test would pass.
+    write(manifest.bugs.filter((b) => b.breaks !== 5));
+    assert.deepEqual(staticProblems(dir).map((p) => p.slice(0, 60)), ['"What to test" item 5 has no hidden bug that breaks it, so a']);
+    write(manifest.bugs.map((b) => (b.breaks === 5 ? { ...b, breaks: undefined } : b)));
+    assert.ok(staticProblems(dir).some((p) => /wrong-message: "breaks" must name/.test(p)));
+    write(manifest.bugs.map((b) => (b.breaks === 5 ? { ...b, breaks: [5, 9] } : b)));
+    assert.ok(staticProblems(dir).some((p) => /breaks 9 is not an item/.test(p)));
+    write(manifest.bugs);
+    const readme = readFileSync(join(dir, "README.md"), "utf8");
+    writeFileSync(join(dir, "README.md"), readme.replace(/## What to test[\s\S]*?(?=## Examples)/, "## What to test\n\nEverything.\n\n"));
+    assert.ok(staticProblems(dir).some((p) => /must be a list/.test(p)));
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
   }
 });
 
