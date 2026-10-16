@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.6.2 (2026-10-15)
+
+The first release shaped by lessons users sent upstream with `ginga learn --report` (#1, #2, #3).
+
+- **`ginga list`** is a table in creation order with a **From** column: daily, manual, or
+  "🔁 review: <topic>" (named after the original challenge of the review cycle). `--json` gains
+  `source` and `reviewOf`. (#5)
+- **write-the-tests: every promise is graded.** "What to test" is a numbered list, each hidden bug
+  names the item it breaks (`bugs[].breaks`), and the validator rejects an item no bug breaks, so a
+  suite can no longer skip a promise and still pass. (#2, #6)
+- **write-the-tests: each bug breaks only its promise.** The reference suite has one file per item
+  (`item<N>` in the name), and the validator runs it without the bug's item against each bug: it
+  must pass, so no bug is caught by luck through another promise. One extra sandbox run per bug. (#3, #7)
+- C and C++ profiles: tests with guard or sentinel values next to the input run each case with a
+  "stop" and a "continue" guard, since ASan can't see a stray read inside one buffer. (#1, #4)
+
 ## 0.6.1 (2026-10-15)
 
 - Without an id, a command run inside `challenges/<id>/` (at any depth) uses that challenge, instead
