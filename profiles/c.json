@@ -91,6 +91,6 @@
     }
   ],
   "editorFiles": {
-    "compile_flags.txt": "-std=c17\n-Wall\n-Wextra\n-Wpedantic\n-Istarter\n-DGINGA_SCRATCH\n"
+    "compile_flags.txt": "-std=c17\n-Wall\n-Wextra\n-Wpedantic\n-Istarter\n-Isubject\n-Itests\n-DGINGA_SCRATCH\n"
   }
 }
