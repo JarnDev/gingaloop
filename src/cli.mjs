@@ -1095,21 +1095,7 @@ export async function cmdOpen(positionals, opts) {
   for (const extra of typeInfo(c.manifest.type).open) if (existsSync(join(c.dir, extra))) walk(extra);
   if (existsSync(join(c.dir, "starter"))) walk("starter");
   const quote = (s) => `'${s.replace(/'/g, `'\\''`)}'`;
-  // The first open starts the timer that `ginga done` suggests as "minutes spent"; opening a
-  // paused challenge resumes it.
-  const events = readEvents(ws);
-  const m = c.manifest;
-  if (challengeStatus(events, m.id).status === "open") {
-    const t = timerState(events, m.id);
-    if (!events.some((e) => e.type === "opened" && e.id === m.id)) {
-      appendEvent(ws, { type: "opened", id: m.id, lang: m.lang, level: m.level });
-      if (t.state === "paused") appendEvent(ws, { type: "resumed", id: m.id, lang: m.lang, level: m.level });
-      console.log("⏱️  Timer started; `ginga done` will suggest the active time from now (`ginga pause` for breaks).");
-    } else if (t.state === "paused") {
-      appendEvent(ws, { type: "resumed", id: m.id, lang: m.lang, level: m.level });
-      console.log(`▶  Timer resumed after ${humanMinutes(minutesSince(t.since))} paused.`);
-    }
-  }
+  startOrResumeTimer(ws, c.manifest);
   console.log(`Opening ${c.manifest.id} in ${editor} …`);
   // Through a shell so editor settings with arguments ("code -w", "nvim -p") work.
   const r = spawnSync(`${editor} ${["README.md", ...starter].map(quote).join(" ")}`, {
@@ -1122,6 +1108,25 @@ export async function cmdOpen(positionals, opts) {
 // ---------------------------------------------------------------- timer
 
 const minutesSince = (ms, now = Date.now()) => Math.max(0, Math.round((now - ms) / 60_000));
+
+/**
+ * On `ginga open`: the first open starts the timer that `ginga done` suggests as "minutes spent";
+ * opening a paused challenge resumes it. Finished challenges have no timer to touch.
+ */
+function startOrResumeTimer(ws, m) {
+  const events = readEvents(ws);
+  if (challengeStatus(events, m.id).status !== "open") return;
+  const t = timerState(events, m.id);
+  const event = (type) => appendEvent(ws, { type, id: m.id, lang: m.lang, level: m.level });
+  if (!events.some((e) => e.type === "opened" && e.id === m.id)) {
+    event("opened");
+    if (t.state === "paused") event("resumed");
+    console.log("⏱️  Timer started; `ginga done` will suggest the active time from now (`ginga pause` for breaks).");
+  } else if (t.state === "paused") {
+    event("resumed");
+    console.log(`▶  Timer resumed after ${humanMinutes(minutesSince(t.since))} paused.`);
+  }
+}
 
 /** "▶ running · 34 min active (1 pause, 15 min)" */
 function timerLine(events, id) {

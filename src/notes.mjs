@@ -23,18 +23,19 @@ export function fillNotes(text, values) {
   for (const [field, value] of Object.entries(values)) {
     if (!value) continue;
     const re = fieldLine(field);
-    if (re.test(out)) {
-      out = out.replace(re, `- ${field}: ${value}`);
-      filled.push(field);
-    } else if (field === "Result" && !new RegExp(`^- Result:`, "m").test(out)) {
-      const hints = /^- Hints used:.*$/m.exec(out);
-      if (!hints) continue;
-      const at = hints.index + hints[0].length;
-      out = `${out.slice(0, at)}\n- Result: ${value}${out.slice(at)}`;
-      filled.push(field);
-    }
+    const next = re.test(out) ? out.replace(re, `- ${field}: ${value}`) : field === "Result" ? withResultLine(out, value) : out;
+    if (next !== out) filled.push(field);
+    out = next;
   }
   return { text: out + rest, filled };
+}
+
+/** Notes made before the Result field: add it after "Hints used" (unless it's there, filled). */
+function withResultLine(text, value) {
+  const hints = /^- Hints used:.*$/m.exec(text);
+  if (!hints || /^- Result:/m.test(text)) return text;
+  const at = hints.index + hints[0].length;
+  return `${text.slice(0, at)}\n- Result: ${value}${text.slice(at)}`;
 }
 
 const hhmm = (ms) => {
@@ -55,25 +56,40 @@ const BAND = { faster: "faster than expected", "on pace": "on pace", slower: "sl
  *   hintsUsed (hint numbers), hintsTotal, startedAt (ms, the first open)
  */
 export function noteValues({ outcome, minutes, minutesSource, timer, pace, hintsUsed = [], hintsTotal = null, startedAt = null }) {
-  const values = {};
-  if (outcome.kind === "solved") {
-    if (Number.isFinite(minutes)) {
-      const how = [minutesSource === "timer" ? "timer" : minutesSource === "flag" ? "--minutes" : minutesSource === "typed" ? "typed" : null];
-      if (minutesSource === "timer" && timer?.pauses) how.push(`${timer.pauses} pause${timer.pauses === 1 ? "" : "s"}, ${timer.pausedMinutes} min`);
-      const src = how.filter(Boolean).join("; ");
-      const exp = pace ? ` · expected ${pace.expected} (${pace.pct >= 0 ? "+" : ""}${pace.pct}%), ${BAND[pace.band]}` : "";
-      values["Time spent"] = `${minutes} min${src ? ` (${src})` : ""}${exp}`;
-    } else values["Time spent"] = "not recorded";
-  } else if (timer?.measured != null) {
-    values["Time spent"] = `${timer.measured} min on the timer before giving up`;
-  }
-  const n = hintsUsed.length;
-  const of = Number.isFinite(hintsTotal) && hintsTotal > 0 ? ` of ${hintsTotal}` : "";
-  values["Hints used"] = n ? `${n}${of} (${n === 1 ? "hint" : "hints"} ${hintsUsed.join(", ")})` : `0${of}`;
+  const time = outcome.kind === "solved" ? solvedTime(minutes, minutesSource, timer, pace) : gaveUpTime(timer);
+  return {
+    ...(time ? { "Time spent": time } : {}),
+    "Hints used": hintsLine(hintsUsed, hintsTotal),
+    Result: resultLine(outcome, startedAt),
+  };
+}
+
+const SOURCE = { timer: "timer", flag: "--minutes", typed: "typed" };
+
+/** "30 min (timer; 1 pause, 15 min) · expected 27 (+11%), on pace" */
+function solvedTime(minutes, minutesSource, timer, pace) {
+  if (!Number.isFinite(minutes)) return "not recorded";
+  const how = [SOURCE[minutesSource]];
+  if (minutesSource === "timer" && timer?.pauses) how.push(`${timer.pauses} pause${timer.pauses === 1 ? "" : "s"}, ${timer.pausedMinutes} min`);
+  const src = how.filter(Boolean).join("; ");
+  const exp = pace ? ` · expected ${pace.expected} (${pace.pct >= 0 ? "+" : ""}${pace.pct}%), ${BAND[pace.band]}` : "";
+  return `${minutes} min${src ? ` (${src})` : ""}${exp}`;
+}
+
+const gaveUpTime = (timer) => (timer?.measured != null ? `${timer.measured} min on the timer before giving up` : null);
+
+/** "1 of 3 (hint 1)", "0 of 3" */
+function hintsLine(used, total) {
+  const of = Number.isFinite(total) && total > 0 ? ` of ${total}` : "";
+  if (!used.length) return `0${of}`;
+  return `${used.length}${of} (${used.length === 1 ? "hint" : "hints"} ${used.join(", ")})`;
+}
+
+/** "solved 2026-10-19 · +85 pts · opened 2026-10-19 15:07 · comes back as a review" */
+function resultLine(outcome, startedAt) {
   const parts = [outcome.kind === "solved" ? `solved ${outcome.date}` : `gave up ${outcome.date}`];
   if (Number.isFinite(outcome.points)) parts.push(`+${outcome.points} pts`);
   if (startedAt != null) parts.push(`opened ${localDate(startedAt)} ${hhmm(startedAt)}`);
   if (outcome.review) parts.push("comes back as a review");
-  values.Result = parts.join(" · ");
-  return values;
+  return parts.join(" · ");
 }

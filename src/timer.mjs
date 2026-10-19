@@ -17,26 +17,42 @@ export function timerState(events, id, now = Date.now()) {
   const t = { state: "none", activeMs: 0, pausedMs: 0, pauses: 0, startedAt: null, since: null };
   for (const e of events) {
     if (e.id !== id) continue;
-    const at = Date.parse(e.ts);
-    if (e.type === "opened" && t.state === "none") {
-      Object.assign(t, { state: "running", startedAt: at, since: at });
-    } else if (e.type === "paused" && (t.state === "running" || t.state === "none")) {
-      if (t.state === "running") {
-        t.activeMs += at - t.since;
-        t.pauses++;
-      } else t.startedAt = at;
-      Object.assign(t, { state: "paused", since: at });
-    } else if (e.type === "resumed" && t.state === "paused") {
-      if (t.pauses) t.pausedMs += at - t.since;
-      Object.assign(t, { state: "running", since: at });
-    } else if (ENDS.has(e.type) && t.state !== "ended") {
-      if (t.state === "running") t.activeMs += at - t.since;
-      Object.assign(t, { state: "ended", since: at });
-    }
+    const step = STEPS[ENDS.has(e.type) ? "ended" : e.type]?.[t.state];
+    if (step) step(t, Date.parse(e.ts));
   }
   if (t.state === "running") t.activeMs += now - t.since;
   return t;
 }
+
+const enter = (t, state, at) => Object.assign(t, { state, since: at });
+const stopRunning = (t, at) => (t.activeMs += at - t.since);
+
+// event type -> current state -> what it does; a missing entry means the event is ignored there.
+const STEPS = {
+  opened: { none: (t, at) => enter(Object.assign(t, { startedAt: at }), "running", at) },
+  paused: {
+    none: (t, at) => enter(Object.assign(t, { startedAt: at }), "paused", at),
+    running: (t, at) => {
+      stopRunning(t, at);
+      t.pauses++;
+      enter(t, "paused", at);
+    },
+  },
+  resumed: {
+    paused: (t, at) => {
+      if (t.pauses) t.pausedMs += at - t.since; // paused before any open: not a break
+      enter(t, "running", at);
+    },
+  },
+  ended: {
+    none: (t, at) => enter(t, "ended", at),
+    paused: (t, at) => enter(t, "ended", at),
+    running: (t, at) => {
+      stopRunning(t, at);
+      enter(t, "ended", at);
+    },
+  },
+};
 
 /**
  * Active minutes for `ginga done`. `suggest` is null when the timer never started, or when the time
