@@ -27,7 +27,21 @@ systemd timer runs.`,
   open: `ginga open [id]
 
 Open the README and starter files in your editor (\`editor\` in gingaloop.json, else $VISUAL, $EDITOR,
-then vi), from inside the challenge folder. The first open starts the timer that \`done\` suggests.`,
+then vi), from inside the challenge folder. The first open starts the timer that \`done\` suggests;
+opening a paused challenge resumes it.`,
+
+  pause: `ginga pause [id]
+
+Pause the challenge's timer for a break. \`done\` suggests active time only, so breaks you pause for
+don't count. Paused before any \`open\`, the timer starts paused.`,
+
+  resume: `ginga resume [id]
+
+Start the paused timer again. \`ginga open\` on a paused challenge resumes it too.`,
+
+  timer: `ginga timer [id]
+
+Show the challenge's timer: running or paused (and for how long), active minutes, and the pauses so far.`,
 
   test: `ginga test [id] [--watch]
 
@@ -42,13 +56,16 @@ Reveal the next hint, after saying what it costs (--yes skips the question). Rec
   done: `ginga done [id] [--minutes N]
 
 Run the tests; when they pass, record the solve (points, streak, gates) and unlock the reference
-solution and explanation. Asks for the minutes spent, suggesting the time since your first \`open\`,
+solution and explanation. Asks for the minutes spent, suggesting the timer's active time (from your
+first \`open\`, minus \`pause\`d breaks),
 then compares them with the expected time (Claude's estimate × your pace): on pace within
-±pace.tolerance, a struggle (the topic comes back as a review) above +pace.struggle.`,
+±pace.tolerance, a struggle (the topic comes back as a review) above +pace.struggle. Fills the
+empty "Time spent", "Hints used" and "Result" lines of NOTES.md; what you wrote there stays.`,
 
   giveup: `ginga giveup [id] [--yes]
 
-Record a give-up and unlock the solution. The topic comes back as a review after 3, 7 and 21 days.`,
+Record a give-up and unlock the solution. The topic comes back as a review after 3, 7 and 21 days.
+Fills the empty "Hints used" and "Result" lines of NOTES.md (and the time on the timer).`,
 
   discard: `ginga discard [id] [--reason R] [--yes]
 

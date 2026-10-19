@@ -15,6 +15,7 @@ import { lessonsFor } from "./lessons.mjs";
 import { GENERAL, domainBrief } from "./domains.mjs";
 import { allProfiles, checkProfile, normalizeLang } from "./profiles.mjs";
 import { appendEvent, readEvents, withoutDiscarded } from "./progress.mjs";
+import { notesTemplate } from "./notes.mjs";
 import { readManifest, validateTree } from "./runner.mjs";
 import { ensureImage } from "./sandbox.mjs";
 import { PKG_ROOT, UserError, today, writeJson } from "./workspace.mjs";
@@ -295,10 +296,7 @@ export async function generateChallenge({ ws, config, profile, level, area, type
   renameSync(staging, dir);
   lockChallenge(dir);
   writeEditorFiles(dir, profile);
-  writeFileSync(
-    join(dir, "NOTES.md"),
-    `# Notes: ${manifest.title}\n\n- Time spent:\n- Hints used:\n- What tripped me up:\n- What I'd do differently:\n`,
-  );
+  writeFileSync(join(dir, "NOTES.md"), notesTemplate(manifest.title));
   appendEvent(ws, {
     type: "generated", id, lang: profile.id, level, title: manifest.title, topics: manifest.topics, source,
     stack: profile.stack ?? "basics", challengeType: type, domain, estMinutes: manifest.estMinutes,

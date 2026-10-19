@@ -113,7 +113,10 @@ export function buildCommitMessage({ allEvents, newEvents, files, leveling, toda
     else if (!DERIVED.has(f) && !f.startsWith("challenges/")) other.push(f);
   }
   const touchedByEvents = new Set(newEvents.map((e) => e.id));
+  // `done` / `giveup` fill NOTES.md themselves: alongside that solve or give-up it isn't news.
+  const finished = new Set(newEvents.filter((e) => e.type === "solved" || e.type === "gaveup").map((e) => e.id));
   for (const id of notes) {
+    if (finished.has(id)) continue;
     const g = titles.get(id);
     lines.push(`- notes(${g?.lang ?? "?"}): ${title(id)}`);
   }

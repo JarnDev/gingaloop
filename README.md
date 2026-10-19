@@ -44,8 +44,9 @@ $ ginga new c       # or any language you like, any time (--level N up to yours)
 
 $ ginga open        # README + starter in your $EDITOR (starts the timer)
 $ ginga test        # run the tests against your starter/ (in a container)
+$ ginga pause       # lunch break: the timer stops (`ginga resume` or `ginga open` starts it again)
 $ ginga hint        # reveal hint 1 of 3 (recorded)
-$ ginga done        # tests pass → "Minutes spent [37]:" (enter accepts) → solution unlocked
+$ ginga done        # tests pass → "Minutes spent [37]:" (enter accepts) → solution unlocked, NOTES.md filled in
 $ ginga review      # optional: Claude reviews your code, running probes in the sandbox
 $ ginga commit --push   # record the day in your workspace repo (plain git, no Claude tokens)
 $ ginga rank
@@ -133,7 +134,6 @@ $ ginga commit --push
 
   - new(python): URL slugs for blog titles · L1 · strings
   - solve(python): URL slugs for blog titles · L1 · 30 min · 0 hints · +100 pts
-  - notes(python): URL slugs for blog titles
 
 Commit with this message? [Y]es / [e]dit / [n]o [y]
 ```
@@ -160,7 +160,7 @@ challenges/2026-10-02-c-ring-buffer/
   starter/         ← you work here
   tests/           the test suite (visible; read it!)
   locked.bin       encrypted: solution/, solution/EXPLANATION.md, bugs/, hints (+ original/)
-  NOTES.md         your notes
+  NOTES.md         your notes; done/giveup fill in the time, hints and result
 ```
 
 After `ginga done` or `ginga giveup`, `locked.bin` is replaced by `solution/` (with `EXPLANATION.md`:
@@ -471,8 +471,10 @@ summary, never your code. See [CONTRIBUTING](https://github.com/JarnDev/gingaloo
 | `ginga open [id]` | open README + starter files in your editor (`editor` in config, else `$VISUAL`/`$EDITOR`, else `vi`) |
 | `ginga test [id] [--watch]` | run the tests against your starter; `--watch` reruns them on every save |
 | `ginga hint [id]` | next hint (recorded); says what it costs before revealing it |
-| `ginga done [id] [--minutes N]` | verify, record the solve, unlock the solution; suggests the minutes since your first `ginga open` (over 4 h it only shows them, since breaks are likely) |
-| `ginga giveup [id]` | record a give-up, unlock the solution |
+| `ginga pause [id]` / `ginga resume [id]` | pause the timer for a break, start it again (`ginga open` on a paused challenge resumes it too) |
+| `ginga timer [id]` | the timer: running or paused, active minutes, pauses so far (`ginga list` marks paused ones ⏸) |
+| `ginga done [id] [--minutes N]` | verify, record the solve, unlock the solution; suggests the timer's active minutes since your first `ginga open`, minus pauses (over 4 h it only shows them, since unpaused breaks are likely); fills the empty "Time spent", "Hints used" and "Result" lines of NOTES.md |
+| `ginga giveup [id]` | record a give-up, unlock the solution, fill in NOTES.md |
 | `ginga discard [id] [--reason R]` | drop a broken, duplicate or unwanted challenge: no penalty, no review, no reveal; its area, type and daily slot come back (the folder stays, marked ⬛) |
 | `ginga review [id]` | Claude reviews your solution against the reference (after unlock), running the tests and its own edge-case probes in the sandbox |
 | `ginga learn [id] [--report]` | turn the review's findings about the challenge itself (wrong reference, untested promise…) into rules every future generation follows; `--report` opens a pre-filled issue to fix it for everyone |
