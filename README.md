@@ -86,7 +86,20 @@ missing), and it only becomes your default workspace if you have none yet or pas
 It asks for your **rotation** (any languages, e.g. `python,typescript,c,rust`), the order and the
 daily time. By default the order is **random without repeats**: each cycle draws every language once
 in a shuffled order, then the bag refills. Choose `ordered` to follow your list instead
-(`ginga rotation mode random|ordered`). Then:
+(`ginga rotation mode random|ordered`).
+
+One language a day is the default. To practice some languages every day and the rest now and then,
+make them **anchors** and add **extras**:
+
+```sh
+ginga rotation anchor add python typescript   # these two every day (instead of the daily draw)
+ginga rotation extra 0.3                      # 30% of days, one more from the rest of the bag
+ginga rotation extra 1 2                      # or: always two more (no anchors → 3 languages a day)
+```
+
+Extras come from the same shuffle bag, never repeat a language made that day, and wait while a
+challenge from an earlier day is still open. The roll depends only on the date, so running `daily`
+again doesn't roll again. Then:
 
 ```sh
 ginga doctor --pull          # check everything and pre-pull the language images
@@ -95,7 +108,7 @@ ginga new rust               # an extra one in any language
 ```
 
 Scheduling is optional. `ginga daily` is the whole daily habit: run it yourself when you start
-practicing (it makes at most one challenge per day), or let a timer have it ready for you:
+practicing (each challenge it makes comes at most once per day), or let a timer have it ready for you:
 
 ```sh
 ginga schedule install       # systemd user timer: today's challenge waits for you at 08:00
@@ -467,7 +480,7 @@ summary, never your code. See [CONTRIBUTING](https://github.com/JarnDev/gingaloo
 |---|---|
 | `ginga init [dir]` | create a workspace (languages, random/ordered, time) |
 | `ginga new <lang> [--level N] [--area ID] [--type T] [--stack S] [--domain D]` | generate a challenge now; every option is optional and capped by your level |
-| `ginga daily [--force]` | today's challenge from the rotation (what the timer runs) |
+| `ginga daily [--force]` | today's challenges: your anchors (or one from the rotation) and any extras (what the timer runs) |
 | `ginga open [id]` | open README + starter files in your editor (`editor` in config, else `$VISUAL`/`$EDITOR`, else `vi`) |
 | `ginga test [id] [--watch]` | run the tests against your starter; `--watch` reruns them on every save |
 | `ginga hint [id]` | next hint (recorded); says what it costs before revealing it |
@@ -480,7 +493,7 @@ summary, never your code. See [CONTRIBUTING](https://github.com/JarnDev/gingaloo
 | `ginga learn [id] [--report]` | turn the review's findings about the challenge itself (wrong reference, untested promise…) into rules every future generation follows; `--report` opens a pre-filled issue to fix it for everyone |
 | `ginga rank` / `ginga list` | levels (with basics/ecosystem split), streak, weak topics, Claude cost / all challenges, in creation order, with where each came from (daily, manual or a review of which topic); `--json` for scripts |
 | `ginga coverage [lang…]` | practice areas per language and how often you've had each (`--json` too) |
-| `ginga rotation [list\|set\|add\|remove\|mode]` | the daily's languages and order, e.g. `ginga rotation add typescript cpp`, `ginga rotation mode ordered` |
+| `ginga rotation [list\|set\|add\|remove\|mode\|anchor\|extra]` | the daily's languages, order, anchors and extras, e.g. `ginga rotation add typescript cpp`, `ginga rotation mode ordered`, `ginga rotation anchor add python`, `ginga rotation extra 0.3` |
 | `ginga commit [--yes] [--push]` | commit the workspace with a structured message built from your progress (plain git, **no Claude tokens**) |
 | `ginga push` | push the workspace, setting the upstream on the first push (plain git, **no Claude tokens**) |
 | `ginga stack [<lang> basics\|mixed\|ecosystem]` | standard library only, or also the language's pinned libraries |
@@ -504,6 +517,7 @@ elsewhere it uses your newest open challenge (`review`: your newest unlocked one
 {
   "rotation": ["python", "typescript", "c", "rust"],
   "rotationMode": "random",
+  "daily": { "anchors": [], "extraChance": 0, "extraMax": 1 },
   "stack": { "python": "mixed" },
   "domains": ["general"],
   "editor": null,
@@ -525,7 +539,8 @@ elsewhere it uses your newest open challenge (`review`: your newest unlocked one
 }
 ```
 
-`editor` is what `ginga open` runs (`null` → `$VISUAL`, `$EDITOR`, then `vi`). `claude.maxBudgetUsd`
+`daily` holds the anchors and extras (set them with `ginga rotation anchor` and `ginga rotation
+extra`). `editor` is what `ginga open` runs (`null` → `$VISUAL`, `$EDITOR`, then `vi`). `claude.maxBudgetUsd`
 caps each Claude call (a generation makes one, plus one per retry); `null` means no cap.
 
 Missing keys use their defaults, and ginga only writes the values you changed (plus your rotation,

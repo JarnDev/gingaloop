@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **Anchors and extras: more than one language a day.** `ginga rotation anchor add python typescript`
+  makes those languages every day, each in its own challenge, instead of the daily draw; the rest of
+  the rotation stays in the shuffle bag. `ginga rotation extra 0.3 [max]` adds extras on top: each
+  day, each of `max` (default 1) comes with that chance, drawn from the same bag and never a
+  language already made that day. The roll depends only on the date, so rerunning `daily` doesn't
+  roll again, and extras wait while a challenge from an earlier day is still open. Each slot runs
+  once a day, so a rerun retries only what failed. Without anchors or extras nothing changes.
 - **write-the-tests: each promise needs its own test.** The starter has one file per "What to test"
   item (`item<N>` in the name), and the grader runs each hidden bug first against the file of the
   item it breaks. A bug caught only through another item's tests shows as "caught ⚠ … item N has no

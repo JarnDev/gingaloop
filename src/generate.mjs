@@ -183,7 +183,7 @@ function formatProblems(problems) {
  * Generate, validate (with retries), lock and publish one challenge.
  * @returns {Promise<{id:string, dir:string, manifest:object}>}
  */
-export async function generateChallenge({ ws, config, profile, level, area, type = "implement", sourceLang = null, domain = GENERAL, promotion = null, source = "manual", reviewOf = null, log = console.error }) {
+export async function generateChallenge({ ws, config, profile, level, area, type = "implement", sourceLang = null, domain = GENERAL, promotion = null, source = "manual", slot = null, reviewOf = null, log = console.error }) {
   const events = withoutDiscarded(readEvents(ws));
   // Full history in this language (capped only to keep the prompt bounded).
   const history = events.filter((e) => e.type === "generated" && e.lang === profile.id);
@@ -303,6 +303,7 @@ export async function generateChallenge({ ws, config, profile, level, area, type
   writeFileSync(join(dir, "NOTES.md"), notesTemplate(manifest.title));
   appendEvent(ws, {
     type: "generated", id, lang: profile.id, level, title: manifest.title, topics: manifest.topics, source,
+    ...(slot ? { slot } : {}),
     stack: profile.stack ?? "basics", challengeType: type, domain, estMinutes: manifest.estMinutes,
     ...(promotion ? { promotion: true } : {}),
     ...(area ? { area: area.id } : {}),

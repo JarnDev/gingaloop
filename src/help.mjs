@@ -19,10 +19,11 @@ Generate a challenge now (uses Claude). Every option is optional:
 
   daily: `ginga daily [--force]
 
-Today's challenge (uses Claude): the next language from the rotation, or a promotion when your gates
-are met. When a review is due and no other review is open, it also makes the review, as an
-optional extra. Runs once per day; --force makes another rotation challenge. This is what the
-systemd timer runs.`,
+Today's challenges (uses Claude): one per anchor language, or without anchors the next language from
+the rotation; plus the extras rolled for today (see \`ginga rotation\`). A language whose gates are
+met gets its promotion. When a review is due and no other review is open, it also makes the review,
+as an optional extra. Each runs once per day (a rerun retries only what failed); --force makes one
+more from the rotation. This is what the systemd timer runs.`,
 
   open: `ginga open [id]
 
@@ -113,9 +114,17 @@ status (open, solved, gaveup or discarded) and the id to pass to other commands.
   rotation: `ginga rotation [list]
 ginga rotation set|add|remove <lang…>
 ginga rotation mode random|ordered
+ginga rotation anchor add|remove|set <lang…> | ginga rotation anchor none
+ginga rotation extra <chance> [max]
 
 The languages \`daily\` draws from. random: each language once per cycle, in shuffled order; ordered:
-the list in order. Removing a language keeps its progress.`,
+the list in order. Removing a language keeps its progress.
+
+Anchors come every day, each in its own challenge, and replace the daily draw; the rest of the
+rotation is the bag. Extras come on top: each day, each of [max] (default 1) comes with probability
+<chance>, drawn from the bag, never a language already made that day. The roll depends only on the
+date, so rerunning \`daily\` doesn't roll again. Extras wait while a challenge from an earlier day is
+still open. \`extra 0\` turns them off; \`extra 1 2\` is two more every day.`,
 
   stack: `ginga stack [<lang> basics|mixed|ecosystem]
 
@@ -185,7 +194,7 @@ TESTS against the implementation in IMPL). Used by Claude while it writes or rev
 };
 
 const SUBCOMMANDS = {
-  rotation: ["list", "set", "add", "remove", "mode"],
+  rotation: ["list", "set", "add", "remove", "mode", "anchor", "extra"],
   domains: ["list", "set", "add", "remove"],
   lang: ["list", "add"],
   schedule: ["install", "remove", "status"],

@@ -21,7 +21,7 @@ import { refreshViews } from "./dashboard.mjs";
 import { allAreas, coverageCounts, findArea, pickArea, unlockedAreas } from "./coverage.mjs";
 import { STACK_MODES, hasEcosystem, pickStack, profileForStack, stackMode } from "./stacks.mjs";
 import { GENERAL, allDomains, configuredDomains, ecosystemShare, pickDomain, requireDomain } from "./domains.mjs";
-import { ROTATION_MODES, bagState, nextOrdered, pickDailyLang } from "./rotation.mjs";
+import { ROTATION_MODES, bagState, dailySettings, drawLangs, extrasRolled, nextOrdered } from "./rotation.mjs";
 import { installSchedule, removeSchedule, scheduleStatus } from "./schedule.mjs";
 import { buildCommitMessage, ensureRepo, git, pushWorkspace, stagedFiles, stagedNewEvents } from "./gitops.mjs";
 import { VaultKeyError, readBundle } from "./vault.mjs";
@@ -232,21 +232,26 @@ function rotationIds(ws, config) {
 }
 
 /**
- * Today's challenges: one from the rotation, plus a review when one is due and no other review is
- * still open (reviews never take the rotation's place, and never pile up). Each runs once a day;
- * --force makes another rotation challenge.
+ * Today's challenges: each anchor, or one pick from the rotation when there are no anchors; the
+ * extras rolled for today; and a review when one is due and no other review is still open (reviews
+ * never take a slot, and never pile up). Each slot runs once a day, so a rerun only retries what
+ * failed; --force makes one more from the rotation.
  */
 export async function cmdDaily(_positionals, opts) {
   const { ws, config } = ctx(opts);
   const date = today();
   const events = withoutDiscarded(readEvents(ws));
-  const plan = dailyPlan(events, config, date, { force: opts.force });
+  const rotation = rotationIds(ws, config);
+  const plan = dailyPlan(events, config, date, { force: opts.force, rotation });
+  const slots = dailySlots(events, plan, dailySettings(config, rotation).pool, rotation, config.rotationMode);
   const failures = [];
-  if (plan.rotation) {
-    const lang = pickDailyLang(events, rotationIds(ws, config), config.rotationMode);
-    await dailyOne(ws, config, events, { lang }).catch((e) => failures.push(e));
-  } else {
-    console.log("Today's challenge already exists (use --force to make another).");
+  for (const [i, s] of slots.entries()) {
+    if (i) console.log("");
+    await dailyOne(ws, config, withoutDiscarded(readEvents(ws)), s).catch((e) => failures.push(e));
+  }
+  if (!slots.length) console.log("Today's challenges already exist (use --force to make another).");
+  if (plan.extrasSkipped.length) {
+    console.log(`Today's extra waits: finish or give up ${plan.extrasSkipped.join(", ")} first (from an earlier day).`);
   }
   if (plan.review) {
     console.log("");
@@ -257,25 +262,54 @@ export async function cmdDaily(_positionals, opts) {
   if (failures.length) throw failures[0];
 }
 
+/** The plan as challenges to make: `{lang, slot}` with slot anchor | pick | extra | forced. */
+export function dailySlots(events, plan, pool, rotation, mode, rand) {
+  const drawn = drawLangs(events, pool, mode, plan.picks + plan.extras, plan.madeToday, rand);
+  const forcePool = pool.length ? pool : rotation;
+  // --force: another language when one is left today, else any.
+  const forced = plan.forced
+    ? [...drawLangs(events, forcePool, mode, 1, [...plan.madeToday, ...drawn], rand), ...drawLangs(events, forcePool, mode, 1, [], rand)].slice(0, 1)
+    : [];
+  return [
+    ...plan.anchors.map((lang) => ({ lang, slot: "anchor" })),
+    ...drawn.map((lang, i) => ({ lang, slot: i < plan.picks ? "pick" : "extra" })),
+    ...forced.map((lang) => ({ lang, slot: "forced" })),
+  ];
+}
+
 /**
- * What `daily` makes today: a rotation challenge unless one exists (or --force), and the due review
- * unless a review is still open or one was made today.
+ * What `daily` makes today: the anchors not made yet; without anchors, the rotation pick unless it
+ * exists; the extras rolled for today that aren't made yet (none while a challenge from an earlier
+ * day is open); one more with --force; and the due review unless a review is still open or one was
+ * made today.
  */
-export function dailyPlan(events, config, date, { force = false } = {}) {
+export function dailyPlan(events, config, date, { force = false, rotation = config.rotation } = {}) {
   const todays = events.filter((e) => e.type === "generated" && e.source === "daily" && eventDate(e) === date);
+  const rotations = todays.filter((e) => !e.reviewOf);
+  const { anchors, extraChance, extraMax } = dailySettings(config, rotation);
+  const made = (slot) => rotations.filter((e) => (e.slot ?? "pick") === slot);
+  const earlierOpen = events
+    .filter((e) => e.type === "generated" && !e.reviewOf && eventDate(e) < date && challengeStatus(events, e.id).status === "open")
+    .map((e) => e.id);
+  const extrasDue = Math.max(0, extrasRolled(date, extraChance, extraMax) - made("extra").length);
   const due = dueReview(events, config.reviewAfterDays, date, reviewOpts(config));
   const open = openReview(events);
   const reviewToday = todays.some((e) => e.reviewOf);
   return {
-    rotation: force || !todays.some((e) => !e.reviewOf),
+    anchors: anchors.filter((l) => !made("anchor").some((e) => e.lang === l)),
+    picks: anchors.length || made("pick").length ? 0 : 1,
+    extras: earlierOpen.length ? 0 : extrasDue,
+    extrasSkipped: extrasDue ? earlierOpen : [],
+    forced: force ? 1 : 0,
+    madeToday: rotations.map((e) => e.lang),
     review: due && !open && !reviewToday ? due : null,
     waiting: due && open && !reviewToday ? due : null,
     openReview: open,
   };
 }
 
-/** Generate one daily challenge: from the rotation (`lang`) or a review of `review`. */
-async function dailyOne(ws, config, events, { lang, review = null }) {
+/** Generate one daily challenge: from the rotation (`lang`, in `slot`) or a review of `review`. */
+async function dailyOne(ws, config, events, { lang, slot = null, review = null }) {
   try {
     const base = await profileFor(ws, config, review?.lang ?? lang, { yes: true });
     const reviewed = review && generatedEvent(events, review.id);
@@ -288,7 +322,7 @@ async function dailyOne(ws, config, events, { lang, review = null }) {
       ? { type: "implement", sourceLang: null, level: earned }
       : chooseType(ws, config, events, profile, earned, null);
     const area = (review?.area && findArea(profile, review.area)) || (promotion && findArea(profile, promotion[0])) || pickArea(profile, level, events);
-    const result = await generateChallenge({ ws, config, profile, level, area, type, sourceLang, domain, promotion, source: "daily", reviewOf: review });
+    const result = await generateChallenge({ ws, config, profile, level, area, type, sourceLang, domain, promotion, source: "daily", slot, reviewOf: review });
     notify(
       `gingaloop · ${profile.name} · L${level}${review ? " · 🔁 review (optional)" : ""}${promotion ? ` · 🥋 promotion to L${level + 1}` : ""}`,
       `${result.manifest.title} (~${result.manifest.estMinutes} min)\n${result.dir}`,
@@ -1053,6 +1087,8 @@ export async function cmdRotation(positionals, opts) {
     args.join(",").split(",").map((x) => x.trim().toLowerCase()).filter(Boolean)
       .map((l) => findProfile(ws, l)?.id ?? l);
   let rotation = rotationIds(ws, config);
+  const daily = { ...DEFAULT_CONFIG.daily, ...config.daily };
+  let anchors = rotation.filter((l) => daily.anchors.includes(l));
   if (sub === "set") rotation = [...new Set(parse(rest))];
   else if (sub === "add") rotation = [...new Set([...rotation, ...parse(rest)])];
   else if (sub === "remove") {
@@ -1061,28 +1097,62 @@ export async function cmdRotation(positionals, opts) {
   } else if (sub === "mode") {
     if (!ROTATION_MODES.includes(rest[0])) throw new UserError(`Usage: ginga rotation mode ${ROTATION_MODES.join("|")}`);
     config.rotationMode = rest[0];
+  } else if (sub === "anchor") {
+    [anchors, rotation] = anchorChange(anchors, rotation, rest[0], parse(rest.slice(1)));
+  } else if (sub === "extra") {
+    const [chance, max = String(daily.extraMax)] = rest;
+    if (!/^(0(\.\d+)?|1(\.0+)?)$/.test(chance ?? "") || !/^[1-9]\d*$/.test(max)) {
+      throw new UserError("Usage: ginga rotation extra <chance 0..1> [max ≥ 1], e.g. `ginga rotation extra 0.3` (0 turns extras off)");
+    }
+    Object.assign(daily, { extraChance: Number(chance), extraMax: Number(max) });
   } else if (sub !== "list") {
-    throw new UserError("Usage: ginga rotation [list] | set <a,b,c> | add <lang…> | remove <lang…> | mode random|ordered");
+    throw new UserError("Usage: ginga rotation [list] | set <a,b,c> | add <lang…> | remove <lang…> | mode random|ordered | anchor add|remove|set <lang…>|none | extra <chance> [max]");
   }
   if (!rotation.length) throw new UserError("The rotation needs at least one language.");
   if (sub !== "list") {
     config.rotation = rotation;
+    config.daily = { ...daily, anchors: anchors.filter((l) => rotation.includes(l)) };
     saveConfig(ws, config);
   }
-  const events = readEvents(ws);
-  if (config.rotationMode === "ordered") {
-    const next = nextOrdered(events, rotation);
-    console.log(`Rotation (ordered, ${rotation.length}): ${rotation.map((l) => (l === next ? `[${l}]` : l)).join(" → ")}`);
-    console.log(`Next daily language: ${next}.`);
-  } else {
-    const { drawn, remaining } = bagState(events, rotation);
-    console.log(`Rotation (random, ${rotation.length}): ${rotation.join(", ")}`);
-    console.log(`This cycle: drawn ${drawn.length ? drawn.join(", ") : "nothing yet"} · left in the bag: ${remaining.join(", ")}`);
-    console.log(`The next daily is drawn at random from what's left; when the bag is empty it refills.`);
-  }
+  showRotation(ws, config, rotation);
   const missing = rotation.filter((l) => !findProfile(ws, l));
   if (missing.length) console.log(`No profile yet for: ${missing.join(", ")} (bootstrapped with Claude on first use).`);
-  if (sub !== "list" && sub !== "mode") console.log("Run `ginga doctor --pull` to fetch any new language images.");
+  if (["set", "add", "anchor"].includes(sub)) console.log("Run `ginga doctor --pull` to fetch any new language images.");
+}
+
+/** `ginga rotation anchor add|remove|set <langs>|none`: the new anchors, and the rotation (anchors join it). */
+function anchorChange(anchors, rotation, action, langs) {
+  if (action === "none") return [[], rotation];
+  if (!["add", "remove", "set"].includes(action) || !langs.length) {
+    throw new UserError("Usage: ginga rotation anchor add|remove|set <lang…> | ginga rotation anchor none");
+  }
+  const next = action === "remove" ? anchors.filter((l) => !langs.includes(l))
+    : [...new Set([...(action === "add" ? anchors : []), ...langs])];
+  return [next, [...new Set([...rotation, ...next])]];
+}
+
+function showRotation(ws, config, rotation) {
+  const { anchors, pool, extraChance, extraMax } = dailySettings(config, rotation);
+  const events = withoutDiscarded(readEvents(ws));
+  if (anchors.length) console.log(`Anchors (every day): ${anchors.join(", ")}`);
+  const label = anchors.length ? "Extras come from" : "Rotation";
+  if (!pool.length) {
+    console.log("Every rotation language is an anchor, so there are no extras.");
+  } else if (config.rotationMode === "ordered") {
+    const next = nextOrdered(events, pool);
+    console.log(`${label} (ordered, ${pool.length}): ${pool.map((l) => (l === next ? `[${l}]` : l)).join(" → ")}`);
+    console.log(`Next draw: ${next}.`);
+  } else {
+    const { drawn, remaining } = bagState(events, pool);
+    console.log(`${label} (random, ${pool.length}): ${pool.join(", ")}`);
+    console.log(`This cycle: drawn ${drawn.length ? drawn.join(", ") : "nothing yet"} · left in the bag: ${remaining.join(", ")}`);
+    console.log(`Each draw is random from what's left; when the bag is empty it refills.`);
+  }
+  if (pool.length && extraChance > 0) {
+    const today_ = extrasRolled(today(), extraChance, extraMax);
+    console.log(`Extras: each day, ${extraMax === 1 ? "one" : `up to ${extraMax}`} at ${Math.round(extraChance * 100)}% each, `
+      + `skipped while a challenge from an earlier day is open. Today: ${today_ ? `${today_} rolled` : "none"}.`);
+  }
 }
 
 /** Open the challenge (README + starter files) in $VISUAL / $EDITOR, from inside its folder. */
