@@ -178,7 +178,7 @@ result as if you had written it from scratch.
 | **fix-the-bug** | L1 | fix a buggy implementation | the tests |
 | **refactor** | L1 | make poor code meet a new requirement | the tests |
 | **extend** | L1 | add a feature to a working module | the tests |
-| **write-the-tests** | L1 | write the test suite for a visible, correct `subject/` | your tests must pass on it **and fail on every hidden buggy version** (`ginga test` shows "caught 3/4") |
+| **write-the-tests** | L1 | write the test suite for a visible, correct `subject/`, one file per item of "What to test" | your tests must pass on it **and fail on every hidden buggy version** (`ginga test` shows "caught 3/4"); a version must be caught by the file of the item it breaks, or it counts as caught by accident (⚠, not a clean solve, the topic comes back as a review) |
 | **trace** | L1 | read `program/` and write its exact output in `starter/answer.txt` | the real output (the tests never print it) |
 | **port** | L2 | rewrite `source/`, a solution in another language from your rotation | the tests, in the target language |
 | **debug-from-symptom** | L3 | fix a bug when the README shows only the symptom | the tests (and the symptom is reproduced for real) |

@@ -3,7 +3,11 @@ import { cpSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { exampleLines, exampleProblems, itemTag, starterExampleProblems, staticProblems, symptomLines, whatToTestItems } from "../src/runner.mjs";
+import { isClean } from "../src/levels.mjs";
+import { isStruggle } from "../src/pace.mjs";
+import {
+  accidentalItems, exampleLines, exampleProblems, itemTag, mutationReport, starterExampleProblems, starterItemProblems, staticProblems, symptomLines, whatToTestItems,
+} from "../src/runner.mjs";
 import { TYPES, eligibleTypes, pickType } from "../src/types.mjs";
 
 const EX = join(import.meta.dirname, "..", "examples", "types");
@@ -154,4 +158,26 @@ test("write-the-tests: README examples are the starter's, and they catch no bug 
   assert.deepEqual(starterExampleProblems({ subjectPassed: true, variants: [v("a", false), v("b", false)] }), []);
   assert.match(starterExampleProblems({ subjectPassed: true, variants: [v("a", true), v("b", false)] })[0], /already catch bugs\/a:/);
   assert.match(starterExampleProblems({ subjectPassed: false, subjectOutput: "boom", variants: [v("a", true)] })[0], /FAIL on the correct subject/);
+});
+
+test("write-the-tests: a bug caught only through another item's tests is flagged, and not clean (#12)", () => {
+  const v = (name, breaks, caught, by) => ({ bug: { name, breaks }, caught, ...(by ? { by } : {}), output: "" });
+  const g = {
+    subjectPassed: true, perItem: true, caught: 3, total: 4,
+    variants: [v("sorted-keys", 2, true, "other"), v("wrong-count", 1, true, "own"), v("both", [3, 4], true, "other"), v("msg", 5, false)],
+  };
+  assert.deepEqual(accidentalItems(g), [2, 3, 4]);
+  const out = mutationReport(g);
+  assert.match(out, /Hidden buggy version 1 \(item 2\): caught ⚠ only by tests for other items: item 2 has no test that catches it/);
+  assert.match(out, /version 2 \(item 1\): caught ✔/);
+  assert.match(out, /version 4 \(item 5\): missed ✘/);
+  assert.match(out, /Caught 3\/4 buggy versions, 2 only by accident\./);
+  assert.doesNotMatch(mutationReport({ ...g, perItem: false, variants: [v("a", 1, true)] }), /item|accident/, "older challenges: as before");
+  const solved = { type: "solved", id: "x", hints: 0, accidental: [2] };
+  assert.equal(isClean(solved), false);
+  assert.equal(isStruggle([], solved), true);
+  assert.equal(isClean({ ...solved, accidental: [] }), true);
+  const readme = "## What to test\n\n1. a\n2. b\n3. c\n";
+  assert.deepEqual(starterItemProblems(readme, ["starter/test_item1_a.py", "starter/test_item2_b.py", "starter/test_item3_c.py", "starter/helpers.py"]), []);
+  assert.match(starterItemProblems(readme, ["starter/test_item1_a.py", "starter/test_subject.py"])[0], /no file for "What to test" item 2, 3/);
 });

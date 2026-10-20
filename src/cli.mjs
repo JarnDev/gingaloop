@@ -530,6 +530,7 @@ export async function cmdDone(positionals, opts) {
     minutes, ...(minutesSource ? { minutesSource } : {}), hints, pace: pace.factor, paceCalibrated: pace.calibrated,
     ...(m.promotion ? { promotion: true } : {}),
     ...(status === "gaveup" ? { afterGiveup: true } : {}),
+    ...(r.accidental?.length ? { accidental: r.accidental } : {}),
   });
   const after = langLevel(ws, config, readEvents(ws), m.lang);
   const earned = after.points - before.points;
@@ -542,16 +543,18 @@ export async function cmdDone(positionals, opts) {
   console.log(`\n✔ Solved ${m.title}.  +${earned} points${why.length ? ` (${why.join(", ")})` : ""}`);
   const p = solvePace(readEvents(ws), solved, config.pace);
   if (p) console.log(paceReport(p, config.pace));
-  if (hints >= 2 && status !== "gaveup") console.log("  2+ hints: this topic comes back as a review.");
+  if (r.accidental?.length && status !== "gaveup") {
+    console.log(`  ⚠ Item ${r.accidental.join(", ")} of "What to test" was caught only through other items' tests: not a clean solve, and this topic comes back as a review.`);
+  } else if (hints >= 2 && status !== "gaveup") console.log("  2+ hints: this topic comes back as a review.");
   else if (minutes == null) console.log("  (no time recorded, so no pace comparison)");
   if (after.level > before.level) console.log(`🎉 Level ${after.level} unlocked for ${m.lang}!`);
-  else if (m.promotion) console.log(`Promotion not passed yet (it needs at most 1 hint); another one comes in ${config.leveling.promotionRetryDays ?? 3} days.`);
+  else if (m.promotion) console.log(`Promotion not passed yet (it needs a clean solve: at most 1 hint, nothing caught by accident); another one comes in ${config.leveling.promotionRetryDays ?? 3} days.`);
   else if (after.gates?.promotionPending && !before.gates?.promotionPending) console.log(`🥋 Gates met: your next ${m.lang} challenge is a promotion to level ${after.level + 1}.`);
   console.log(`  ${m.lang}: ${levelLine(after, config.leveling)}`);
   tryUnlock(c.dir);
   const all = readEvents(ws);
   fillChallengeNotes(c, noteValues({
-    outcome: { kind: "solved", date: solved.date, points: earned, review: status !== "gaveup" && isStruggle(all, solved, config.pace) },
+    outcome: { kind: "solved", date: solved.date, points: earned, review: status !== "gaveup" && isStruggle(all, solved, config.pace), accidental: r.accidental },
     minutes, minutesSource, timer, pace: p, startedAt: timerState(events, m.id).startedAt, ...hintFacts(c, events),
   }));
   refreshViews(ws);
