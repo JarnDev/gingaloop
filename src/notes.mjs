@@ -53,14 +53,15 @@ const BAND = { faster: "faster than expected", "on pace": "on pace", slower: "sl
  * The values `ginga done` / `giveup` write:
  *   outcome  { kind: "solved"|"gaveup", date, points?, review? }
  *   minutes, minutesSource ("timer"|"typed"|"flag"), timer (timerMinutes), pace (solvePace),
- *   hintsUsed (hint numbers), hintsTotal, startedAt (ms, the first open)
+ *   hintsUsed (hint numbers), hintsTotal, startedAt (ms, the first open), reason (why you gave up)
  */
-export function noteValues({ outcome, minutes, minutesSource, timer, pace, hintsUsed = [], hintsTotal = null, startedAt = null }) {
+export function noteValues({ outcome, minutes, minutesSource, timer, pace, hintsUsed = [], hintsTotal = null, startedAt = null, reason = null }) {
   const time = outcome.kind === "solved" ? solvedTime(minutes, minutesSource, timer, pace) : gaveUpTime(timer);
   return {
     ...(time ? { "Time spent": time } : {}),
     "Hints used": hintsLine(hintsUsed, hintsTotal),
     Result: resultLine(outcome, startedAt),
+    ...(reason ? { "What tripped me up": reason } : {}),
   };
 }
 

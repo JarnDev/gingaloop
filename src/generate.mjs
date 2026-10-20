@@ -217,7 +217,11 @@ export async function generateChallenge({ ws, config, profile, level, area, type
     AREA: area ? `${area.name} (area id \`${area.id}\`)` : "any",
     REVIEW: reviewOf
       ? `This is a REVIEW challenge: the user gave up on or struggled with "${reviewOf.title}" (topics: ${(reviewOf.topics ?? []).join(", ")}). ` +
-        "Write a NEW problem that exercises the same core idea from a different angle. Do not reuse its statement."
+        "Write a NEW problem that exercises the same core idea from a different angle. Do not reuse its statement." +
+        (reviewOf.stuckOn?.length
+          ? ` When they gave up, they said what stopped them: ${reviewOf.stuckOn.map((r) => JSON.stringify(r.slice(0, 300))).join("; ")}. ` +
+            "Make sure the new problem needs exactly that point, so they practice it."
+          : "")
       : "Not a review challenge.",
     STACK: profile.stack === "ecosystem"
       ? `ecosystem: these pinned libraries are installed and SHOULD be used the way a professional would: ${(profile.libraries ?? []).join(", ")}`

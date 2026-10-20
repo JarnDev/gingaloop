@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **`ginga giveup` asks what stopped you** (enter skips; `--reason R` answers it, `--yes` skips
+  it). The answer fills the "What tripped me up" line of NOTES.md, is kept on the give-up event,
+  and the topic's review challenges are generated to need exactly that point.
+
 - **Pause the timer:** `ginga pause` and `ginga resume` (or `ginga open` on a paused challenge) stop
   and restart it, and `ginga timer` shows it. `done` suggests active time only, so a lunch break no
   longer inflates the minutes or pushes them past the 4-hour cap. `ginga list` marks paused

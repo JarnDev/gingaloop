@@ -474,7 +474,7 @@ summary, never your code. See [CONTRIBUTING](https://github.com/JarnDev/gingaloo
 | `ginga pause [id]` / `ginga resume [id]` | pause the timer for a break, start it again (`ginga open` on a paused challenge resumes it too) |
 | `ginga timer [id]` | the timer: running or paused, active minutes, pauses so far (`ginga list` marks paused ones ⏸) |
 | `ginga done [id] [--minutes N]` | verify, record the solve, unlock the solution; suggests the timer's active minutes since your first `ginga open`, minus pauses (over 4 h it only shows them, since unpaused breaks are likely); fills the empty "Time spent", "Hints used" and "Result" lines of NOTES.md |
-| `ginga giveup [id]` | record a give-up, unlock the solution, fill in NOTES.md |
+| `ginga giveup [id] [--reason R]` | record a give-up, unlock the solution, fill in NOTES.md; asks what stopped you, which goes to NOTES.md and steers the topic's review challenges |
 | `ginga discard [id] [--reason R]` | drop a broken, duplicate or unwanted challenge: no penalty, no review, no reveal; its area, type and daily slot come back (the folder stays, marked ⬛) |
 | `ginga review [id]` | Claude reviews your solution against the reference (after unlock), running the tests and its own edge-case probes in the sandbox |
 | `ginga learn [id] [--report]` | turn the review's findings about the challenge itself (wrong reference, untested promise…) into rules every future generation follows; `--report` opens a pre-filled issue to fix it for everyone |

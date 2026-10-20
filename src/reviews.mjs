@@ -48,6 +48,12 @@ export function reviewCycles(events, reviewAfterDays, date, { extendDays = REVIE
   });
 }
 
+/** What stopped you, from the give-ups of a topic's cycle (the original and its reviews), oldest first. */
+export function stuckOn(events, root) {
+  const generated = new Map(events.filter((e) => e.type === "generated").map((e) => [e.id, e]));
+  return events.filter((e) => e.type === "gaveup" && e.reason && rootOf(generated, e.id) === root).map((e) => e.reason);
+}
+
 /** The oldest review that is due, as the challenge to review; null when none is. */
 export function dueReview(events, reviewAfterDays, date, opts = {}) {
   const generated = new Map(events.filter((e) => e.type === "generated").map((e) => [e.id, e]));
@@ -55,9 +61,11 @@ export function dueReview(events, reviewAfterDays, date, opts = {}) {
   if (!c) return null;
   const g = generated.get(c.root);
   const e = c.trigger;
+  const stuck = stuckOn(events, c.root);
   return {
     id: c.root, lang: g?.lang ?? e.lang, level: g?.level ?? e.level, title: g?.title ?? c.root,
     topics: g?.topics ?? e.topics ?? [], ...(g?.area ? { area: g.area } : {}),
+    ...(stuck.length ? { stuckOn: stuck } : {}),
   };
 }
 

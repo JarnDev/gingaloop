@@ -564,13 +564,19 @@ export async function cmdGiveup(positionals, opts) {
   const { status } = challengeStatus(readEvents(ws), m.id);
   if (status === "open") {
     if (!(await confirm(`Give up on "${m.title}" and reveal the solution?`, opts.yes))) return;
+    // What stopped you: goes to NOTES.md and steers the review challenges of this topic.
+    let reason = opts.reason?.trim();
+    if (reason == null && !opts.yes && isTTY()) reason = (await ask("What stopped you? (enter to skip):", "")).trim();
     const events = readEvents(ws);
     const timer = timerMinutes(events, m.id);
-    const e = appendEvent(ws, { type: "gaveup", id: m.id, lang: m.lang, level: m.level, topics: m.topics, ...(m.promotion ? { promotion: true } : {}) });
+    const e = appendEvent(ws, {
+      type: "gaveup", id: m.id, lang: m.lang, level: m.level, topics: m.topics,
+      ...(m.promotion ? { promotion: true } : {}), ...(reason ? { reason } : {}),
+    });
     console.log("Recorded. This topic comes back as a review challenge in a few days.");
     tryUnlock(c.dir);
     fillChallengeNotes(c, noteValues({
-      outcome: { kind: "gaveup", date: e.date, review: true }, timer, startedAt: timerState(events, m.id).startedAt, ...hintFacts(c, events),
+      outcome: { kind: "gaveup", date: e.date, review: true }, timer, reason, startedAt: timerState(events, m.id).startedAt, ...hintFacts(c, events),
     }));
     return refreshViews(ws);
   }
