@@ -2,7 +2,7 @@
 // practices decides basics vs ecosystem areas), how many clean solves in a row, and since when the
 // gates apply (levels earned before keep counting).
 import { unlockedAreas } from "./coverage.mjs";
-import { levelState } from "./levels.mjs";
+import { isClean, levelState } from "./levels.mjs";
 import { findProfile } from "./profiles.mjs";
 import { hasEcosystem, profileForStack, stackMode } from "./stacks.mjs";
 
@@ -49,7 +49,7 @@ export function promotionAreas(events, lang, level, count = 3) {
   const areaOf = new Map(events.filter((e) => e.type === "generated" && e.area).map((e) => [e.id, e.area]));
   const lastSeen = new Map();
   for (const e of events) {
-    if (e.type === "solved" && e.lang === lang && e.level === level && (e.hints ?? 0) <= 1 && !e.afterGiveup && areaOf.has(e.id)) {
+    if (e.type === "solved" && e.lang === lang && e.level === level && isClean(e) && areaOf.has(e.id)) {
       lastSeen.set(areaOf.get(e.id), e.ts ?? "");
     }
   }

@@ -3,9 +3,10 @@
 ## Problem
 
 `subject/subject.py` contains a working `parse_duration(text: str) -> int`, used to read timeouts
-from config files. Your job is the **test suite**: write it in `starter/test_subject.py` so that it
-passes on this correct code and **fails on buggy versions** of it. The grader runs your tests against
-several hidden buggy implementations, and each one must make at least one of your tests fail.
+from config files. Your job is the **test suite**: write it in `starter/`, one file per item of
+"What to test" below, so that it passes on this correct code and **fails on buggy versions** of it.
+The grader runs your tests against several hidden buggy implementations: each one must make a test
+fail, and it must be a test in the file of the item that version breaks.
 
 The contract to pin down:
 
@@ -33,7 +34,8 @@ rule on its own.
 
 ## Examples
 
-The two example tests already in `starter/test_subject.py`, to show the harness:
+The two example tests already in `starter/` (`test_item1_weights.py` and `test_other_invalid.py`),
+to show the harness:
 
 ```python
 def test_seconds_alone(self):
@@ -48,7 +50,10 @@ They pass on every version, buggy or not: catching the bugs is up to the tests y
 
 ## Constraints
 
-- `unittest` (standard library); one test file, `starter/test_subject.py`.
+- `unittest` (standard library); one file per "What to test" item, `starter/test_item<N>_….py`
+  (keep the `item<N>` in the name). A version caught only by another item's file counts as caught,
+  but by luck: the solve isn't clean and the topic comes back as a review. Tests for anything else
+  go in `test_other_invalid.py`.
 - Your tests must pass on `subject/` as it is.
 
 ## How to run

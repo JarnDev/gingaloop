@@ -76,19 +76,36 @@ export async function runTarget({ config, profile, challengeDir, manifest, targe
   }
 }
 
+const breaksOf = (bug) => [bug.breaks].flat().filter((n) => Number.isInteger(n));
+
 /**
  * write-the-tests: grade a test suite (`suite` = "starter" or "solution") the way mutation testing
  * does. It must pass on the correct subject/ and fail on every bug variant. `bundle` carries the
  * locked bug variants for published challenges (decrypted into the throwaway copy only).
+ *
+ * `perItem` (gingaloop#12): when the suite has files tagged item<N> and the bugs name the items they
+ * break, each bug is first run against the suite's files for its own items only. A bug those miss
+ * but the whole suite catches was caught by accident, through another promise (`by: "other"`): its
+ * item has no test that works. Costs one extra run per bug the own files miss.
  */
-export async function gradeMutation({ config, profile, challengeDir, manifest, suite, bundle }) {
-  const run = (impl) =>
-    runTarget({ config, profile, challengeDir, manifest, target: impl, bundle, env: { TESTS: suite, IMPL: impl } });
+export async function gradeMutation({ config, profile, challengeDir, manifest, suite, bundle, perItem = false }) {
+  const run = (impl, tests = suite, overlay = {}) =>
+    runTarget({ config, profile, challengeDir, manifest, target: impl, bundle: { ...bundle, ...overlay }, env: { TESTS: tests, IMPL: impl } });
   const subject = await run("subject");
+  const bugs = bugList(challengeDir, manifest, bundle);
+  const byItem = perItem ? itemFiles(challengeDir, suite, bugs) : null;
   const variants = [];
-  for (const bug of bugList(challengeDir, manifest, bundle)) {
+  for (const bug of bugs) {
+    const own = byItem && ownFiles(byItem, bug);
+    if (own) {
+      const r = await run(`bugs/${bug.name}`, "isolate", own);
+      if (!r.passed) {
+        variants.push({ bug, caught: true, by: "own", output: r.output });
+        continue;
+      }
+    }
     const r = await run(`bugs/${bug.name}`);
-    variants.push({ bug, caught: !r.passed, output: r.output });
+    variants.push({ bug, caught: !r.passed, ...(byItem && !r.passed ? { by: "other" } : {}), output: r.output });
   }
   const caught = variants.filter((v) => v.caught).length;
   return {
@@ -98,20 +115,62 @@ export async function gradeMutation({ config, profile, challengeDir, manifest, s
     caught,
     total: variants.length,
     variants,
+    perItem: Boolean(byItem),
   };
+}
+
+/** The suite's files by item tag, or null when the per-item check can't apply. */
+function itemFiles(challengeDir, suite, bugs) {
+  if (!bugs.length || !bugs.every((b) => breaksOf(b).length)) return null;
+  const files = collectFiles(challengeDir, [suite]);
+  const byItem = new Map();
+  for (const [rel, buf] of Object.entries(files)) {
+    const n = itemTag(rel);
+    if (n == null) continue;
+    if (!byItem.has(n)) byItem.set(n, {});
+    byItem.get(n)[`isolate/${rel.slice(suite.length + 1)}`] = buf;
+  }
+  return byItem.size ? byItem : null;
+}
+
+/** The files for a bug's own items as an `isolate/` overlay, or null when the suite has none. */
+function ownFiles(byItem, bug) {
+  const own = Object.assign({}, ...breaksOf(bug).map((n) => byItem.get(n) ?? {}));
+  return Object.keys(own).length ? own : null;
+}
+
+/** "Items caught only by accident" from a per-item grading: the items of bugs caught by other tests. */
+export function accidentalItems(g) {
+  return [...new Set(g.variants.filter((v) => v.by === "other").flatMap((v) => breaksOf(v.bug)))].sort((a, b) => a - b);
 }
 
 /** Grade the user's work (or any target) according to the challenge type. */
 export async function gradeTarget({ config, profile, challengeDir, manifest, target, bundle }) {
   if (typeInfo(manifest.type).grader === "mutation") {
-    const g = await gradeMutation({ config, profile, challengeDir, manifest, suite: target, bundle });
-    const lines = [`Your tests on the correct subject: ${g.subjectPassed ? "pass ✔" : "FAIL ✘ (they must pass on correct code)"}`];
-    g.variants.forEach((v, i) => lines.push(`Hidden buggy version ${i + 1}: ${v.caught ? "caught ✔" : "missed ✘"}`));
-    lines.push(`Caught ${g.caught}/${g.total} buggy versions.`);
-    const output = (g.subjectPassed ? "" : `${tail(g.subjectOutput, 40)}\n\n`) + lines.join("\n");
-    return { passed: g.passed, output, timedOut: false };
+    const g = await gradeMutation({ config, profile, challengeDir, manifest, suite: target, bundle, perItem: manifest.type === "write-the-tests" });
+    return { passed: g.passed, output: mutationReport(g), timedOut: false, accidental: accidentalItems(g) };
   }
   return runTarget({ config, profile, challengeDir, manifest, target, bundle });
+}
+
+/** What `ginga test` / `done` print for a mutation grading. */
+export function mutationReport(g) {
+  const lines = [`Your tests on the correct subject: ${g.subjectPassed ? "pass ✔" : "FAIL ✘ (they must pass on correct code)"}`];
+  g.variants.forEach((v, i) => {
+    const items = breaksOf(v.bug);
+    const about = g.perItem && items.length ? ` (item ${items.join(", ")})` : "";
+    const verdict = !v.caught ? "missed ✘"
+      : v.by === "other" ? `caught ⚠ only by tests for other items: item ${items.join(", ")} has no test that catches it`
+      : "caught ✔";
+    lines.push(`Hidden buggy version ${i + 1}${about}: ${verdict}`);
+  });
+  const accidental = g.variants.filter((v) => v.by === "other").length;
+  lines.push(`Caught ${g.caught}/${g.total} buggy versions${accidental ? `, ${accidental} only by accident` : ""}.`);
+  if (accidental) {
+    lines.push("A version caught only through another item's tests is luck: that item's own file must catch it. It still counts " +
+      "as caught, but the solve won't be clean and the topic comes back as a review.");
+  }
+  return (g.subjectPassed ? "" : `${tail(g.subjectOutput, 40)}\n\n`) + lines.join("\n");
 }
 
 function nonEmptyDir(path) {
@@ -202,6 +261,19 @@ export function starterExampleProblems(st) {
   return caught.length
     ? [`the starter's example tests already catch ${caught.join(", ")}: copied from the README, they would catch it for free. ` +
       "Show the harness with inputs no hidden bug breaks (the README's \"## Examples\" are exactly these tests)"]
+    : [];
+}
+
+/**
+ * write-the-tests: the user's suite is graded per item (gingaloop#12), so the starter gives them one
+ * file per "What to test" item, tagged item<N> like the reference.
+ */
+export function starterItemProblems(readmeText, starterFiles) {
+  const items = whatToTestItems(readmeText).length;
+  const tagged = new Set(starterFiles.map(itemTag).filter((n) => n != null));
+  const missing = Array.from({ length: items }, (_, i) => i + 1).filter((n) => !tagged.has(n));
+  return missing.length
+    ? [`starter/: no file for "What to test" item ${missing.join(", ")} (one file per item, "item<N>" in its name, so the grading can tell which item's tests catch a bug)`]
     : [];
 }
 
@@ -341,8 +413,9 @@ export function staticProblems(dir) {
     const files = existsSync(solution) ? readdirSync(solution, { recursive: true }).map(String) : [];
     const readmeText = readFileSync(readme, "utf8");
     problems.push(...promiseProblems(readmeText, bugs, files));
-    const starter = Object.values(collectFiles(dir, ["starter"])).map((b) => b.toString("utf8")).join("\n");
-    problems.push(...exampleProblems(readmeText, starter));
+    const starterFiles = collectFiles(dir, ["starter"]);
+    problems.push(...exampleProblems(readmeText, Object.values(starterFiles).map((b) => b.toString("utf8")).join("\n")));
+    problems.push(...starterItemProblems(readmeText, Object.keys(starterFiles)));
   }
   return problems;
 }

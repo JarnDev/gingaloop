@@ -20,9 +20,12 @@ export function pointsFor({ level, hints = 0, afterGiveup = false }, currentLeve
   return Math.round(leveling.basePoints * share * mult);
 }
 
-/** A solve that shows mastery: at most one hint, and not after giving up. */
+/**
+ * A solve that shows mastery: at most one hint, not after giving up, and (write-the-tests) no
+ * promise whose bug was caught only by accident through another item's tests.
+ */
 export function isClean(e) {
-  return (e.hints ?? 0) <= 1 && !e.afterGiveup;
+  return (e.hints ?? 0) <= 1 && !e.afterGiveup && !e.accidental?.length;
 }
 
 /** Level reached by points alone (the pre-gates rule), used to keep levels earned before gates. */

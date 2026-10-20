@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **write-the-tests: each promise needs its own test.** The starter has one file per "What to test"
+  item (`item<N>` in the name), and the grader runs each hidden bug first against the file of the
+  item it breaks. A bug caught only through another item's tests shows as "caught ⚠ … item N has no
+  test that catches it": it still counts as caught, but the solve isn't clean (clean streak, areas,
+  promotions) and the topic comes back as a review. The solve records `accidental: [N]`, and
+  NOTES.md says so. Challenges without item files are graded as before. (#12)
 - **write-the-tests: the README's examples give nothing away.** They are the starter's example
   tests, copied as they are, and the validator runs the starter against every hidden bug: an
   example that catches one is rejected, so copying the examples never catches a bug for free. The
