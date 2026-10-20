@@ -177,10 +177,11 @@ every bug variant is caught, and the manifest and docs are complete.`,
 Print a shell completion script (commands, subcommands, flags, languages). Add to ~/.bashrc or
 ~/.zshrc:  source <(ginga completion bash)   (or zsh)`,
 
-  sandbox: `ginga sandbox run --lang L [--stack S] [--dir D] [--cwd C] [--target T] -- <command>
+  sandbox: `ginga sandbox run --lang L [--stack S] [--dir D] [--cwd C] [--target T] [--impl I --tests S] -- <command>
 
 Run a command in the language's sandbox (no network, read-only image, resource limits) on a throwaway
-copy of D. Used by Claude while it writes a challenge.`,
+copy of D. --target, --impl and --tests set TARGET, IMPL and TESTS (write-the-tests runs the suite in
+TESTS against the implementation in IMPL). Used by Claude while it writes or reviews a challenge.`,
 };
 
 const SUBCOMMANDS = {

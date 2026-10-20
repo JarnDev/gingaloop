@@ -859,7 +859,7 @@ function ctxOrDefaults(opts) {
 }
 
 export async function cmdSandbox(positionals, opts) {
-  if (positionals[0] !== "run") throw new UserError("Usage: ginga sandbox run --lang <id>|--profile-file <f> [--dir D] [--cwd C] [--target T] -- <command>");
+  if (positionals[0] !== "run") throw new UserError("Usage: ginga sandbox run --lang <id>|--profile-file <f> [--dir D] [--cwd C] [--target T] [--impl I --tests S] -- <command>");
   const command = positionals.slice(1).join(" ");
   if (!command) throw new UserError("Nothing to run. Put the command after `--`.");
   if (opts.lang && opts["profile-file"]) throw new UserError("Use either --lang or --profile-file, not both.");
@@ -892,7 +892,7 @@ export async function cmdSandbox(positionals, opts) {
   try {
     const r = await runInSandbox({
       sandbox: config.sandbox, profile, workDir: work, cwd: opts.cwd ?? ".", command,
-      env: opts.target ? { TARGET: opts.target } : {},
+      env: Object.fromEntries([["TARGET", opts.target], ["IMPL", opts.impl], ["TESTS", opts.tests]].filter(([, v]) => v)),
     });
     process.stdout.write(r.output);
     process.stdout.write(`\n[exit ${r.timedOut ? "timeout" : r.code}]\n`);
@@ -1301,6 +1301,20 @@ export function reviewTypeNote(type, hasOriginal) {
   }[type] ?? "";
 }
 
+/**
+ * The test runs a reviewer is handed, with every variable the command needs set the way the
+ * grader sets them (gingaloop#8: write-the-tests also needs IMPL and TESTS, not just TARGET).
+ */
+export function reviewRunLines(prefix, type, testCmd) {
+  const run = (flags) => `  ${prefix} --cwd tests ${flags} -- '${testCmd}'\n`;
+  if (typeInfo(type).grader === "mutation") {
+    return run("--target subject --impl subject --tests starter") +
+      "That runs the user's tests (starter/) on the correct code (subject/). --tests solution runs the reference tests; " +
+      "--target bugs/<name> --impl bugs/<name> runs a suite on a hidden buggy version instead (see bugs/ and challenge.json). ";
+  }
+  return run("--target starter") + "Use --target solution for the reference. ";
+}
+
 export async function cmdReview(positionals, opts) {
   const { ws, config } = ctx(opts);
   const c = pickChallenge(ws, positionals[0], { unlocked: true });
@@ -1321,8 +1335,8 @@ export async function cmdReview(positionals, opts) {
     "No praise padding. Do not modify any file.\n\n" +
     "VERIFY your claims by running code; do not guess. You can only run code in a sandbox with this exact " +
     "prefix (type it exactly, from this directory, each option once):\n" +
-    `  ${prefix} --cwd tests --target starter -- '${testCmd}'\n` +
-    "Use --target solution for the reference. For edge-case probes, write a small script in a new folder " +
+    reviewRunLines(prefix, c.manifest.type, testCmd) +
+    "For edge-case probes, write a small script in a new folder " +
     "(e.g. probes/) that loads ../starter and ../solution and prints both results, then run it with " +
     `\`${prefix} --cwd probes -- '<command>'\`. Report the actual outputs you observed. ` +
     "When the tests miss a real bug, end with a section '## Missing tests' listing the test cases to add.";

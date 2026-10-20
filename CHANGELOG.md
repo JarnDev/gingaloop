@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Reviews of write-the-tests run the right command.** The reviewer was handed the test command
+  with only `TARGET` set, so `$IMPL` and `$TESTS` were empty and the run failed. `ginga sandbox run`
+  takes `--impl` and `--tests`, and the review prompt now gives the runs the grader does (your
+  suite or the reference, on the correct code or a buggy version). The validator rejects a
+  `test.command` that uses a variable the runner never sets. (#8)
 - **`ginga giveup` asks what stopped you** (enter skips; `--reason R` answers it, `--yes` skips
   it). The answer fills the "What tripped me up" line of NOTES.md, is kept on the give-up event,
   and the topic's review challenges are generated to need exactly that point.
