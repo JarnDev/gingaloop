@@ -30,7 +30,7 @@ Practice
   timer [id]                 the timer: running or paused, active minutes, pauses
   hint [id]                  reveal the next hint (recorded)
   done [id] [--minutes N]    verify tests pass, record the solve, unlock the solution
-  giveup [id] [--yes]        record a give-up and unlock the solution
+  giveup [id] [--reason R]   record a give-up (and what stopped you), unlock the solution
   discard [id] [--reason R]  drop a broken or unwanted challenge: no penalty, no reveal, not counted
   review [id]                ask Claude to review your solution (after unlock)
   learn [id] [--report]      turn a review's findings about the challenge into rules for future ones

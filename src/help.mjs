@@ -62,10 +62,12 @@ then compares them with the expected time (Claude's estimate × your pace): on p
 ±pace.tolerance, a struggle (the topic comes back as a review) above +pace.struggle. Fills the
 empty "Time spent", "Hints used" and "Result" lines of NOTES.md; what you wrote there stays.`,
 
-  giveup: `ginga giveup [id] [--yes]
+  giveup: `ginga giveup [id] [--reason R] [--yes]
 
 Record a give-up and unlock the solution. The topic comes back as a review after 3, 7 and 21 days.
-Fills the empty "Hints used" and "Result" lines of NOTES.md (and the time on the timer).`,
+Asks what stopped you (enter skips; --reason answers it, --yes skips it): the answer goes to the
+"What tripped me up" line of NOTES.md, and the review challenges of the topic aim at that point.
+Also fills the empty "Hints used" and "Result" lines (and the time on the timer).`,
 
   discard: `ginga discard [id] [--reason R] [--yes]
 

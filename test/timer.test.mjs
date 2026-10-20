@@ -93,3 +93,16 @@ test("ginga pause / resume / timer / list end to end", () => {
     rmSync(tmp, { recursive: true, force: true });
   }
 });
+
+test("give-up reason: fills What tripped me up, and the topic's reviews aim at it", async () => {
+  const { dueReview } = await import("../src/reviews.mjs");
+  const v = noteValues({ outcome: { kind: "gaveup", date: "2026-10-20", review: true }, reason: "bit tricks without a loop" });
+  assert.equal(v["What tripped me up"], "bit tricks without a loop");
+  assert.equal(fillNotes("- What tripped me up: mine\n", v).text, "- What tripped me up: mine\n", "never overwritten");
+  const day = (d) => `2026-10-${String(d).padStart(2, "0")}`;
+  const g = (id, d, extra = {}) => ({ type: "generated", id, lang: "c", level: 1, title: id, date: day(d), ts: `${day(d)}T08:00:00Z`, ...extra });
+  const quit = (id, d, reason) => ({ type: "gaveup", id, lang: "c", level: 1, date: day(d), ts: `${day(d)}T20:00:00Z`, ...(reason ? { reason } : {}) });
+  const events = [g("x", 1), quit("x", 1, "pointer math"), g("r1", 4, { reviewOf: "x" }), quit("r1", 4, "off by one at the end"), g("y", 1), quit("y", 1)];
+  assert.deepEqual(dueReview(events, [3, 7, 21], day(9)).stuckOn, ["pointer math", "off by one at the end"]);
+  assert.equal(dueReview(events.slice(4), [3, 7, 21], day(9)).stuckOn, undefined, "no reason, no field");
+});
