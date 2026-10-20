@@ -142,7 +142,7 @@ test("editor files: C/C++ profiles bring compile_flags.txt; existing files are k
   const cpp = findProfile(null, "cpp");
   assert.deepEqual(writeEditorFiles(dir, cpp), ["compile_flags.txt"]);
   const flags = readFileSync(join(dir, "compile_flags.txt"), "utf8").split("\n");
-  assert.ok(flags.includes("-std=c++20") && flags.includes("-Istarter") && flags.includes("-DGINGA_SCRATCH"));
+  assert.ok(flags.includes("-std=c++20") && flags.includes("-Istarter") && flags.includes("-Isubject") && flags.includes("-Itests") && flags.includes("-DGINGA_SCRATCH"));
   assert.ok(readFileSync(join(import.meta.dirname, "..", "examples", "cpp", "tests", "Makefile"), "utf8").includes("-std=c++20"),
     "editor flags mirror the sandbox standard");
   writeFileSync(join(dir, "compile_flags.txt"), "-std=c++23\n");
