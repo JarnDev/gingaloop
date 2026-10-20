@@ -226,6 +226,25 @@ function promiseProblems(readmeText, bugs, solutionFiles = []) {
 }
 
 /** Static checks on a plaintext challenge tree (staging, example, or materialized). */
+/** Variables the runner sets for a challenge's test.command (plus the shell's own). */
+export function commandVars(type) {
+  return typeInfo(type).grader === "mutation" ? ["TARGET", "IMPL", "TESTS"] : ["TARGET"];
+}
+const SHELL_VARS = new Set(["HOME", "PATH", "PWD", "TMPDIR"]);
+
+/**
+ * test.command may only use variables the runner sets: anything else is empty in the sandbox, and
+ * whoever is handed the command (a reviewer, a grader) gets a run that fails (gingaloop#8).
+ */
+export function commandVarProblems(m) {
+  const allowed = new Set(commandVars(m.type));
+  const used = [...new Set([...m.test.command.matchAll(/\$\{?([A-Za-z_][A-Za-z0-9_]*)/g)].map((x) => x[1]))];
+  const unknown = used.filter((v) => !allowed.has(v) && !SHELL_VARS.has(v));
+  return unknown.length
+    ? [`challenge.json: test.command uses ${unknown.map((v) => `$${v}`).join(", ")}, which the runner never sets (it sets ${[...allowed].map((v) => `$${v}`).join(", ")})`]
+    : [];
+}
+
 export function staticProblems(dir) {
   const problems = [];
   let m;
@@ -241,6 +260,7 @@ export function staticProblems(dir) {
   if (!Array.isArray(m.topics) || m.topics.length === 0) problems.push("challenge.json: topics[] is required");
   if (!Number.isInteger(m.estMinutes)) problems.push("challenge.json: estMinutes must be an integer");
   if (!m.test?.command) problems.push("challenge.json: test.command is required");
+  else problems.push(...commandVarProblems(m));
   const bugs = bugList(dir, m);
   if (bugs.length < 3) problems.push("challenge.json: at least 3 bugs[] are required");
   else if (CODE_TYPES.has(m.type) && !bugs.some((b) => b.kind === "alternative")) {

@@ -46,7 +46,7 @@ Workspace repo (plain git, no Claude tokens)
 
 Authoring
   validate [dir] [--examples]  solution passes, starter fails, every bug caught
-  sandbox run --lang L [--dir D] [--cwd C] [--target T] -- <cmd>
+  sandbox run --lang L [--dir D] [--cwd C] [--target T] [--impl I --tests S] -- <cmd>
 
 [id] defaults to your newest open challenge. \`ginga <command> --help\` (or \`ginga help <command>\`) for details.
 Only daily, new, lang add, review and learn use Claude (tokens); everything else is local. Docs: README.md`;
@@ -88,6 +88,8 @@ const { values, positionals, tokens } = parseArgs({
     dir: { type: "string" },
     cwd: { type: "string" },
     target: { type: "string" },
+    impl: { type: "string" },
+    tests: { type: "string" },
     "profile-file": { type: "string" },
     jail: { type: "boolean" },
     push: { type: "boolean" },
