@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- **Pause the timer:** `ginga pause` and `ginga resume` (or `ginga open` on a paused challenge) stop
+  and restart it, and `ginga timer` shows it. `done` suggests active time only, so a lunch break no
+  longer inflates the minutes or pushes them past the 4-hour cap. `ginga list` marks paused
+  challenges ⏸ (`--json`: `timer`).
+- **NOTES.md fills itself in:** `done` and `giveup` write the empty "Time spent" (minutes, where
+  they came from, pauses, expected time and verdict), "Hints used" (which of how many) and a new
+  "Result" line (date, points, when you opened it, whether it comes back as a review). Lines you
+  wrote are never overwritten; older notes gain the Result line. "What tripped me up" stays yours.
+- `ginga commit` no longer lists `notes(...)` for a challenge solved or given up in the same commit.
+
 ## 0.6.2 (2026-10-15)
 
 The first release shaped by lessons users sent upstream with `ginga learn --report` (#1, #2, #3).

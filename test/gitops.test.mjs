@@ -37,7 +37,6 @@ test("message: subject summarizes, body lists each fact with points", () => {
     "- hint(python): URL slugs for blog titles · hint 1",
     "- solve(python): URL slugs for blog titles · L1 · 31 min · 1 hint · +85 pts",
     "- level-up(javascript): L1 → L2",
-    "- notes(python): URL slugs for blog titles",
     "- files: gingaloop.json",
   ]);
 });

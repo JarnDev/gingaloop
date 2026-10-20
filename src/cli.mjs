@@ -25,8 +25,10 @@ import { ROTATION_MODES, bagState, nextOrdered, pickDailyLang } from "./rotation
 import { installSchedule, removeSchedule, scheduleStatus } from "./schedule.mjs";
 import { buildCommitMessage, ensureRepo, git, pushWorkspace, stagedFiles, stagedNewEvents } from "./gitops.mjs";
 import { VaultKeyError, readBundle } from "./vault.mjs";
-import { PACE_DEFAULTS, PACE_FOOTNOTE, paceFor, paceLabel, paceReport, solvePace } from "./pace.mjs";
+import { PACE_DEFAULTS, PACE_FOOTNOTE, isStruggle, paceFor, paceLabel, paceReport, solvePace } from "./pace.mjs";
 import { dueReview, openReview, reviewCycles, reviewOpts, reviewSummary, rootOf } from "./reviews.mjs";
+import { fillNotes, noteValues } from "./notes.mjs";
+import { humanMinutes, timerMinutes, timerState } from "./timer.mjs";
 import {
   IMPROVEMENTS_FILE, LESSONS_FILE, addImprovements, addLessons, builtInRules, issueUrl, latestReview, learnPrompt, learnedFrom, parseLearnResult, readLessons,
 } from "./lessons.mjs";
@@ -454,22 +456,27 @@ function tryUnlock(dir) {
   }
 }
 
-/** Longest wall-clock time still trusted as a default; beyond it, breaks are likely included. */
-export const TIMER_CAP_MINUTES = 240;
-
 /**
- * Minutes since the first `ginga open` of a challenge. `suggest` is null when there was no open,
- * or when the time is over the cap (opened in the morning, solved at night).
+ * Fill the empty fields of the challenge's NOTES.md after a solve or give-up (what you wrote stays).
+ * Hint numbers come from the events; the total from the hints in the lock.
  */
-export function timerMinutes(events, id, now = Date.now(), cap = TIMER_CAP_MINUTES) {
-  const first = events.find((e) => e.type === "opened" && e.id === id);
-  if (!first) return { measured: null, suggest: null };
-  const measured = Math.max(1, Math.round((now - Date.parse(first.ts)) / 60_000));
-  return { measured, suggest: measured <= cap ? measured : null };
+function fillChallengeNotes(c, values) {
+  const file = join(c.dir, "NOTES.md");
+  if (!existsSync(file)) return;
+  const { text, filled } = fillNotes(readFileSync(file, "utf8"), values);
+  if (filled.length) {
+    writeFileSync(file, text);
+    console.log(`  📝 NOTES.md: filled in ${filled.join(", ").toLowerCase()}.`);
+  }
 }
 
-function humanMinutes(m) {
-  return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${m % 60} min`;
+function hintFacts(c, events) {
+  const used = events.filter((e) => e.type === "hint" && e.id === c.manifest.id).map((e) => e.hint).filter(Number.isFinite);
+  let total = null;
+  try {
+    total = readHints(c.dir).length;
+  } catch {}
+  return { hintsUsed: [...new Set(used)].sort((a, b) => a - b), hintsTotal: total };
 }
 
 export async function cmdDone(positionals, opts) {
@@ -500,7 +507,7 @@ export async function cmdDone(positionals, opts) {
     minutesSource = "flag";
   } else if (isTTY()) {
     if (timer.measured != null && timer.suggest == null) {
-      console.log(`⏱️  The timer says ${humanMinutes(timer.measured)} since you opened it; that probably includes breaks.`);
+      console.log(`⏱️  The timer says ${humanMinutes(timer.measured)} of active time; that probably includes breaks you didn't pause for.`);
     }
     const a = await ask(timer.suggest != null ? "Minutes spent (enter to accept, or type yours):" : "Minutes spent (enter to skip):",
       timer.suggest != null ? String(timer.suggest) : "");
@@ -542,6 +549,11 @@ export async function cmdDone(positionals, opts) {
   else if (after.gates?.promotionPending && !before.gates?.promotionPending) console.log(`🥋 Gates met: your next ${m.lang} challenge is a promotion to level ${after.level + 1}.`);
   console.log(`  ${m.lang}: ${levelLine(after, config.leveling)}`);
   tryUnlock(c.dir);
+  const all = readEvents(ws);
+  fillChallengeNotes(c, noteValues({
+    outcome: { kind: "solved", date: solved.date, points: earned, review: status !== "gaveup" && isStruggle(all, solved, config.pace) },
+    minutes, minutesSource, timer, pace: p, startedAt: timerState(events, m.id).startedAt, ...hintFacts(c, events),
+  }));
   refreshViews(ws);
 }
 
@@ -552,8 +564,15 @@ export async function cmdGiveup(positionals, opts) {
   const { status } = challengeStatus(readEvents(ws), m.id);
   if (status === "open") {
     if (!(await confirm(`Give up on "${m.title}" and reveal the solution?`, opts.yes))) return;
-    appendEvent(ws, { type: "gaveup", id: m.id, lang: m.lang, level: m.level, topics: m.topics, ...(m.promotion ? { promotion: true } : {}) });
+    const events = readEvents(ws);
+    const timer = timerMinutes(events, m.id);
+    const e = appendEvent(ws, { type: "gaveup", id: m.id, lang: m.lang, level: m.level, topics: m.topics, ...(m.promotion ? { promotion: true } : {}) });
     console.log("Recorded. This topic comes back as a review challenge in a few days.");
+    tryUnlock(c.dir);
+    fillChallengeNotes(c, noteValues({
+      outcome: { kind: "gaveup", date: e.date, review: true }, timer, startedAt: timerState(events, m.id).startedAt, ...hintFacts(c, events),
+    }));
+    return refreshViews(ws);
   }
   tryUnlock(c.dir);
   refreshViews(ws);
@@ -725,6 +744,7 @@ export async function cmdList(_positionals, opts) {
       const o = origin(m);
       return {
         id: m.id, title: m.title, date: m.date, lang: m.lang, level: m.level, type: m.type, status: s.status, hints: s.hints,
+        timer: timerState(events, m.id).state,
         source: o.source, reviewOf: o.reviewOf, dir,
       };
     }), null, 2));
@@ -738,7 +758,9 @@ export async function cmdList(_positionals, opts) {
   const rows = all.map(({ manifest: m }) => {
     const o = origin(m);
     const from = o.reviewOf ? `🔁 review: ${generated.get(o.root)?.title ?? o.root}` : (o.source ?? "–");
-    return [m.date ?? generated.get(m.id)?.date ?? "", langName(m.lang), `L${m.level}`, m.type ?? "implement", from, challengeStatus(events, m.id).status, m.id];
+    const status = challengeStatus(events, m.id).status;
+    const paused = status === "open" && timerState(events, m.id).state === "paused";
+    return [m.date ?? generated.get(m.id)?.date ?? "", langName(m.lang), `L${m.level}`, m.type ?? "implement", from, paused ? "open ⏸" : status, m.id];
   });
   console.log(table(["Created", "Language", "Lvl", "Type", "From", "Status", "Id"], rows));
 }
@@ -1073,12 +1095,7 @@ export async function cmdOpen(positionals, opts) {
   for (const extra of typeInfo(c.manifest.type).open) if (existsSync(join(c.dir, extra))) walk(extra);
   if (existsSync(join(c.dir, "starter"))) walk("starter");
   const quote = (s) => `'${s.replace(/'/g, `'\\''`)}'`;
-  // The first open starts the timer that `ginga done` suggests as "minutes spent".
-  const events = readEvents(ws);
-  if (!events.some((e) => e.type === "opened" && e.id === c.manifest.id)) {
-    appendEvent(ws, { type: "opened", id: c.manifest.id, lang: c.manifest.lang, level: c.manifest.level });
-    console.log("⏱️  Timer started; `ginga done` will suggest the time since now.");
-  }
+  startOrResumeTimer(ws, c.manifest);
   console.log(`Opening ${c.manifest.id} in ${editor} …`);
   // Through a shell so editor settings with arguments ("code -w", "nvim -p") work.
   const r = spawnSync(`${editor} ${["README.md", ...starter].map(quote).join(" ")}`, {
@@ -1086,6 +1103,74 @@ export async function cmdOpen(positionals, opts) {
   });
   if (r.status !== 0) process.exitCode = r.status ?? 1;
   console.log(`\nNext: ginga test${positionals[0] ? ` ${positionals[0]}` : ""}`);
+}
+
+// ---------------------------------------------------------------- timer
+
+const minutesSince = (ms, now = Date.now()) => Math.max(0, Math.round((now - ms) / 60_000));
+
+/**
+ * On `ginga open`: the first open starts the timer that `ginga done` suggests as "minutes spent";
+ * opening a paused challenge resumes it. Finished challenges have no timer to touch.
+ */
+function startOrResumeTimer(ws, m) {
+  const events = readEvents(ws);
+  if (challengeStatus(events, m.id).status !== "open") return;
+  const t = timerState(events, m.id);
+  const event = (type) => appendEvent(ws, { type, id: m.id, lang: m.lang, level: m.level });
+  if (!events.some((e) => e.type === "opened" && e.id === m.id)) {
+    event("opened");
+    if (t.state === "paused") event("resumed");
+    console.log("⏱️  Timer started; `ginga done` will suggest the active time from now (`ginga pause` for breaks).");
+  } else if (t.state === "paused") {
+    event("resumed");
+    console.log(`▶  Timer resumed after ${humanMinutes(minutesSince(t.since))} paused.`);
+  }
+}
+
+/** "▶ running · 34 min active (1 pause, 15 min)" */
+function timerLine(events, id) {
+  const t = timerState(events, id);
+  const active = humanMinutes(Math.round(t.activeMs / 60_000));
+  const pauses = t.pauses ? ` (${t.pauses} pause${t.pauses === 1 ? "" : "s"}, ${humanMinutes(Math.round(t.pausedMs / 60_000))})` : "";
+  if (t.state === "none") return "not started: `ginga open` starts it";
+  if (t.state === "running") return `▶  running · ${active} active${pauses}`;
+  if (t.state === "paused") return `⏸  paused for ${humanMinutes(minutesSince(t.since))} · ${active} active${pauses}`;
+  return `stopped · ${active} active${pauses}`;
+}
+
+function openForTimer(ws, positionals) {
+  const c = pickChallenge(ws, positionals[0]);
+  const events = readEvents(ws);
+  const { status } = challengeStatus(events, c.manifest.id);
+  if (status !== "open") throw new UserError(`"${c.manifest.title}" is ${status === "gaveup" ? "given up" : status}; its timer has stopped.`);
+  return { c, events, t: timerState(events, c.manifest.id) };
+}
+
+export async function cmdPause(positionals, opts) {
+  const { ws } = ctx(opts);
+  const { c, events, t } = openForTimer(ws, positionals);
+  const m = c.manifest;
+  if (t.state === "paused") return console.log(`Already paused (${m.id}): ${timerLine(events, m.id)}`);
+  appendEvent(ws, { type: "paused", id: m.id, lang: m.lang, level: m.level });
+  if (t.state === "none") return console.log(`⏸  ${m.id}: the timer starts paused; \`ginga resume\` (or \`ginga open\`) starts it.`);
+  console.log(`⏸  Paused ${m.id} at ${humanMinutes(Math.round(t.activeMs / 60_000))} active. \`ginga resume\` when you're back.`);
+}
+
+export async function cmdResume(positionals, opts) {
+  const { ws } = ctx(opts);
+  const { c, events, t } = openForTimer(ws, positionals);
+  const m = c.manifest;
+  if (t.state === "running") return console.log(`Already running (${m.id}): ${timerLine(events, m.id)}`);
+  if (t.state === "none") throw new UserError(`The timer of ${m.id} hasn't started; \`ginga open\` starts it.`);
+  appendEvent(ws, { type: "resumed", id: m.id, lang: m.lang, level: m.level });
+  console.log(`▶  Resumed ${m.id} after ${humanMinutes(minutesSince(t.since))} paused.`);
+}
+
+export async function cmdTimer(positionals, opts) {
+  const { ws } = ctx(opts);
+  const c = pickChallenge(ws, positionals[0]);
+  console.log(`${c.manifest.id}\n${timerLine(readEvents(ws), c.manifest.id)}`);
 }
 
 export async function cmdLang(positionals, opts) {

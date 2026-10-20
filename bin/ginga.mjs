@@ -26,6 +26,8 @@ Practice
   daily [--force]            today's challenge from the rotation (used by the timer)
   open [id]                  open README + starter in $EDITOR, inside the challenge folder
   test [id] [--watch]        run the tests against your starter/ (sandboxed); --watch reruns on save
+  pause [id] / resume [id]   pause the challenge's timer for a break, start it again
+  timer [id]                 the timer: running or paused, active minutes, pauses
   hint [id]                  reveal the next hint (recorded)
   done [id] [--minutes N]    verify tests pass, record the solve, unlock the solution
   giveup [id] [--yes]        record a give-up and unlock the solution
@@ -52,7 +54,7 @@ Only daily, new, lang add, review and learn use Claude (tokens); everything else
 const commands = {
   init: cli.cmdInit, new: cli.cmdNew, daily: cli.cmdDaily, test: cli.cmdTest, hint: cli.cmdHint,
   done: cli.cmdDone, giveup: cli.cmdGiveup, discard: cli.cmdDiscard, rank: cli.cmdRank, list: cli.cmdList,
-  validate: cli.cmdValidate, sandbox: cli.cmdSandbox, lang: cli.cmdLang, rotation: cli.cmdRotation, stack: cli.cmdStack, domains: cli.cmdDomains, coverage: cli.cmdCoverage, open: cli.cmdOpen, schedule: cli.cmdSchedule,
+  validate: cli.cmdValidate, sandbox: cli.cmdSandbox, lang: cli.cmdLang, rotation: cli.cmdRotation, stack: cli.cmdStack, domains: cli.cmdDomains, coverage: cli.cmdCoverage, open: cli.cmdOpen, pause: cli.cmdPause, resume: cli.cmdResume, timer: cli.cmdTimer, schedule: cli.cmdSchedule,
   doctor: cli.cmdDoctor, review: cli.cmdReview, learn: cli.cmdLearn, commit: cli.cmdCommit, push: cli.cmdPush, config: cli.cmdConfig, completion: cli.cmdCompletion,
 };
 
