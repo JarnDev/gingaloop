@@ -243,7 +243,7 @@ export async function cmdDaily(_positionals, opts) {
   const events = withoutDiscarded(readEvents(ws));
   const rotation = rotationIds(ws, config);
   const plan = dailyPlan(events, config, date, { force: opts.force, rotation });
-  const slots = dailySlots(events, plan, dailySettings(config, rotation).pool, rotation, config.rotationMode);
+  const slots = dailySlots(events, plan, { pool: dailySettings(config, rotation).pool, rotation, mode: config.rotationMode });
   const failures = [];
   for (const [i, s] of slots.entries()) {
     if (i) console.log("");
@@ -263,12 +263,12 @@ export async function cmdDaily(_positionals, opts) {
 }
 
 /** The plan as challenges to make: `{lang, slot}` with slot anchor | pick | extra | forced. */
-export function dailySlots(events, plan, pool, rotation, mode, rand) {
-  const drawn = drawLangs(events, pool, mode, plan.picks + plan.extras, plan.madeToday, rand);
+export function dailySlots(events, plan, { pool, rotation, mode, rand }) {
+  const drawn = drawLangs(events, pool, plan.picks + plan.extras, { mode, taken: plan.madeToday, rand });
   const forcePool = pool.length ? pool : rotation;
   // --force: another language when one is left today, else any.
   const forced = plan.forced
-    ? [...drawLangs(events, forcePool, mode, 1, [...plan.madeToday, ...drawn], rand), ...drawLangs(events, forcePool, mode, 1, [], rand)].slice(0, 1)
+    ? [...drawLangs(events, forcePool, 1, { mode, taken: [...plan.madeToday, ...drawn], rand }), ...drawLangs(events, forcePool, 1, { mode, rand })].slice(0, 1)
     : [];
   return [
     ...plan.anchors.map((lang) => ({ lang, slot: "anchor" })),

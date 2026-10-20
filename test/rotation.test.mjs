@@ -8,7 +8,7 @@ import { dailyPlan, dailySlots } from "../src/cli.mjs";
 import { bagState, dailySettings, drawLangs, extrasRolled, nextOrdered } from "../src/rotation.mjs";
 import { DEFAULT_CONFIG } from "../src/workspace.mjs";
 
-const pickDailyLang = (events, rotation, mode, rand) => drawLangs(events, rotation, mode, 1, [], rand)[0];
+const pickDailyLang = (events, rotation, mode, rand) => drawLangs(events, rotation, 1, { mode, rand })[0];
 
 const daily = (lang, extra = {}) => ({ type: "generated", source: "daily", lang, ...extra });
 const ROT = ["python", "c", "rust", "go"];
@@ -118,24 +118,24 @@ test("extras wait while a challenge from an earlier day is open; anchors don't",
 test("draws: pick and extras share the bag, never repeat a day's language, and anchors stay out", () => {
   const pool = dailySettings(cfg({ anchors: ["python"] }), ROT).pool;
   for (let k = 0; k < 20; k++) {
-    const two = drawLangs([], pool, "random", 2);
+    const two = drawLangs([], pool, 2);
     assert.equal(new Set(two).size, 2);
     assert.ok(two.every((l) => pool.includes(l)));
   }
   // c and rust drawn this cycle: go is the last one in the bag, then it refills (without go).
   const events = [daily("c"), daily("rust"), daily("python", { slot: "anchor" })];
   assert.deepEqual(bagState(events, pool).remaining, ["go"], "anchor days aren't bag draws");
-  const [first, second] = drawLangs(events, pool, "random", 2, [], () => 0);
+  const [first, second] = drawLangs(events, pool, 2, { rand: () => 0 });
   assert.deepEqual([first, second], ["go", "c"]);
-  assert.deepEqual(drawLangs([], pool, "random", 2, ["c", "rust"]), ["go"], "fewer when the pool runs out");
-  assert.deepEqual(drawLangs([], [], "random", 1), [], "everything is an anchor: no extras");
-  assert.deepEqual(drawLangs([daily("c")], pool, "ordered", 2, ["rust"]), ["go", "c"], "ordered skips today's languages (rust)");
-  assert.deepEqual(drawLangs([daily("go")], pool, "ordered", 2), ["c", "rust"]);
+  assert.deepEqual(drawLangs([], pool, 2, { taken: ["c", "rust"] }), ["go"], "fewer when the pool runs out");
+  assert.deepEqual(drawLangs([], [], 1), [], "everything is an anchor: no extras");
+  assert.deepEqual(drawLangs([daily("c")], pool, 2, { mode: "ordered", taken: ["rust"] }), ["go", "c"], "ordered skips today's languages (rust)");
+  assert.deepEqual(drawLangs([daily("go")], pool, 2, { mode: "ordered" }), ["c", "rust"]);
 });
 
 test("slots: anchors, then the pick or extras from the bag, then --force", () => {
   const slots = (c, events = [], opts = {}) =>
-    dailySlots(events, dailyPlan(events, c, DAY, opts), dailySettings(c, ROT).pool, ROT, "random");
+    dailySlots(events, dailyPlan(events, c, DAY, opts), { pool: dailySettings(c, ROT).pool, rotation: ROT, mode: "random" });
   assert.deepEqual(slots(cfg({ anchors: ["python", "go"], extraChance: 1 })).map((s) => s.slot), ["anchor", "anchor", "extra"]);
   const plain = slots(cfg({ extraChance: 1, extraMax: 2 }));
   assert.deepEqual(plain.map((s) => s.slot), ["pick", "extra", "extra"]);

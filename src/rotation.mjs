@@ -13,9 +13,14 @@ import { DEFAULT_CONFIG } from "./workspace.mjs";
 
 export const ROTATION_MODES = ["random", "ordered"];
 
+/** A daily challenge drawn from the bag: not a review, not an anchor. */
+function isBagDraw(e) {
+  return e.type === "generated" && e.source === "daily" && !e.reviewOf && e.slot !== "anchor";
+}
+
 function dailyDraws(events, rotation) {
   const inRotation = new Set(rotation);
-  return events.filter((e) => e.type === "generated" && e.source === "daily" && !e.reviewOf && e.slot !== "anchor" && inRotation.has(e.lang));
+  return events.filter((e) => isBagDraw(e) && inRotation.has(e.lang));
 }
 
 /** Languages drawn in the current random cycle, and those still in the bag. */
@@ -59,7 +64,7 @@ export function extrasRolled(date, chance, max) {
  * Draw `n` languages from `pool` in the rotation order (`mode`), skipping `taken` (already made
  * today) and each other. Fewer when the pool runs out.
  */
-export function drawLangs(events, pool, mode, n, taken = [], rand = randomInt) {
+export function drawLangs(events, pool, n, { mode = "random", taken = [], rand = randomInt } = {}) {
   const out = [];
   let evts = events;
   while (out.length < n) {
