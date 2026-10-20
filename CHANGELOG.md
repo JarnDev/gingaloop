@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **write-the-tests: the README's examples give nothing away.** They are the starter's example
+  tests, copied as they are, and the validator runs the starter against every hidden bug: an
+  example that catches one is rejected, so copying the examples never catches a bug for free. The
+  built-in example's `"1h30m"` test (it caught the minutes-as-seconds bug) became `"45s"`. (#9)
 - **`ginga giveup` asks what stopped you** (enter skips; `--reason R` answers it, `--yes` skips
   it). The answer fills the "What tripped me up" line of NOTES.md, is kept on the give-up event,
   and the topic's review challenges are generated to need exactly that point.

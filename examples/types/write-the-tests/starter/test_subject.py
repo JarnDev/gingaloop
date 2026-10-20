@@ -4,8 +4,12 @@ from subject import parse_duration
 
 
 class TestParseDuration(unittest.TestCase):
-    def test_hours_and_minutes(self):
-        self.assertEqual(parse_duration("1h30m"), 5400)
+    def test_seconds_alone(self):
+        self.assertEqual(parse_duration("45s"), 45)
+
+    def test_unknown_unit_is_rejected(self):
+        with self.assertRaises(ValueError):
+            parse_duration("5d")
 
     # TODO: each unit's weight, combinations, and every kind of invalid input
     # (with the exact error message).

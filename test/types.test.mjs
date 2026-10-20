@@ -3,7 +3,7 @@ import { cpSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { itemTag, staticProblems, symptomLines, whatToTestItems } from "../src/runner.mjs";
+import { exampleLines, exampleProblems, itemTag, starterExampleProblems, staticProblems, symptomLines, whatToTestItems } from "../src/runner.mjs";
 import { TYPES, eligibleTypes, pickType } from "../src/types.mjs";
 
 const EX = join(import.meta.dirname, "..", "examples", "types");
@@ -142,4 +142,16 @@ test("port drops at most one level when the source can't be read at the target's
   } finally {
     rmSync(ws, { recursive: true, force: true });
   }
+});
+
+test("write-the-tests: README examples are the starter's, and they catch no bug (#9)", () => {
+  const readme = "## Examples\n\n```python\ndef test_a(self):\n    self.assertEqual(f(1), 1)\n```\n\nText.\n\n```\nf(2)\n```\n\n## Constraints\n\n```\nnot an example\n```\n";
+  assert.deepEqual(exampleLines(readme), ["def test_a(self):", "self.assertEqual(f(1), 1)", "f(2)"]);
+  const starter = "class T:\n    def test_a(self):\n        self.assertEqual(f(1), 1)\n        f(2)\n";
+  assert.deepEqual(exampleProblems(readme, starter), []);
+  assert.match(exampleProblems(readme, starter.replace("f(1), 1", "f(1), 2"))[0], /not in starter\/:\nself\.assertEqual\(f\(1\), 1\)$/);
+  const v = (name, caught) => ({ bug: { name }, caught });
+  assert.deepEqual(starterExampleProblems({ subjectPassed: true, variants: [v("a", false), v("b", false)] }), []);
+  assert.match(starterExampleProblems({ subjectPassed: true, variants: [v("a", true), v("b", false)] })[0], /already catch bugs\/a:/);
+  assert.match(starterExampleProblems({ subjectPassed: false, subjectOutput: "boom", variants: [v("a", true)] })[0], /FAIL on the correct subject/);
 });
