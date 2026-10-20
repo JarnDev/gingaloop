@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **write-the-tests: the README's examples give nothing away.** They are the starter's example
+  tests, copied as they are, and the validator runs the starter against every hidden bug: an
+  example that catches one is rejected, so copying the examples never catches a bug for free. The
+  built-in example's `"1h30m"` test (it caught the minutes-as-seconds bug) became `"45s"`. (#9)
 - **Reviews of write-the-tests run the right command.** The reviewer was handed the test command
   with only `TARGET` set, so `$IMPL` and `$TESTS` were empty and the run failed. `ginga sandbox run`
   takes `--impl` and `--tests`, and the review prompt now gives the runs the grader does (your

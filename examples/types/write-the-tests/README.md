@@ -33,14 +33,18 @@ rule on its own.
 
 ## Examples
 
+The two example tests already in `starter/test_subject.py`, to show the harness:
+
 ```python
-def test_hours_and_minutes(self):
-    self.assertEqual(parse_duration("1h30m"), 5400)
+def test_seconds_alone(self):
+    self.assertEqual(parse_duration("45s"), 45)
 
 def test_unknown_unit_is_rejected(self):
-    with self.assertRaisesRegex(ValueError, r"^invalid duration: '5d'$"):
+    with self.assertRaises(ValueError):
         parse_duration("5d")
 ```
+
+They pass on every version, buggy or not: catching the bugs is up to the tests you add.
 
 ## Constraints
 

@@ -4,8 +4,8 @@ mutation testing: it must PASS on the correct code and FAIL on every hidden bugg
 Layout (differs from the generic one):
 ```
 subject/            # the correct implementation, VISIBLE to the user (what they test)
-starter/            # the user's test file(s): imports + 1 trivial example test + TODOs; this suite
-                    # must NOT catch all bugs yet (it fails the grading)
+starter/            # the user's test file(s): imports + 1-2 example tests + TODOs; the example
+                    # tests must catch NO hidden bug (see Examples below)
 solution/           # the reference test suite, ONE FILE PER "What to test" item with "item<N>" in
                     # its name (test_item2_order.py, item2-order.test.mjs), plus EXPLANATION.md;
                     # tests for nothing in the list go in a file without "item"
@@ -37,7 +37,14 @@ tests/              # the harness: runs the test suite in ../$TESTS against the 
 - README: `## Problem` describes the subject's contract precisely (what the tests should pin down);
   `## Subject` names the files in subject/; `## What to test` is a numbered list of the behaviors
   to pin down, 3–7 items, one behavior each (not the bugs!);
-  `## Examples` shows a couple of example test cases; `## Constraints` (framework, no network).
+  `## Examples` shows the starter's example tests, copied exactly as they are in starter/;
+  `## Constraints` (framework, no network).
+- The examples only show the harness API (how to call the subject, assert a value, assert an
+  error). They must catch NO hidden bug: pick inputs no bug breaks (a unit the buggy weights don't
+  touch, an error checked by type rather than exact message), never the input a bug is about.
+  Otherwise copying them from the README catches that bug without thinking about its rule. The
+  validator runs the starter against every bug and rejects any it catches, and checks that every
+  line of the README's example blocks appears in starter/.
 - The validator grades the reference suite (passes on subject, catches every bug on the expected
   test) and checks the starter suite does not pass the grading.
 - EXPLANATION.md: why each reference test exists, which bug it catches, and how to think about test

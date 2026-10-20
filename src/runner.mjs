@@ -192,6 +192,39 @@ async function isolationProblems({ config, profile, dir, manifest, bugs, log }) 
 }
 
 /**
+ * write-the-tests: the starter's example tests (the README's "## Examples", see exampleProblems) show
+ * the harness API and must not catch a hidden bug, or copying them catches it without the user
+ * thinking about that rule (gingaloop#9). Uses the starter grading run: no extra sandbox runs.
+ */
+export function starterExampleProblems(st) {
+  if (!st.subjectPassed) return [`the starter tests FAIL on the correct subject/ (the example tests must pass on it):\n${tail(st.subjectOutput, 25)}`];
+  const caught = st.variants.filter((v) => v.caught).map((v) => `bugs/${v.bug.name}`);
+  return caught.length
+    ? [`the starter's example tests already catch ${caught.join(", ")}: copied from the README, they would catch it for free. ` +
+      "Show the harness with inputs no hidden bug breaks (the README's \"## Examples\" are exactly these tests)"]
+    : [];
+}
+
+/** Non-empty lines of every fenced block under "## Examples" in a README. */
+export function exampleLines(readmeText) {
+  const section = (readmeText.split(/^##\s+Examples?[^\n]*\n/im)[1] ?? "").split(/^##\s/m)[0];
+  return [...section.matchAll(/```[^\n]*\n([\s\S]*?)```/g)]
+    .flatMap((b) => b[1].split("\n")).map((l) => l.trim()).filter(Boolean);
+}
+
+/**
+ * write-the-tests: the README's examples are the starter's example tests, so the check that the
+ * starter catches no bug covers what the README shows (gingaloop#9).
+ */
+export function exampleProblems(readmeText, starterText) {
+  const have = new Set(starterText.split("\n").map((l) => l.trim()));
+  const missing = exampleLines(readmeText).filter((l) => !have.has(l));
+  return missing.length
+    ? [`README.md: "## Examples" must show the example tests that are in starter/ (copied as they are there); not in starter/:\n${missing.slice(0, 5).join("\n")}`]
+    : [];
+}
+
+/**
  * write-the-tests: every promise in "## What to test" must be broken by some hidden bug, or a suite
  * that never tests it still catches every bug and passes (gingaloop#2). Each bug names the item(s)
  * it breaks in `breaks` (1-based).
@@ -306,7 +339,10 @@ export function staticProblems(dir) {
   if (m.type === "write-the-tests" && existsSync(readme)) {
     const solution = join(dir, "solution");
     const files = existsSync(solution) ? readdirSync(solution, { recursive: true }).map(String) : [];
-    problems.push(...promiseProblems(readFileSync(readme, "utf8"), bugs, files));
+    const readmeText = readFileSync(readme, "utf8");
+    problems.push(...promiseProblems(readmeText, bugs, files));
+    const starter = Object.values(collectFiles(dir, ["starter"])).map((b) => b.toString("utf8")).join("\n");
+    problems.push(...exampleProblems(readmeText, starter));
   }
   return problems;
 }
@@ -342,6 +378,7 @@ export async function validateTree({ config, profile, dir, log = () => {} }) {
     log("starter test suite …");
     const st = await gradeMutation({ config, profile, challengeDir: dir, manifest, suite: "starter" });
     if (st.passed) problems.push("the starter test suite already passes the grading (it must start incomplete)");
+    if (manifest.type === "write-the-tests") problems.push(...starterExampleProblems(st));
     return { ok: problems.length === 0, problems };
   }
 
