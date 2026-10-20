@@ -4,8 +4,11 @@ mutation testing: it must PASS on the correct code and FAIL on every hidden bugg
 Layout (differs from the generic one):
 ```
 subject/            # the correct implementation, VISIBLE to the user (what they test)
-starter/            # the user's test file(s): imports + 1 trivial example test + TODOs; this suite
-                    # must NOT catch all bugs yet (it fails the grading)
+starter/            # the user's test files, ONE PER "What to test" item, named like the reference
+                    # ones (test_item2_order.py): imports + a TODO each (they must run as they are,
+                    # e.g. `pass` in an empty Python class), plus 1-2 example tests; files for
+                    # anything else have no "item" in the name. The example tests must catch NO
+                    # hidden bug (see Examples below)
 solution/           # the reference test suite, ONE FILE PER "What to test" item with "item<N>" in
                     # its name (test_item2_order.py, item2-order.test.mjs), plus EXPLANATION.md;
                     # tests for nothing in the list go in a file without "item"
@@ -37,8 +40,18 @@ tests/              # the harness: runs the test suite in ../$TESTS against the 
 - README: `## Problem` describes the subject's contract precisely (what the tests should pin down);
   `## Subject` names the files in subject/; `## What to test` is a numbered list of the behaviors
   to pin down, 3–7 items, one behavior each (not the bugs!);
-  `## Examples` shows a couple of example test cases; `## Constraints` (framework, no network).
+  `## Examples` shows the starter's example tests, copied exactly as they are in starter/;
+  `## Constraints` (framework, no network).
+- The examples only show the harness API (how to call the subject, assert a value, assert an
+  error). They must catch NO hidden bug: pick inputs no bug breaks (a unit the buggy weights don't
+  touch, an error checked by type rather than exact message), never the input a bug is about.
+  Otherwise copying them from the README catches that bug without thinking about its rule. The
+  validator runs the starter against every bug and rejects any it catches, and checks that every
+  line of the README's example blocks appears in starter/.
 - The validator grades the reference suite (passes on subject, catches every bug on the expected
   test) and checks the starter suite does not pass the grading.
+- The user's suite is graded per item: a bug must be caught by the user's file for the item it
+  breaks. One caught only through another item's file counts as caught by accident (the solve isn't
+  clean). So the README must tell the user to keep one file per item, with `item<N>` in its name.
 - EXPLANATION.md: why each reference test exists, which bug it catches, and how to think about test
   design (equivalence classes, boundaries, error contracts).

@@ -17,8 +17,8 @@ The reference keeps each rule in its own file (`test_item<N>_….py`, numbered l
 and only the message file checks the message. One test that checks everything at once would still
 catch every bug, but it can't tell you which rule a failure is about.
 
-`"1h30m" == 5400` alone catches none of the bugs. Every buggy version gets it right, which is why
-the starter's single test isn't enough.
+The starter's two example tests (`"45s"`, and an unknown unit checked only for `ValueError`) pass
+on every buggy version on purpose: they show the harness and leave every catch to you.
 
 ## Complexity
 
@@ -38,8 +38,8 @@ The hidden versions are mistakes people make when *writing* such a parser. A goo
 of them:
 
 - **Checking order with `==` instead of `<=`** (`bugs/accepts-any-order`).
-- **A wrong weight** (`bugs/minutes-as-seconds`), invisible if you only test `1h30m`-style
-  combinations whose sum happens to look plausible.
+- **A wrong weight** (`bugs/minutes-as-seconds`), invisible to any test without minutes in it,
+  such as the starter's `"45s"`.
 - **A regex with all-optional groups** (`bugs/regex-allows-empty`): `""` matches and returns 0.
 - **Order checked between neighbors with `>`** (`bugs/split-allows-repeats`): `1h2h` passes.
 - **A message that drifts** (`bugs/wrong-message`): still a `ValueError`, but without the quotes

@@ -61,6 +61,8 @@ test("notes: give-ups, typed minutes and no time", () => {
   assert.equal(typed["Time spent"], "45 min (typed)");
   assert.equal(typed["Hints used"], "0");
   assert.equal(noteValues({ outcome: { kind: "solved", date: "2026-10-19" }, minutes: null })["Time spent"], "not recorded");
+  assert.equal(noteValues({ outcome: { kind: "solved", date: "2026-10-19", points: 100, accidental: [2], review: true } }).Result,
+    "solved 2026-10-19 · +100 pts · item 2 caught only by accident · comes back as a review");
 });
 
 test("ginga pause / resume / timer / list end to end", () => {

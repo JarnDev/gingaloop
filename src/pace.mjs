@@ -92,10 +92,13 @@ export function solvePace(events, solved, opts = {}) {
   };
 }
 
-/** A solve that should come back for review: 2+ hints, or a struggle against your own pace. */
+/**
+ * A solve that should come back for review: 2+ hints, a promise caught only by accident
+ * (write-the-tests), or a struggle against your own pace.
+ */
 export function isStruggle(events, solved, opts = {}) {
   if (solved.type !== "solved" || solved.afterGiveup) return false;
-  if ((solved.hints ?? 0) >= 2) return true;
+  if ((solved.hints ?? 0) >= 2 || solved.accidental?.length) return true;
   return solvePace(events, solved, opts)?.band === "struggle";
 }
 

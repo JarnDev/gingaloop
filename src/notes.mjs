@@ -91,6 +91,7 @@ function resultLine(outcome, startedAt) {
   const parts = [outcome.kind === "solved" ? `solved ${outcome.date}` : `gave up ${outcome.date}`];
   if (Number.isFinite(outcome.points)) parts.push(`+${outcome.points} pts`);
   if (startedAt != null) parts.push(`opened ${localDate(startedAt)} ${hhmm(startedAt)}`);
+  if (outcome.accidental?.length) parts.push(`item ${outcome.accidental.join(", ")} caught only by accident`);
   if (outcome.review) parts.push("comes back as a review");
   return parts.join(" · ");
 }
