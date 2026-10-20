@@ -4,6 +4,7 @@ import { appendFileSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSyn
 import { homedir } from "node:os";
 import { delimiter, isAbsolute, join, resolve, sep } from "node:path";
 import { createInterface } from "node:readline/promises";
+import { isDeepStrictEqual } from "node:util";
 import {
   ORIGINAL_DIR, byCreation, isLocked, listChallenges, pickChallenge, readHints, unlockChallenge, writeEditorFiles,
 } from "./challenges.mjs";
@@ -29,6 +30,7 @@ import { PACE_DEFAULTS, PACE_FOOTNOTE, isStruggle, paceFor, paceLabel, paceRepor
 import { dueReview, openReview, reviewCycles, reviewOpts, reviewSummary, rootOf } from "./reviews.mjs";
 import { fillNotes, noteValues } from "./notes.mjs";
 import { humanMinutes, timerMinutes, timerState } from "./timer.mjs";
+import { bar, displayWidth, heading, mark, paint, plural, table, termWidth, tilde, truncate } from "./view.mjs";
 import {
   IMPROVEMENTS_FILE, LESSONS_FILE, addImprovements, addLessons, builtInRules, issueUrl, latestReview, learnPrompt, learnedFrom, parseLearnResult, readLessons,
 } from "./lessons.mjs";
@@ -63,12 +65,6 @@ function ctx(opts) {
 
 function tail(text, lines = 60) {
   return text.trimEnd().split("\n").slice(-lines).join("\n");
-}
-
-function bar(done, total, width = 12) {
-  if (total <= 0) return "█".repeat(width);
-  const filled = Math.round((done / total) * width);
-  return "█".repeat(filled) + "░".repeat(width - filled);
 }
 
 /** Profile for a language; bootstraps one with Claude if missing (asks first when interactive). */
@@ -164,10 +160,13 @@ export async function cmdInit(positionals, opts) {
 
 // ---------------------------------------------------------------- new / daily
 
-function printNew({ dir, manifest }) {
-  console.log(`\n✔ ${manifest.title}  (${manifest.lang}, level ${manifest.level}, ~${manifest.estMinutes} min, ${manifest.type})`);
-  console.log(`  ${dir}`);
-  console.log(`  ginga open  →  edit starter/  →  ginga test  →  ginga done   (stuck? ginga hint)`);
+/** The card printed for a new challenge: title, facts, folder, next steps. */
+function printNew({ dir, manifest: m }, { langName = m.lang, tag = "" } = {}) {
+  const facts = [langName, paint.cyan(`L${m.level}`), m.type ?? "implement", `~${m.estMinutes} min`];
+  console.log(`\n${mark.ok()} ${paint.bold(m.title)}${tag ? `  ${tag}` : ""}`);
+  console.log(`  ${facts.join(paint.dim(" · "))}`);
+  console.log(`  ${paint.dim(tilde(dir))}`);
+  console.log(`  ${paint.dim("next:")} ginga open → edit starter/ → ginga test → ginga done   ${paint.dim("(stuck? ginga hint)")}`);
 }
 
 export async function cmdNew(positionals, opts) {
@@ -199,7 +198,7 @@ export async function cmdNew(positionals, opts) {
     area = (promotion && findArea(profile, promotion[0])) || pickArea(profile, level, events);
   }
   const result = await generateChallenge({ ws, config, profile, level, area, type, sourceLang, domain, promotion, source: "manual" });
-  printNew(result);
+  printNew(result, { langName: profile.name, tag: promotion ? paint.magenta(`🥋 promotion to L${level + 1}`) : "" });
 }
 
 export { dueReview } from "./reviews.mjs";
@@ -249,18 +248,35 @@ export async function cmdDaily(_positionals, opts) {
     if (i) console.log("");
     await dailyOne(ws, config, withoutDiscarded(readEvents(ws)), s).catch((e) => failures.push(e));
   }
-  if (!slots.length) console.log("Today's challenges already exist (use --force to make another).");
+  if (!slots.length) printToday(ws, events, date);
   if (plan.extrasSkipped.length) {
-    console.log(`Today's extra waits: finish or give up ${plan.extrasSkipped.join(", ")} first (from an earlier day).`);
+    const titles = plan.extrasSkipped.map((id) => `"${generatedEvent(events, id)?.title ?? id}"`);
+    console.log(`\n${mark.warn()} Today's extra waits: finish or give up ${titles.join(", ")} first (from an earlier day).`);
   }
   if (plan.review) {
     console.log("");
     await dailyOne(ws, config, withoutDiscarded(readEvents(ws)), { review: plan.review }).catch((e) => failures.push(e));
   } else if (plan.waiting) {
-    console.log(`A review of "${plan.waiting.title}" is due; it comes once you finish the open one (${plan.openReview.id}).`);
+    console.log(`\n🔁 A review of "${plan.waiting.title}" is due; it comes once you finish the open one ${paint.dim(`(${plan.openReview.title ?? plan.openReview.id})`)}.`);
   }
   if (failures.length) throw failures[0];
 }
+
+/** When everything for today exists: what it is and where each stands. */
+function printToday(ws, events, date) {
+  const todays = events.filter((e) => e.type === "generated" && e.source === "daily" && eventDate(e) === date);
+  console.log(heading("Today's challenges are ready"));
+  for (const e of todays) {
+    const status = challengeStatus(events, e.id).status;
+    const name = findProfile(ws, e.lang)?.name ?? e.lang;
+    console.log(`  ${statusMark(status)} ${paint.bold(e.title ?? e.id)}  ${paint.dim(`${name} · L${e.level}${e.reviewOf ? " · 🔁 review" : ""}`)}  ${statusText(status)}`);
+  }
+  console.log(paint.dim("ginga daily --force makes another one."));
+}
+
+const STATUS_STYLE = { solved: ["✔", "green"], open: ["○", "yellow"], gaveup: ["✘", "red"], discarded: ["⬛", "dim"] };
+const statusMark = (status) => paint[STATUS_STYLE[status]?.[1] ?? "dim"](STATUS_STYLE[status]?.[0] ?? "·");
+const statusText = (status, label = status) => paint[STATUS_STYLE[status]?.[1] ?? "dim"](label);
 
 /** The plan as challenges to make: `{lang, slot}` with slot anchor | pick | extra | forced. */
 export function dailySlots(events, plan, { pool, rotation, mode, rand }) {
@@ -323,6 +339,9 @@ async function dailyOne(ws, config, events, { lang, slot = null, review = null }
       : chooseType(ws, config, events, profile, earned, null);
     const area = (review?.area && findArea(profile, review.area)) || (promotion && findArea(profile, promotion[0])) || pickArea(profile, level, events);
     const result = await generateChallenge({ ws, config, profile, level, area, type, sourceLang, domain, promotion, source: "daily", slot, reviewOf: review });
+    const tag = review ? paint.cyan("🔁 review (optional)") : promotion ? paint.magenta(`🥋 promotion to L${level + 1}`)
+      : slot === "extra" ? paint.dim("extra") : "";
+    printNew(result, { langName: profile.name, tag });
     notify(
       `gingaloop · ${profile.name} · L${level}${review ? " · 🔁 review (optional)" : ""}${promotion ? ` · 🥋 promotion to L${level + 1}` : ""}`,
       `${result.manifest.title} (~${result.manifest.estMinutes} min)\n${result.dir}`,
@@ -396,13 +415,13 @@ export async function cmdTest(positionals, opts) {
   const { ws, config } = ctx(opts);
   const c = pickChallenge(ws, positionals[0]);
   const once = async () => {
-    console.log(`Testing ${c.manifest.id} (sandboxed) …\n`);
+    console.log(paint.dim(`Testing "${c.manifest.title}" in the sandbox …\n`));
     const r = await runStarter(ws, config, c);
     console.log(tail(r.output));
     const warn = readmeKeyWarning(c.dir);
-    if (warn) console.log(`\n⚠ ${warn}`);
-    if (r.passed) console.log("\n✔ All tests pass. Record it with `ginga done`.");
-    else console.log(`\n✘ Not passing yet${r.timedOut ? " (timed out)" : ""}.`);
+    if (warn) console.log(`\n${mark.warn()} ${warn}`);
+    if (r.passed) console.log(`\n${mark.ok()} ${paint.green("All tests pass.")} Record it with \`ginga done\`.`);
+    else console.log(`\n${mark.fail()} ${paint.red(`Not passing yet${r.timedOut ? " (timed out)" : ""}.`)}`);
     return r.passed;
   };
   if (!opts.watch) {
@@ -426,7 +445,7 @@ function watchTests(dir, run) {
     running = true;
     process.stdout.write("\x1bc"); // clear the screen between runs
     await run().catch((e) => console.error(e.message));
-    console.log("\n👀 Watching starter/ and tests/ (Ctrl+C to stop) …");
+    console.log(paint.dim("\n👀 Watching starter/ and tests/ (Ctrl+C to stop) …"));
     running = false;
     if (again) {
       again = false;
@@ -455,15 +474,16 @@ export async function cmdHint(positionals, opts) {
   const events = readEvents(ws);
   const { status, hints: used } = challengeStatus(events, c.manifest.id);
   const hints = readHints(c.dir);
+  const show = (i) => console.log(`${paint.bold(paint.cyan(`💡 Hint ${i + 1}/${hints.length}`))}\n${hints[i].trim()}\n`);
   if (status !== "open") {
-    hints.forEach((h, i) => console.log(`## Hint ${i + 1}\n${h}\n`));
+    hints.forEach((_, i) => show(i));
     return;
   }
   if (used >= hints.length) {
     console.log(`No more hints (${hints.length}/${hints.length} used). Keep going, or \`ginga giveup\`.`);
     return;
   }
-  for (let i = 0; i < used; i++) console.log(`## Hint ${i + 1}\n${hints[i]}\n`);
+  for (let i = 0; i < used; i++) show(i);
   const hm = config.leveling.hintMultiplier;
   const pct = Math.round(hm[Math.min(used + 1, hm.length - 1)] * 100);
   // Say what the hint costs before it's revealed, not after.
@@ -471,19 +491,20 @@ export async function cmdHint(positionals, opts) {
   if (used + 1 === 2) costs.push("2 hints bring the challenge back as a review and break your clean streak");
   if (c.manifest.promotion && used + 1 === 2) costs.push("a promotion needs at most 1 hint");
   if (!(await confirm(`Reveal hint ${used + 1}/${hints.length}? (${costs.join("; ")})`, opts.yes))) return;
-  console.log(`\n## Hint ${used + 1}\n${hints[used]}\n`);
+  console.log("");
+  show(used);
   appendEvent(ws, { type: "hint", id: c.manifest.id, lang: c.manifest.lang, level: c.manifest.level, hint: used + 1 });
   refreshViews(ws);
-  console.log(`(${used + 1}/${hints.length} hints used · this solve is now worth ${pct}% of its points)`);
+  console.log(paint.dim(`${used + 1}/${hints.length} hints used · this solve is now worth ${pct}% of its points`));
 }
 
 function tryUnlock(dir) {
   try {
-    if (unlockChallenge(dir)) console.log(`🔓 Unlocked: ${join(dir, "solution", "EXPLANATION.md")}`);
+    if (unlockChallenge(dir)) console.log(`🔓 Unlocked: ${paint.dim(tilde(join(dir, "solution", "EXPLANATION.md")))}`);
     return true;
   } catch (e) {
     if (e instanceof VaultKeyError) {
-      console.log(`⚠ ${e.message}\n  Then run the same command again to unlock.`);
+      console.log(`${mark.warn()} ${e.message}\n  Then run the same command again to unlock.`);
       return false;
     }
     throw e;
@@ -500,7 +521,7 @@ function fillChallengeNotes(c, values) {
   const { text, filled } = fillNotes(readFileSync(file, "utf8"), values);
   if (filled.length) {
     writeFileSync(file, text);
-    console.log(`  📝 NOTES.md: filled in ${filled.join(", ").toLowerCase()}.`);
+    console.log(paint.dim(`📝 NOTES.md: filled in ${filled.join(", ").toLowerCase()}.`));
   }
 }
 
@@ -521,15 +542,15 @@ export async function cmdDone(positionals, opts) {
   const before = langLevel(ws, config, events, m.lang);
   const { status, hints } = challengeStatus(events, m.id);
   if (status === "solved") {
-    console.log(`${m.id} is already solved.`);
+    console.log(`${mark.ok()} "${m.title}" is already solved.`);
     tryUnlock(c.dir);
     return;
   }
-  console.log(`Running the tests for ${m.id} (sandboxed) …`);
+  console.log(paint.dim(`Running the tests for "${m.title}" in the sandbox …`));
   const r = await runStarter(ws, config, c);
   if (!r.passed) {
     console.log(tail(r.output, 30));
-    console.log("\n✘ Tests are not passing, so it can't be recorded as solved.");
+    console.log(`\n${mark.fail()} ${paint.red("Tests are not passing")}, so it can't be recorded as solved.`);
     process.exitCode = 1;
     return;
   }
@@ -574,17 +595,18 @@ export async function cmdDone(positionals, opts) {
     if (m.level < before.level) why.push(`level ${m.level} is below your level ${before.level}`);
     if (hints) why.push(`${hints} hint${hints === 1 ? "" : "s"}`);
   }
-  console.log(`\n✔ Solved ${m.title}.  +${earned} points${why.length ? ` (${why.join(", ")})` : ""}`);
+  const name = findProfile(ws, m.lang)?.name ?? m.lang;
+  console.log(`\n${mark.ok()} ${paint.bold(`Solved "${m.title}"`)}  ${paint.green(`+${earned} points`)}${why.length ? paint.dim(` (${why.join(", ")})`) : ""}`);
   const p = solvePace(readEvents(ws), solved, config.pace);
   if (p) console.log(paceReport(p, config.pace));
   if (r.accidental?.length && status !== "gaveup") {
-    console.log(`  ⚠ Item ${r.accidental.join(", ")} of "What to test" was caught only through other items' tests: not a clean solve, and this topic comes back as a review.`);
-  } else if (hints >= 2 && status !== "gaveup") console.log("  2+ hints: this topic comes back as a review.");
-  else if (minutes == null) console.log("  (no time recorded, so no pace comparison)");
-  if (after.level > before.level) console.log(`🎉 Level ${after.level} unlocked for ${m.lang}!`);
-  else if (m.promotion) console.log(`Promotion not passed yet (it needs a clean solve: at most 1 hint, nothing caught by accident); another one comes in ${config.leveling.promotionRetryDays ?? 3} days.`);
-  else if (after.gates?.promotionPending && !before.gates?.promotionPending) console.log(`🥋 Gates met: your next ${m.lang} challenge is a promotion to level ${after.level + 1}.`);
-  console.log(`  ${m.lang}: ${levelLine(after, config.leveling)}`);
+    console.log(`  ${mark.warn()} Item ${r.accidental.join(", ")} of "What to test" was caught only through other items' tests: not a clean solve, and this topic comes back as a review.`);
+  } else if (hints >= 2 && status !== "gaveup") console.log(`  ${mark.warn()} 2+ hints: this topic comes back as a review.`);
+  else if (minutes == null) console.log(paint.dim("  (no time recorded, so no pace comparison)"));
+  if (after.level > before.level) console.log(paint.bold(paint.green(`🎉 Level ${after.level} unlocked for ${name}!`)));
+  else if (m.promotion) console.log(`${mark.warn()} Promotion not passed yet (it needs a clean solve: at most 1 hint, nothing caught by accident); another one comes in ${config.leveling.promotionRetryDays ?? 3} days.`);
+  else if (after.gates?.promotionPending && !before.gates?.promotionPending) console.log(paint.magenta(`🥋 Gates met: your next ${name} challenge is a promotion to level ${after.level + 1}.`));
+  console.log(`  ${paint.bold(name)}  ${levelLine(after, config.leveling)}`);
   tryUnlock(c.dir);
   const all = readEvents(ws);
   fillChallengeNotes(c, noteValues({
@@ -610,7 +632,7 @@ export async function cmdGiveup(positionals, opts) {
       type: "gaveup", id: m.id, lang: m.lang, level: m.level, topics: m.topics,
       ...(m.promotion ? { promotion: true } : {}), ...(reason ? { reason } : {}),
     });
-    console.log("Recorded. This topic comes back as a review challenge in a few days.");
+    console.log(`${mark.fail()} Gave up on "${m.title}". ${paint.dim("This topic comes back as a review challenge in a few days.")}`);
     tryUnlock(c.dir);
     fillChallengeNotes(c, noteValues({
       outcome: { kind: "gaveup", date: e.date, review: true }, timer, reason, startedAt: timerState(events, m.id).startedAt, ...hintFacts(c, events),
@@ -634,7 +656,7 @@ export async function cmdDiscard(positionals, opts) {
   if (!(await confirm(`Discard "${m.title}"? It won't count anywhere (the folder stays).`, opts.yes))) return;
   const reason = opts.reason?.trim();
   appendEvent(ws, { type: "discarded", id: m.id, lang: m.lang, level: m.level, ...(reason ? { reason } : {}) });
-  console.log(`Discarded. ${m.source === "daily" ? "Run `ginga daily` for a replacement." : `Generate another with \`ginga new ${m.lang}\`.`}`);
+  console.log(`⬛ Discarded "${m.title}". ${paint.dim(m.source === "daily" ? "Run `ginga daily` for a replacement." : `Generate another with \`ginga new ${m.lang}\`.`)}`);
   refreshViews(ws);
 }
 
@@ -651,7 +673,7 @@ export function levelLine(s, leveling) {
   const shown = Math.min(s.points, s.nextAt);
   const toGo = s.needed > 0 ? `${s.needed} pts to L${s.level + 1}` : `points done for L${s.level + 1}`;
   const gates = gateSummary(s);
-  return `L${s.level}  ${bar(shown - floor, s.nextAt - floor)}  ${s.points} / ${s.nextAt} pts (${toGo}${gates ? `; ${gates}` : ""})`;
+  return `${paint.cyan(`L${s.level}`)}  ${bar(shown - floor, s.nextAt - floor, 12, paint.green)}  ${s.points} / ${s.nextAt} pts ${paint.dim(`(${toGo}${gates ? `; ${gates}` : ""})`)}`;
 }
 
 export async function cmdRank(_positionals, opts) {
@@ -661,12 +683,12 @@ export async function cmdRank(_positionals, opts) {
   const langs = [...new Set([...rotationIds(ws, config), ...events.map((e) => e.lang).filter(Boolean)])];
   const st = streak(events);
   if (opts.json) return console.log(JSON.stringify(rankData(ws, config, events, langs, st), null, 2));
-  const freezes = st.freezes ? ` · ❄️ ${st.freezes} freeze${st.freezes === 1 ? "" : "s"}` : "";
+  const freezes = st.freezes ? ` · ❄️ ${plural(st.freezes, "freeze")}` : "";
   const next = 7 - (st.days % 7);
-  console.log(`🔥 Streak ${st.days} day${st.days === 1 ? "" : "s"}${freezes} · next freeze in ${next} solve day${next === 1 ? "" : "s"} (max 2)`);
-  if (st.frozeOn.length) console.log(`   freezes used on ${st.frozeOn.join(", ")}`);
+  console.log(`${paint.bold(`🔥 Streak ${plural(st.days, "day")}`)}${freezes}  ${paint.dim(`next freeze in ${plural(next, "solve day")} (max 2)`)}`);
+  if (st.frozeOn.length) console.log(paint.dim(`   freezes used on ${st.frozeOn.join(", ")}`));
   const reviewLine = reviewSummary(events, config);
-  if (reviewLine) console.log(reviewLine);
+  if (reviewLine) console.log(paint.cyan(reviewLine));
   console.log("");
 
   const rows = langs.map((lang) => {
@@ -679,33 +701,33 @@ export async function cmdRank(_positionals, opts) {
     return {
       s, atMax, name: findProfile(ws, lang)?.name ?? lang,
       share: atMax ? 1 : (Math.min(s.points, s.nextAt) - floor) / (s.nextAt - floor),
-      progress: atMax ? `max level · ${s.points} pts` : `${bar(Math.min(s.points, s.nextAt) - floor, s.nextAt - floor)}  ${s.points}/${s.nextAt}`,
+      progress: atMax ? paint.green(`max level · ${s.points} pts`) : `${bar(Math.min(s.points, s.nextAt) - floor, s.nextAt - floor, 12, paint.green)}  ${s.points}/${s.nextAt}`,
       solved: `${solved.length}${eco ? ` (${eco} ⚙)` : ""}`,
-      gaveUp: String(events.filter((e) => e.type === "gaveup" && e.lang === lang).length),
+      gaveUp: events.filter((e) => e.type === "gaveup" && e.lang === lang).length,
       avg: mins.length ? `${Math.round(mins.reduce((a, b) => a + b, 0) / mins.length)} min` : "–",
       pace: paceLabel(paceFor(events, lang, config.pace)),
     };
   }).sort((a, b) => b.s.level - a.s.level || b.share - a.share);
   console.log(table(
     ["Language", "Level", "Progress", "Solved", "Gave up", "Avg time", "Pace"],
-    rows.map((r) => [r.name, `L${r.s.level}`, r.progress, r.solved, r.gaveUp, r.avg, r.pace]),
+    rows.map((r) => [r.name, paint.cyan(`L${r.s.level}`), r.progress, r.solved, r.gaveUp ? paint.red(r.gaveUp) : r.gaveUp, r.avg, r.pace]),
     ["left", "left", "left", "right", "right", "right", "left"],
   ));
   const needs = rows.filter((r) => !r.atMax);
   if (needs.length) {
-    console.log("\nStill needed for the next level");
+    console.log(`\n${heading("Still needed for the next level")}`);
     const w = Math.max(...needs.map((r) => r.name.length));
     for (const r of needs) console.log(`  ${r.name.padEnd(w)}  ${stillNeeded(r.s)}`);
   }
-  console.log(`\n${PACE_FOOTNOTE}`);
-  const overall = paceFor(events, null, config.pace);
-  if (!overall.calibrated) console.log(`Pace calibrates after ${PACE_DEFAULTS.minSolves} clean timed solves (${overall.solves} so far); until then time alone never triggers a review.`);
   const weak = {};
   for (const e of events.filter((x) => x.type === "gaveup")) for (const t of e.topics ?? []) weak[t] = (weak[t] ?? 0) + 1;
   const top = Object.entries(weak).sort((a, b) => b[1] - a[1]).slice(0, 5);
-  console.log(`Weak topics: ${top.length ? top.map(([t, n]) => `${t} (${n})`).join(", ") : "none yet"}`);
+  console.log(`\n${paint.bold("Weak topics")}  ${top.length ? top.map(([t, n]) => `${t} (${n})`).join(", ") : paint.dim("none yet")}`);
+  console.log(`\n${paint.dim(PACE_FOOTNOTE)}`);
+  const overall = paceFor(events, null, config.pace);
+  if (!overall.calibrated) console.log(paint.dim(`Pace calibrates after ${PACE_DEFAULTS.minSolves} clean timed solves (${overall.solves} so far); until then time alone never triggers a review.`));
   const cost = costSummary(events, today());
-  if (cost) console.log(cost);
+  if (cost) console.log(paint.dim(cost));
 }
 
 /** "300 pts · areas: a, b, c (+1) · clean streak 1/3", or the promotion state. */
@@ -721,14 +743,6 @@ export function stillNeeded(s, maxAreas = 3) {
     if (g.streak < g.streakNeeded) parts.push(`clean streak ${g.streak}/${g.streakNeeded}`);
   }
   return parts.join(" · ");
-}
-
-/** A plain-text table: header, a rule, rows; columns padded to their widest cell. */
-export function table(header, rows, align = []) {
-  const width = header.map((h, i) => Math.max(h.length, ...rows.map((r) => String(r[i]).length)));
-  const cell = (v, i) => (align[i] === "right" ? String(v).padStart(width[i]) : String(v).padEnd(width[i]));
-  const line = (r) => r.map(cell).join("  ").trimEnd();
-  return [line(header), width.map((w) => "─".repeat(w)).join("  "), ...rows.map(line)].join("\n");
 }
 
 /** `ginga rank --json`: the same facts as the text view, for scripts and dashboards. */
@@ -798,14 +812,23 @@ export async function cmdList(_positionals, opts) {
     if (!names.has(lang)) names.set(lang, findProfile(ws, lang)?.name ?? lang);
     return names.get(lang);
   };
+  const counts = {};
   const rows = all.map(({ manifest: m }) => {
     const o = origin(m);
-    const from = o.reviewOf ? `🔁 review: ${generated.get(o.root)?.title ?? o.root}` : (o.source ?? "–");
     const status = challengeStatus(events, m.id).status;
+    counts[status] = (counts[status] ?? 0) + 1;
     const paused = status === "open" && timerState(events, m.id).state === "paused";
-    return [m.date ?? generated.get(m.id)?.date ?? "", langName(m.lang), `L${m.level}`, m.type ?? "implement", from, paused ? "open ⏸" : status, m.id];
+    return [paint.dim(m.date ?? generated.get(m.id)?.date ?? ""), langName(m.lang), paint.cyan(`L${m.level}`), m.type ?? "implement",
+      o.reviewOf ? `🔁 ${generated.get(o.root)?.title ?? o.root}` : o.source ?? "–", statusText(status, paused ? "open ⏸" : status), m.id];
   });
+  // The review topics share what the terminal has left (the id is what you copy, so it's never cut).
+  const others = [0, 1, 2, 3, 5, 6].reduce((sum, i) => sum + Math.max(...rows.map((r) => displayWidth(r[i]))) + 2, 0);
+  const fromWidth = Math.max(16, termWidth() - others);
+  for (const r of rows) r[4] = r[4].startsWith("🔁") ? paint.cyan(truncate(r[4], fromWidth)) : paint.dim(r[4]);
   console.log(table(["Created", "Language", "Lvl", "Type", "From", "Status", "Id"], rows));
+  const summary = ["solved", "open", "gaveup", "discarded"].filter((s) => counts[s]).map((s) => statusText(s, `${counts[s]} ${s === "gaveup" ? "given up" : s}`));
+  const legend = rows.some((r) => r[4].includes("🔁")) ? paint.dim(" · 🔁 review of that topic") : "";
+  console.log(`\n${paint.dim(`${plural(all.length, "challenge")} ·`)} ${summary.join(paint.dim(" · "))}${legend}`);
 }
 
 // ---------------------------------------------------------------- validate / sandbox / lang
@@ -848,12 +871,12 @@ export async function cmdValidate(positionals, opts) {
   }
   let failed = 0;
   for (const t of targets) {
-    console.log(`${t.profile.id}${t.profile.stack === "ecosystem" ? " (ecosystem)" : ""}: ${t.dir}`);
+    console.log(`${paint.bold(t.profile.id)}${t.profile.stack === "ecosystem" ? " (ecosystem)" : ""}  ${paint.dim(tilde(t.dir))}`);
     const r = await validateOne(config, t.profile, t.dir);
-    if (r.ok) console.log("  ✔ valid");
+    if (r.ok) console.log(`  ${mark.ok()} ${paint.green("valid")}`);
     else {
       failed++;
-      console.log(r.problems.map((p) => `  ✘ ${p}`).join("\n"));
+      console.log(r.problems.map((p) => `  ${mark.fail()} ${p}`).join("\n"));
     }
   }
   if (failed) process.exitCode = 1;
@@ -963,47 +986,57 @@ export async function cmdCoverage(positionals, opts) {
   for (const lang of langs) {
     const profile = findProfile(ws, lang);
     if (!profile) {
-      console.log(`${lang}: no profile yet\n`);
+      console.log(`${paint.bold(lang)}  ${paint.dim("no profile yet")}\n`);
       continue;
     }
-    const { level } = langLevel(ws, config, events, lang);
-    const counts = coverageCounts(events, lang);
-    const open = unlockedAreas(profile, level);
-    const covered = open.filter((a) => counts.get(a.id)).length;
-    console.log(`${profile.name} (L${level}): ${covered}/${open.length} unlocked areas covered`);
-    // Ecosystem areas are listed too (tagged ⚙), so the whole map is visible in one place.
-    const shown = hasEcosystem(profile) ? allAreas(profileForStack(profile, "ecosystem")) : allAreas(profile);
-    const width = Math.max(...shown.map((a) => a.id.length));
-    for (const a of shown.sort((x, y) => (x.minLevel ?? 1) - (y.minLevel ?? 1))) {
-      const n = counts.get(a.id) ?? 0;
-      const tag = a.stack === "ecosystem" ? "⚙" : a.specific ? "★" : " ";
-      if ((a.minLevel ?? 1) > level) console.log(`  ${tag} ${a.id.padEnd(width)}  ·  unlocks at L${a.minLevel}`);
-      else console.log(`  ${tag} ${a.id.padEnd(width)}  ${n ? "■".repeat(Math.min(n, 12)) + ` ${n}` : "□ not yet"}`);
-    }
-    console.log("");
+    printCoverage(profile, langLevel(ws, config, events, lang).level, coverageCounts(events, lang), opts.all);
   }
-  const typeCounts = {};
-  for (const e of events) if (e.type === "generated" && langs.includes(e.lang)) typeCounts[e.challengeType ?? "implement"] = (typeCounts[e.challengeType ?? "implement"] ?? 0) + 1;
-  const domainCounts = {};
-  for (const e of events) if (e.type === "generated" && langs.includes(e.lang)) domainCounts[e.domain ?? GENERAL] = (domainCounts[e.domain ?? GENERAL] ?? 0) + 1;
-  if (Object.keys(domainCounts).length) {
-    console.log(`Domains so far: ${Object.entries(domainCounts).map(([d, n]) => `${d} ${n}`).join(" · ")}`);
+  const count = (key, fallback) => {
+    const out = {};
+    for (const e of events) if (e.type === "generated" && langs.includes(e.lang)) out[e[key] ?? fallback] = (out[e[key] ?? fallback] ?? 0) + 1;
+    return Object.entries(out).sort((x, y) => y[1] - x[1]).map(([k, n]) => `${k} ${n}`).join(paint.dim(" · "));
+  };
+  const domains = count("domain", GENERAL);
+  if (domains) console.log(`${paint.bold("Domains so far")}  ${domains}`);
+  const types = count("challengeType", "implement");
+  if (types) console.log(`${paint.bold("Types so far")}    ${types}\n`);
+  console.log(paint.dim("★ specific to the language · ⚙ ecosystem stack (libraries). Generation targets the least-covered unlocked area;"));
+  console.log(paint.dim(`pick one yourself with \`ginga new <lang> --area <id>\`.${opts.all ? "" : " Every area, locked ones too: --all."}`));
+}
+
+/** One language's coverage: unlocked areas with their counts; locked ones summed up (all of them with --all). */
+function printCoverage(profile, level, counts, all) {
+  const open = unlockedAreas(profile, level);
+  const covered = open.filter((a) => counts.get(a.id)).length;
+  console.log(`${paint.bold(profile.name)}  ${paint.cyan(`L${level}`)}  ${bar(covered, open.length, 12, paint.green)}  ${covered}/${open.length} unlocked areas covered`);
+  // Ecosystem areas are listed too (tagged ⚙), so the whole map is visible in one place.
+  const shown = (hasEcosystem(profile) ? allAreas(profileForStack(profile, "ecosystem")) : allAreas(profile))
+    .sort((x, y) => (x.minLevel ?? 1) - (y.minLevel ?? 1));
+  const width = Math.max(...shown.map((a) => a.id.length));
+  const symbol = (a) => (a.stack === "ecosystem" ? "⚙" : a.specific ? "★" : " ");
+  const tag = (a) => (a.stack === "ecosystem" ? paint.blue : paint.yellow)(symbol(a));
+  const locked = [];
+  for (const a of shown) {
+    const n = counts.get(a.id) ?? 0;
+    if ((a.minLevel ?? 1) > level) locked.push(a);
+    else console.log(`  ${tag(a)} ${a.id.padEnd(width)}  ${n ? `${paint.green("■".repeat(Math.min(n, 12)))} ${n}` : paint.dim("□ not yet")}`);
   }
-  if (Object.keys(typeCounts).length) {
-    console.log(`Challenge types so far: ${Object.entries(typeCounts).map(([t, n]) => `${t} ${n}`).join(" · ")}\n`);
+  if (all) {
+    for (const a of locked) console.log(paint.dim(`  ${symbol(a)} ${a.id.padEnd(width)}  ·  unlocks at L${a.minLevel}`));
+  } else if (locked.length) {
+    const next = locked.filter((a) => a.minLevel === locked[0].minLevel);
+    const label = `  Unlocks at L${locked[0].minLevel} (${next.length}): `;
+    console.log(paint.dim(label) + truncate(next.map((a) => a.id).join(", "), Math.max(20, termWidth() - label.length)));
+    const rest = locked.length - next.length;
+    if (rest) console.log(paint.dim(`  Later levels: ${plural(rest, "more area")} (ginga coverage --all)`));
   }
-  console.log("★ = specific to the language · ⚙ = ecosystem stack (libraries). Generation targets the least-covered unlocked area;");
-  console.log("pick one yourself with `ginga new <lang> --area <id>`.");
+  console.log("");
 }
 
 export async function cmdConfig(positionals, opts) {
   const { ws, config } = ctx(opts);
   const [sub = "show", key, ...rest] = positionals;
-  if (sub === "show") {
-    console.log(JSON.stringify(config, null, 2));
-    console.log(`\n(effective config; ${CONFIG_FILE} only stores what differs from the defaults)`);
-    return;
-  }
+  if (sub === "show") return showConfig(config, opts);
   if (!["get", "set", "unset"].includes(sub)) throw new UserError("Usage: ginga config [show] | get <key> | set <key> <value> | unset <key>");
   if (!key) throw new UserError(`Usage: ginga config ${sub} <key>${sub === "set" ? " <value>" : ""}. Keys: ${Object.keys(CONFIG_KEYS).join(", ")}.`);
   if (sub === "get") {
@@ -1022,6 +1055,33 @@ export async function cmdConfig(positionals, opts) {
   if (key === "sandbox.engine" && value === "none" && !next.sandbox.allowUnsandboxed) {
     console.log("Note: engine none also needs `ginga config set sandbox.allowUnsandboxed true` (code then runs on your machine).");
   }
+}
+
+/**
+ * `ginga config show`: the settings that differ from the defaults, one per line; --all every
+ * setting (defaults dimmed); --json the effective config as JSON.
+ */
+function showConfig(config, opts) {
+  if (opts.json) return console.log(JSON.stringify(config, null, 2));
+  const rows = configLeaves(config).filter(([key]) => key !== "version")
+    .map(([key, value]) => ({ key, value, isDefault: isDeepStrictEqual(value, getConfigValue(DEFAULT_CONFIG, key)) }));
+  const shown = opts.all ? rows : rows.filter((r) => !r.isDefault);
+  const width = Math.max(...shown.map((r) => r.key.length), 0);
+  const fmt = (v) => (Array.isArray(v) ? (v.length ? v.join(", ") : "[]") : v === null ? "null" : typeof v === "object" ? "{}" : String(v));
+  console.log(heading(opts.all ? "All settings" : `Your settings (${CONFIG_FILE})`));
+  if (!shown.length) console.log(paint.dim("  everything is at its default"));
+  for (const r of shown) {
+    const line = `  ${r.key.padEnd(width)}  ${fmt(r.value)}`;
+    console.log(r.isDefault ? paint.dim(`${line}  (default)`) : line);
+  }
+  console.log(paint.dim(`\n${opts.all ? "" : "Everything else is at its default (--all shows it). "}Change one: ginga config set <key> <value> · --json for scripts`));
+}
+
+/** [dotted key, value] for each setting; arrays and empty objects are values, other objects are walked. */
+function configLeaves(obj, prefix = "") {
+  return Object.entries(obj).flatMap(([k, v]) => (v && typeof v === "object" && !Array.isArray(v) && Object.keys(v).length
+    ? configLeaves(v, `${prefix}${k}.`)
+    : [[`${prefix}${k}`, v]]));
 }
 
 export async function cmdCompletion(positionals) {
@@ -1043,28 +1103,27 @@ export async function cmdStack(positionals, opts) {
     return;
   }
   if (lang) throw new UserError(`Usage: ginga stack [<lang> ${STACK_MODES.join("|")}]`);
-  for (const id of rotationIds(ws, config)) {
+  const rows = rotationIds(ws, config).map((id) => {
     const p = findProfile(ws, id);
-    const eco = p && hasEcosystem(p) ? `ecosystem: ${p.stacks.ecosystem.libraries.join(", ")}` : "basics only";
-    console.log(`${id.padEnd(12)} ${(p ? stackMode(config, p.id) : "basics").padEnd(10)} (${eco})`);
-  }
-  console.log("\nbasics = standard library only (default) · mixed = some ecosystem challenges · ecosystem = always libraries");
+    const mode = p ? stackMode(config, p.id) : "basics";
+    const libs = p && hasEcosystem(p) ? p.stacks.ecosystem.libraries.join(", ") : paint.dim("– (basics only)");
+    return [p?.name ?? id, mode === "basics" ? mode : paint.cyan(mode), libs];
+  });
+  console.log(table(["Language", "Stack", "Ecosystem libraries"], rows));
+  console.log(paint.dim("\nbasics = standard library only (default) · mixed = some ecosystem challenges · ecosystem = always libraries"));
+  console.log(paint.dim("Change: ginga stack <lang> basics|mixed|ecosystem"));
 }
 
 export async function cmdDomains(positionals, opts) {
-  const [sub = "list", ...rest] = positionals;
-  if (sub === "list") {
-    let current = [GENERAL];
+  const [sub = "show", ...rest] = positionals;
+  if (sub === "show" || sub === "list") {
+    let current = null;
     try {
       current = configuredDomains(ctx(opts).config);
     } catch {}
-    let group = "";
-    for (const d of allDomains()) {
-      if (d.group !== group) console.log(`\n${(group = d.group)}`);
-      console.log(`  ${current.includes(d.id) ? "●" : " "} ${d.id.padEnd(15)} ${d.name.padEnd(36)} ${d.focus}`);
-    }
-    console.log("\n● = selected. Change with: ginga domains set|add|remove <id…>");
-    return;
+    // Without a workspace there is nothing selected to show: the catalog instead.
+    if (sub === "show" && current) return showDomains(current);
+    return listDomains(current ?? [GENERAL]);
   }
   const { ws, config } = ctx(opts);
   const ids = rest.join(",").split(",").map((x) => x.trim()).filter(Boolean).map((id) => requireDomain(id).id);
@@ -1075,9 +1134,36 @@ export async function cmdDomains(positionals, opts) {
   else throw new UserError("Usage: ginga domains [list] | set <ids…> | add <ids…> | remove <ids…>");
   config.domains = [...new Set(domains)].length ? [...new Set(domains)] : [GENERAL];
   saveConfig(ws, config);
-  const specific = config.domains.filter((d) => d !== GENERAL);
-  console.log(`Domains: ${config.domains.join(", ")}`);
-  if (specific.length) console.log("Challenges rotate through these without repeats; general still appears ~1 in 4.");
+  showDomains(config.domains);
+}
+
+const domainRow = (d, w, selected) => {
+  const dot = selected ? paint.green("●") : " ";
+  const id = selected ? paint.bold(d.id.padEnd(w.id)) : d.id.padEnd(w.id);
+  return `  ${dot} ${id}  ${d.name.padEnd(w.name)}  ${paint.dim(truncate(d.focus, Math.max(20, termWidth() - w.id - w.name - 10)))}`;
+};
+const domainWidths = (list) => ({ id: Math.max(...list.map((d) => d.id.length)), name: Math.max(...list.map((d) => d.name.length)) });
+
+/** `ginga domains`: the selected domains. */
+function showDomains(current) {
+  const selected = allDomains().filter((d) => current.includes(d.id));
+  console.log(heading(`Your domains (${selected.length})`));
+  const w = domainWidths(selected);
+  for (const d of selected) console.log(domainRow(d, w, true));
+  if (selected.some((d) => d.id !== GENERAL)) console.log(paint.dim("\nChallenges rotate through these without repeats; general still appears ~1 in 4."));
+  console.log(paint.dim(`\nAll ${allDomains().length}: ginga domains list · change: ginga domains set|add|remove <id…>`));
+}
+
+/** `ginga domains list`: the whole catalog by group, the selected ones marked. */
+function listDomains(current) {
+  const all = allDomains();
+  const w = domainWidths(all);
+  let group = "";
+  for (const d of all) {
+    if (d.group !== group) console.log(`\n${heading((group = d.group))}`);
+    console.log(domainRow(d, w, current.includes(d.id)));
+  }
+  console.log(paint.dim(`\n${paint.green("●")} selected · change: ginga domains set|add|remove <id…>`));
 }
 
 export async function cmdRotation(positionals, opts) {
@@ -1134,25 +1220,35 @@ function anchorChange(anchors, rotation, action, langs) {
 function showRotation(ws, config, rotation) {
   const { anchors, pool, extraChance, extraMax } = dailySettings(config, rotation);
   const events = withoutDiscarded(readEvents(ws));
-  if (anchors.length) console.log(`Anchors (every day): ${anchors.join(", ")}`);
-  const label = anchors.length ? "Extras come from" : "Rotation";
-  if (!pool.length) {
-    console.log("Every rotation language is an anchor, so there are no extras.");
-  } else if (config.rotationMode === "ordered") {
-    const next = nextOrdered(events, pool);
-    console.log(`${label} (ordered, ${pool.length}): ${pool.map((l) => (l === next ? `[${l}]` : l)).join(" → ")}`);
-    console.log(`Next draw: ${next}.`);
-  } else {
-    const { drawn, remaining } = bagState(events, pool);
-    console.log(`${label} (random, ${pool.length}): ${pool.join(", ")}`);
-    console.log(`This cycle: drawn ${drawn.length ? drawn.join(", ") : "nothing yet"} · left in the bag: ${remaining.join(", ")}`);
-    console.log(`Each draw is random from what's left; when the bag is empty it refills.`);
+  const ordered = config.rotationMode === "ordered";
+  const bag = bagState(events, pool);
+  const next = pool.length && ordered ? nextOrdered(events, pool) : null;
+  const rolled = extrasRolled(today(), extraChance, extraMax);
+  const extras = !pool.length || extraChance <= 0 ? "no extras"
+    : `extras: ${Math.round(extraChance * 100)}% a day${extraMax > 1 ? `, up to ${extraMax}` : ""} (today: ${rolled ? `${rolled} rolled` : "none"})`;
+  console.log(`${heading("Daily")}  ${paint.dim(`${config.rotationMode} order · ${extras}`)}\n`);
+  const lastDaily = (lang) => events.filter((e) => e.type === "generated" && e.source === "daily" && e.lang === lang).map(eventDate).sort().at(-1);
+  const cycle = (lang) => {
+    if (anchors.includes(lang)) return paint.dim("every day");
+    if (ordered) return lang === next ? paint.green("next") : "";
+    return bag.drawn.includes(lang) ? paint.dim("drawn") : paint.green("in bag");
+  };
+  // Anchors first, then the bag in rotation order.
+  const rows = [...anchors, ...pool].map((lang) => {
+    const p = findProfile(ws, lang);
+    return [p?.name ?? lang, anchors.includes(lang) ? paint.magenta("anchor") : "bag", cycle(lang),
+      p ? paint.cyan(`L${langLevel(ws, config, events, lang).level}`) : paint.dim("–"), paint.dim(lastDaily(lang) ?? "–")];
+  });
+  console.log(table(["Language", "Role", ordered ? "Order" : "This cycle", "Level", "Last daily"], rows));
+  const name = (l) => findProfile(ws, l)?.name ?? l;
+  if (!pool.length) console.log("\nEvery rotation language is an anchor, so there are no extras.");
+  else if (ordered) console.log(`\nNext draw: ${paint.bold(name(next))}.`);
+  else {
+    const left = bag.remaining.map(name);
+    console.log(`\nNext draw: ${left.length === 1 ? paint.bold(left[0]) : `random from ${left.map((l) => paint.bold(l)).join(", ")}`}`
+      + paint.dim(` (${plural(left.length, "language")} left in the bag; then it refills).`));
   }
-  if (pool.length && extraChance > 0) {
-    const today_ = extrasRolled(today(), extraChance, extraMax);
-    console.log(`Extras: each day, ${extraMax === 1 ? "one" : `up to ${extraMax}`} at ${Math.round(extraChance * 100)}% each, `
-      + `skipped while a challenge from an earlier day is open. Today: ${today_ ? `${today_} rolled` : "none"}.`);
-  }
+  console.log(paint.dim("Change: ginga rotation anchor add|remove <lang> · ginga rotation extra <chance> [max] · ginga rotation mode random|ordered"));
 }
 
 /** Open the challenge (README + starter files) in $VISUAL / $EDITOR, from inside its folder. */
@@ -1200,10 +1296,10 @@ function startOrResumeTimer(ws, m) {
   if (!events.some((e) => e.type === "opened" && e.id === m.id)) {
     event("opened");
     if (t.state === "paused") event("resumed");
-    console.log("⏱️  Timer started; `ginga done` will suggest the active time from now (`ginga pause` for breaks).");
+    console.log(`⏱️  Timer started ${paint.dim("(`ginga pause` for breaks; `ginga done` suggests the active time)")}`);
   } else if (t.state === "paused") {
     event("resumed");
-    console.log(`▶  Timer resumed after ${humanMinutes(minutesSince(t.since))} paused.`);
+    console.log(`${paint.green("▶")}  Timer resumed after ${humanMinutes(minutesSince(t.since))} paused.`);
   }
 }
 
@@ -1212,10 +1308,10 @@ function timerLine(events, id) {
   const t = timerState(events, id);
   const active = humanMinutes(Math.round(t.activeMs / 60_000));
   const pauses = t.pauses ? ` (${t.pauses} pause${t.pauses === 1 ? "" : "s"}, ${humanMinutes(Math.round(t.pausedMs / 60_000))})` : "";
-  if (t.state === "none") return "not started: `ginga open` starts it";
-  if (t.state === "running") return `▶  running · ${active} active${pauses}`;
-  if (t.state === "paused") return `⏸  paused for ${humanMinutes(minutesSince(t.since))} · ${active} active${pauses}`;
-  return `stopped · ${active} active${pauses}`;
+  if (t.state === "none") return `${paint.dim("○  not started")} ${paint.dim("(`ginga open` starts it)")}`;
+  if (t.state === "running") return `${paint.green("▶  running")} · ${active} active${paint.dim(pauses)}`;
+  if (t.state === "paused") return `${paint.yellow(`⏸  paused for ${humanMinutes(minutesSince(t.since))}`)} · ${active} active${paint.dim(pauses)}`;
+  return `${paint.dim("⏹  stopped")} · ${active} active${paint.dim(pauses)}`;
 }
 
 function openForTimer(ws, positionals) {
@@ -1230,26 +1326,26 @@ export async function cmdPause(positionals, opts) {
   const { ws } = ctx(opts);
   const { c, events, t } = openForTimer(ws, positionals);
   const m = c.manifest;
-  if (t.state === "paused") return console.log(`Already paused (${m.id}): ${timerLine(events, m.id)}`);
+  if (t.state === "paused") return console.log(`Already paused: ${timerLine(events, m.id)}  ${paint.dim(`· ${m.title}`)}`);
   appendEvent(ws, { type: "paused", id: m.id, lang: m.lang, level: m.level });
-  if (t.state === "none") return console.log(`⏸  ${m.id}: the timer starts paused; \`ginga resume\` (or \`ginga open\`) starts it.`);
-  console.log(`⏸  Paused ${m.id} at ${humanMinutes(Math.round(t.activeMs / 60_000))} active. \`ginga resume\` when you're back.`);
+  if (t.state === "none") return console.log(`${paint.yellow("⏸")}  "${m.title}": the timer starts paused; \`ginga resume\` (or \`ginga open\`) starts it.`);
+  console.log(`${paint.yellow("⏸")}  Paused "${m.title}" at ${humanMinutes(Math.round(t.activeMs / 60_000))} active. ${paint.dim("`ginga resume` when you're back.")}`);
 }
 
 export async function cmdResume(positionals, opts) {
   const { ws } = ctx(opts);
   const { c, events, t } = openForTimer(ws, positionals);
   const m = c.manifest;
-  if (t.state === "running") return console.log(`Already running (${m.id}): ${timerLine(events, m.id)}`);
-  if (t.state === "none") throw new UserError(`The timer of ${m.id} hasn't started; \`ginga open\` starts it.`);
+  if (t.state === "running") return console.log(`Already running: ${timerLine(events, m.id)}  ${paint.dim(`· ${m.title}`)}`);
+  if (t.state === "none") throw new UserError(`The timer of "${m.title}" hasn't started; \`ginga open\` starts it.`);
   appendEvent(ws, { type: "resumed", id: m.id, lang: m.lang, level: m.level });
-  console.log(`▶  Resumed ${m.id} after ${humanMinutes(minutesSince(t.since))} paused.`);
+  console.log(`${paint.green("▶")}  Resumed "${m.title}" after ${humanMinutes(minutesSince(t.since))} paused.`);
 }
 
 export async function cmdTimer(positionals, opts) {
   const { ws } = ctx(opts);
   const c = pickChallenge(ws, positionals[0]);
-  console.log(`${c.manifest.id}\n${timerLine(readEvents(ws), c.manifest.id)}`);
+  console.log(`${timerLine(readEvents(ws), c.manifest.id)} ${paint.dim("·")} ${paint.bold(c.manifest.title)} ${paint.dim(c.manifest.id)}`);
 }
 
 export async function cmdLang(positionals, opts) {
@@ -1259,10 +1355,16 @@ export async function cmdLang(positionals, opts) {
     ws = findWorkspace(opts.workspace);
   } catch {}
   if (sub === "list") {
-    for (const p of allProfiles(ws)) {
-      const eco = hasEcosystem(p) ? `  + ecosystem: ${(p.stacks.ecosystem.libraries ?? []).join(", ")}` : "";
-      console.log(`${p.id.padEnd(12)} ${p.name.padEnd(14)} ${imageRef(p).padEnd(28)} ${p.source}${p.aliases?.length ? `  (aliases: ${p.aliases.join(", ")})` : ""}${eco}`);
-    }
+    let rotation = [];
+    try {
+      rotation = rotationIds(ws, loadConfig(ws));
+    } catch {}
+    const rows = allProfiles(ws).map((p) => [
+      rotation.includes(p.id) ? paint.green("●") : " ", paint.bold(p.id), p.name, paint.dim(imageRef(p)),
+      p.source === "builtin" ? paint.dim(p.source) : paint.cyan(p.source), paint.dim(p.aliases?.join(", ") || "–"),
+    ]);
+    console.log(table(["", "Id", "Name", "Image", "Source", "Aliases"], rows));
+    console.log(paint.dim(`\n${rotation.length ? `${paint.green("●")} in your rotation · ` : ""}libraries: ginga stack · another language: ginga lang add <name>`));
     return;
   }
   if (sub === "add") {
@@ -1271,7 +1373,7 @@ export async function cmdLang(positionals, opts) {
     const { config } = ctx(opts);
     if (findProfile(ws, name) && !opts.force) throw new UserError(`"${name}" already has a profile (use --force to bootstrap anyway).`);
     const { profile } = await bootstrapProfile({ ws, config, name });
-    console.log(`✔ Added profile "${profile.id}" (${imageRef(profile)}) to ${join(ws, "profiles")}`);
+    console.log(`${mark.ok()} Added profile ${paint.bold(profile.id)} ${paint.dim(`(${imageRef(profile)}) to ${tilde(join(ws, "profiles"))}`)}`);
     return;
   }
   throw new UserError("Usage: ginga lang list | ginga lang add <language>");
@@ -1323,15 +1425,16 @@ async function pruneImages(ws, config, opts) {
 export async function cmdDoctor(_positionals, opts) {
   const { ws, config } = ctxOrDefaults(opts);
   if (opts.prune) return pruneImages(ws, config, opts);
-  const line = (ok, label, detail = "") => console.log(`${ok ? "✔" : "✘"} ${label}${detail ? `: ${detail}` : ""}`);
+  const line = (ok, label, detail = "") =>
+    console.log(`${ok ? mark.ok() : mark.fail()} ${paint.bold(label)}${detail ? (ok ? paint.dim(`  ${detail}`) : `  ${paint.red(detail)}`) : ""}`);
   const [major, minor] = process.versions.node.split(".").map(Number);
   line(major > 22 || (major === 22 && minor >= 18), "node", process.versions.node);
   line(hasBin(config.claude.command), "claude", hasBin(config.claude.command) ? "found" : "not found (install Claude Code)");
   line(hasBin("notify-send"), "notify-send", hasBin("notify-send") ? "found" : "missing; notifications go to stdout only");
   const engine = engineAvailable(config.sandbox);
   line(engine.ok, "sandbox", engine.detail);
-  if (!ws) return console.log("(no workspace yet)");
-  line(true, "workspace", ws);
+  if (!ws) return console.log(paint.dim("(no workspace yet)"));
+  line(true, "workspace", tilde(ws));
   for (const lang of config.rotation) {
     const p = findProfile(ws, lang);
     if (!p) {
@@ -1413,7 +1516,7 @@ export async function cmdReview(positionals, opts) {
     "(e.g. probes/) that loads ../starter and ../solution and prints both results, then run it with " +
     `\`${prefix} --cwd probes -- '<command>'\`. Report the actual outputs you observed. ` +
     "When the tests miss a real bug, end with a section '## Missing tests' listing the test cases to add.";
-  console.log("Asking Claude for a review (it can run the tests in the sandbox) …");
+  console.log(paint.dim("Asking Claude for a review (it can run the tests in the sandbox) …"));
   let out;
   try {
     out = await new Promise((resolvePromise, reject) => {
@@ -1438,8 +1541,8 @@ export async function cmdReview(positionals, opts) {
   } catch {}
   appendFileSync(join(c.dir, "NOTES.md"), `\n## Review (${today()})\n\n${out}\n`);
   console.log(out);
-  console.log(`\n(appended to ${join(c.dir, "NOTES.md")}${cost != null ? `; Claude cost $${cost.toFixed(2)}, API list price` : ""})`);
-  console.log(`If it found a problem with the challenge itself, \`ginga learn ${c.manifest.id}\` keeps future challenges from repeating it.`);
+  console.log(paint.dim(`\n📝 Appended to ${tilde(join(c.dir, "NOTES.md"))}${cost != null ? ` · Claude cost $${cost.toFixed(2)}, API list price` : ""}`));
+  console.log(paint.dim(`If it found a problem with the challenge itself, \`ginga learn ${c.manifest.id}\` keeps future challenges from repeating it.`));
 }
 
 function reviewOf(c) {
@@ -1482,7 +1585,7 @@ export async function cmdLearn(positionals, opts) {
   const cwd = makeTempDir("gingaloop-learn-"); // no files to read: everything is in the prompt
   const usage = { costUsd: null };
   const output = { text: "" };
-  console.log(`Asking Claude which findings of the ${review.date} review are about the challenge itself …`);
+  console.log(paint.dim(`Asking Claude which findings of the ${review.date} review are about the challenge itself …`));
   let code;
   try {
     code = await runClaude({ config, cwd, prompt, allowedTools: ["Read"], logFile, usage, output });
@@ -1498,10 +1601,10 @@ export async function cmdLearn(positionals, opts) {
     return;
   }
 
-  console.log(`\nFrom the review of "${m.title}"${costNote}:\n`);
+  console.log(`\n${heading(`From the review of "${m.title}"`)}${paint.dim(costNote)}\n`);
   items.forEach((it, i) => {
     const where = it.kind === "tool" ? `gingaloop itself → ${IMPROVEMENTS_FILE}` : `${it.scope === "all" ? "all languages" : it.scope} → ${LESSONS_FILE}`;
-    console.log(`${String(i + 1).padStart(2)}. ${it.rule}\n    [${where}]${it.evidence ? `\n    why: ${it.evidence}` : ""}\n`);
+    console.log(`${paint.bold(`${String(i + 1).padStart(2)}.`)} ${it.rule}\n    ${paint.cyan(`[${where}]`)}${it.evidence ? paint.dim(`\n    why: ${it.evidence}`) : ""}\n`);
   });
   let chosen = items;
   if (!opts.yes) {
@@ -1520,8 +1623,8 @@ export async function cmdLearn(positionals, opts) {
   if (tools.length) addImprovements(ws, tools, m.id);
   appendEvent(ws, { type: "learned", id: m.id, lang: m.lang, lessons: lessons.length, improvements: tools.length });
   console.log(
-    [lessons.length && `✔ ${lessons.length} lesson${lessons.length > 1 ? "s" : ""} in ${LESSONS_FILE}: the next ${m.lang} challenges follow ${lessons.length > 1 ? "them" : "it"}`,
-      tools.length && `✔ ${tools.length} idea${tools.length > 1 ? "s" : ""} for gingaloop in ${IMPROVEMENTS_FILE}`].filter(Boolean).join("\n"),
+    [lessons.length && `${mark.ok()} ${lessons.length} lesson${lessons.length > 1 ? "s" : ""} in ${LESSONS_FILE}: the next ${m.lang} challenges follow ${lessons.length > 1 ? "them" : "it"}`,
+      tools.length && `${mark.ok()} ${tools.length} idea${tools.length > 1 ? "s" : ""} for gingaloop in ${IMPROVEMENTS_FILE}`].filter(Boolean).join("\n"),
   );
 
   // General rules help every user once they're in the tool: offer a pre-filled issue for each.
@@ -1588,13 +1691,13 @@ export async function cmdCommit(_positionals, opts) {
   if (r.status !== 0) {
     throw new UserError("git commit failed (see above). Your changes are still staged; fix it and run `ginga commit` again.");
   }
-  console.log(`✔ Committed: ${message.split("\n")[0]}`);
+  console.log(`${mark.ok()} Committed: ${paint.bold(message.split("\n")[0])}`);
   if (opts.push) pushWorkspace(ws);
 }
 
 export async function cmdPush(_positionals, opts) {
   const { ws } = ctx(opts);
   pushWorkspace(ws);
-  console.log("✔ Pushed.");
+  console.log(`${mark.ok()} Pushed.`);
 }
 

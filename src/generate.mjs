@@ -18,7 +18,11 @@ import { appendEvent, readEvents, withoutDiscarded } from "./progress.mjs";
 import { notesTemplate } from "./notes.mjs";
 import { readManifest, validateTree } from "./runner.mjs";
 import { ensureImage } from "./sandbox.mjs";
+import { paint } from "./view.mjs";
 import { PKG_ROOT, UserError, today, writeJson } from "./workspace.mjs";
+
+// Generation progress goes to stderr, dimmed so the result stands out.
+const progress = (m) => console.error(paint.dim(m, process.stderr));
 
 const TEXT_EXT = /\.(md|json|txt|ya?ml|toml|py|m?[jt]s|c|h|cc|cpp|hpp|rs|go|rb|java|kt|cs|ex|exs|hs|lua|sh|mk|zig|swift|php|scala|clj)$|(^|\/)(Makefile|Cargo\.toml|go\.mod)$/;
 
@@ -183,7 +187,7 @@ function formatProblems(problems) {
  * Generate, validate (with retries), lock and publish one challenge.
  * @returns {Promise<{id:string, dir:string, manifest:object}>}
  */
-export async function generateChallenge({ ws, config, profile, level, area, type = "implement", sourceLang = null, domain = GENERAL, promotion = null, source = "manual", slot = null, reviewOf = null, log = console.error }) {
+export async function generateChallenge({ ws, config, profile, level, area, type = "implement", sourceLang = null, domain = GENERAL, promotion = null, source = "manual", slot = null, reviewOf = null, log = progress }) {
   const events = withoutDiscarded(readEvents(ws));
   // Full history in this language (capped only to keep the prompt bounded).
   const history = events.filter((e) => e.type === "generated" && e.lang === profile.id);
@@ -316,7 +320,7 @@ export async function generateChallenge({ ws, config, profile, level, area, type
 }
 
 /** Bootstrap a profile + validated reference example for a language with no profile yet. */
-export async function bootstrapProfile({ ws, config, name, log = console.error }) {
+export async function bootstrapProfile({ ws, config, name, log = progress }) {
   const id = normalizeLang(name).replace(/\s+/g, "-");
   const staging = newStaging(ws, `profile-${id}`);
   const logFile = join(ws, ".logs", `${staging.split(sep).pop()}.log`);

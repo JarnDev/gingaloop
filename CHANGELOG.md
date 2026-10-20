@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+- **Clearer views, in color.** Every command's output was reworked:
+  - `rotation` is a table of each language's role (anchor or bag), where it stands in the cycle,
+    its level and last daily, with the next draw under it.
+  - `coverage` shows the unlocked areas and what unlocks next instead of ~50 lines per language
+    (`--all` for the whole map).
+  - `domains` shows your domains (`domains list` the catalog, now aligned).
+  - `config show` lists only what you changed (`--all` every setting with the defaults dimmed,
+    `--json` the raw config).
+  - `stack` and `lang list` are tables; `lang list` marks your rotation languages.
+  - `timer`, `pause` and `resume` name the challenge by title.
+  - `list` ends with a count by status; a review shows as "🔁 <topic>" and gets the width the terminal
+    has left.
+  - `new` and `daily` print a card for each challenge (title, language, level, type, time, folder,
+    next steps); `daily` with nothing to make lists today's challenges and where they stand.
+  - `test`, `done`, `hint`, `giveup`, `discard`, `doctor`, `validate`, `commit` and `learn`
+    mark results with color: green for passing, red for failing, yellow for warnings, dim for details.
+  Color only goes to a terminal: piped and logged output (systemd, `| less`, scripts) stays plain, and
+  `NO_COLOR` / `FORCE_COLOR` are respected. `--json` output is unchanged.
 - **Anchors and extras: more than one language a day.** `ginga rotation anchor add python typescript`
   makes those languages every day, each in its own challenge, instead of the daily draw; the rest of
   the rotation stays in the shuffle bag. `ginga rotation extra 0.3 [max]` adds extras on top: each

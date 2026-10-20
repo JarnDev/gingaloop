@@ -100,15 +100,15 @@ average time and pace (your time ÷ Claude's estimate). Also your streak and fre
 that's open, due or next, weak topics and what Claude has cost so far.
 --json prints the same facts as JSON, for scripts.`,
 
-  coverage: `ginga coverage [lang…] [--json]
+  coverage: `ginga coverage [lang…] [--all] [--json]
 
 Practice areas per language (generic and language-specific ★), how many challenges you've had in each,
-and the level each one unlocks at. Default: your rotation.`,
+and what unlocks next. --all lists every area with the level it unlocks at. Default: your rotation.`,
 
   list: `ginga list [--json]
 
 Every challenge in the order it was created: date, language, level, type, where it came from
-(daily, manual, or "🔁 review: <topic>" for a review, named after the original challenge),
+(daily, manual, or "🔁 <topic>" for a review, named after the original challenge),
 status (open, solved, gaveup or discarded) and the id to pass to other commands.`,
 
   rotation: `ginga rotation [list]
@@ -134,8 +134,8 @@ language's pinned libraries (pandas, vitest, GoogleTest…); mixed: some of each
   domains: `ginga domains [list]
 ginga domains set|add|remove <id…>
 
-Industries your challenges are framed in (general = no framing). With others configured, general
-still comes up about 1 in 4 times.`,
+Industries your challenges are framed in (general = no framing). \`ginga domains\` shows yours; list
+shows all of them. With others configured, general still comes up about 1 in 4 times.`,
 
   lang: `ginga lang list
 ginga lang add <name>
@@ -157,12 +157,13 @@ builds the missing images now. --prune removes images gingaloop built that no pr
 (older versions left by upgrades); --all removes every gingaloop image (rebuilt when next needed).
 Official images such as python:3.12-slim are never removed.`,
 
-  config: `ginga config [show]
+  config: `ginga config [show] [--all] [--json]
 ginga config get <key>
 ginga config set <key> <value>
 ginga config unset <key>
 
-Read or change gingaloop.json, e.g. \`ginga config set claude.model opus\`,
+Read or change gingaloop.json. show lists the settings you changed; --all every setting (defaults
+dimmed); --json the effective config for scripts. E.g. \`ginga config set claude.model opus\`,
 \`ginga config set claude.maxBudgetUsd 2\`, \`ginga config unset sandbox.memory\` (back to the default).
 Values are parsed as JSON when they can be (numbers, arrays, null). Rotation, stacks, domains and the
 schedule have their own commands.`,

@@ -301,12 +301,13 @@ up on.
 
 ```
 $ ginga coverage c
-C (L1): 2/6 unlocked areas covered
+C  L1  ████░░░░░░░░  2/6 unlocked areas covered
   ★ c-strings            ■ 1
   ★ pointers-arrays      ■ 1
     strings              □ not yet
     …
-  ★ structs-ownership    ·  unlocks at L2
+  Unlocks at L2 (11): structs-ownership, dynamic-memory, …
+  Later levels: 38 more areas (ginga coverage --all)
 ```
 
 Choose an area yourself with `ginga new c --area dynamic-memory`.
@@ -492,21 +493,22 @@ summary, never your code. See [CONTRIBUTING](https://github.com/JarnDev/gingaloo
 | `ginga review [id]` | Claude reviews your solution against the reference (after unlock), running the tests and its own edge-case probes in the sandbox |
 | `ginga learn [id] [--report]` | turn the review's findings about the challenge itself (wrong reference, untested promise…) into rules every future generation follows; `--report` opens a pre-filled issue to fix it for everyone |
 | `ginga rank` / `ginga list` | levels (with basics/ecosystem split), streak, weak topics, Claude cost / all challenges, in creation order, with where each came from (daily, manual or a review of which topic); `--json` for scripts |
-| `ginga coverage [lang…]` | practice areas per language and how often you've had each (`--json` too) |
+| `ginga coverage [lang…] [--all]` | practice areas per language and how often you've had each, plus what unlocks next (`--all`: every area; `--json` too) |
 | `ginga rotation [list\|set\|add\|remove\|mode\|anchor\|extra]` | the daily's languages, order, anchors and extras, e.g. `ginga rotation add typescript cpp`, `ginga rotation mode ordered`, `ginga rotation anchor add python`, `ginga rotation extra 0.3` |
 | `ginga commit [--yes] [--push]` | commit the workspace with a structured message built from your progress (plain git, **no Claude tokens**) |
 | `ginga push` | push the workspace, setting the upstream on the first push (plain git, **no Claude tokens**) |
 | `ginga stack [<lang> basics\|mixed\|ecosystem]` | standard library only, or also the language's pinned libraries |
-| `ginga domains [list\|set\|add\|remove]` | industries your challenges are framed in (`general` by default) |
+| `ginga domains [list\|set\|add\|remove]` | industries your challenges are framed in (`general` by default); `ginga domains` shows yours, `list` all 40 |
 | `ginga lang list` / `ginga lang add <name>` | profiles |
 | `ginga schedule install\|remove\|status` | systemd user timer |
 | `ginga doctor [--pull]` | check setup, pre-pull images |
 | `ginga doctor --prune [--all]` | remove images gingaloop built that no profile uses anymore (`--all`: every gingaloop image; official images are never touched) |
 | `ginga completion bash\|zsh` | shell completion: `source <(ginga completion zsh)` in your shell rc |
-| `ginga config [show\|get\|set\|unset]` | view or change `gingaloop.json` with type checks, e.g. `ginga config set claude.model opus` |
+| `ginga config [show\|get\|set\|unset]` | view or change `gingaloop.json` with type checks, e.g. `ginga config set claude.model opus`; `show` lists what you changed (`--all` every setting, `--json` for scripts) |
 | `ginga validate [dir] [--examples]` | validate a challenge or the built-in examples |
 
-Every command has its own help: `ginga <command> --help` or `ginga help <command>`.
+Every command has its own help: `ginga <command> --help` or `ginga help <command>`. Output is in
+color on a terminal and plain when piped or logged; `NO_COLOR=1` turns color off, `FORCE_COLOR=1` on.
 `[id]` can be a prefix. Without it, a command run inside a challenge's folder uses that challenge;
 elsewhere it uses your newest open challenge (`review`: your newest unlocked one). Use `--workspace DIR` (or
 `GINGALOOP_WORKSPACE`) to point at a workspace explicitly.
