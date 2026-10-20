@@ -111,20 +111,20 @@ test("on the real history: the C cycle continues, the TypeScript chain is gone",
 test("daily plan: the rotation always runs; a due review comes as an extra, one open at a time", () => {
   const config = DEFAULT_CONFIG;
   const plan = dailyPlan(history, config, day(15));
-  assert.equal(plan.rotation, true);
+  assert.equal(plan.picks, 1);
   assert.equal(plan.review?.id, "c1");
 
   const withOpen = [...history, gen("ts4", "typescript", 13, 20, { reviewOf: "ts1" })];
   assert.equal(openReview(withOpen)?.id, "ts4");
   const waiting = dailyPlan(withOpen, config, day(15));
-  assert.equal(waiting.rotation, true);
+  assert.equal(waiting.picks, 1);
   assert.equal(waiting.review, null, "the open review goes first");
   assert.equal(waiting.waiting?.id, "c1");
   assert.match(reviewSummary(withOpen, config, day(15)), /Review open \(optional\): ts4/);
 
   const madeToday = [...history, gen("rot", "python", 15, 20), review("c3", 15, "c1")];
   const again = dailyPlan(madeToday, config, day(15));
-  assert.deepEqual([again.rotation, again.review], [false, null], "each once a day");
-  assert.equal(dailyPlan(madeToday, config, day(15), { force: true }).rotation, true);
+  assert.deepEqual([again.picks, again.review], [0, null], "each once a day");
+  assert.equal(dailyPlan(madeToday, config, day(15), { force: true }).forced, 1);
   assert.match(reviewSummary(history, config, day(14)), /Next review: c1 on 2026-10-15/);
 });

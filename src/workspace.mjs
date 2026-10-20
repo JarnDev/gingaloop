@@ -14,6 +14,9 @@ export const DEFAULT_CONFIG = Object.freeze({
   rotation: ["python"],
   // "random": shuffle bag, each language once per cycle; "ordered": the list in order.
   rotationMode: "random",
+  // anchors: languages made every day (the rest of the rotation is the bag). Each day, each of
+  // extraMax extras comes with probability extraChance, drawn from the bag.
+  daily: { anchors: [], extraChance: 0, extraMax: 1 },
   // Per-language stack: basics (stdlib only, default) | mixed | ecosystem (pinned libraries).
   stack: {},
   // Industry domains that frame challenges; "general" = no framing.
@@ -150,6 +153,7 @@ export function loadConfig(ws) {
     ...raw,
     leveling: { ...DEFAULT_CONFIG.leveling, ...raw.leveling },
     schedule: { ...DEFAULT_CONFIG.schedule, ...raw.schedule },
+    daily: { ...DEFAULT_CONFIG.daily, ...raw.daily },
     claude: { ...DEFAULT_CONFIG.claude, ...raw.claude },
     pace: { ...DEFAULT_CONFIG.pace, ...raw.pace },
     sandbox: { ...DEFAULT_CONFIG.sandbox, ...raw.sandbox },
@@ -183,7 +187,7 @@ export const CONFIG_KEYS = {
   "sandbox.pidsLimit": "integer",
   "sandbox.timeoutSeconds": "integer",
 };
-const OWN_COMMAND = { rotation: "ginga rotation", rotationMode: "ginga rotation mode", stack: "ginga stack", domains: "ginga domains", schedule: "ginga schedule install --time HH:MM" };
+const OWN_COMMAND = { rotation: "ginga rotation", daily: "ginga rotation anchor|extra", rotationMode: "ginga rotation mode", stack: "ginga stack", domains: "ginga domains", schedule: "ginga schedule install --time HH:MM" };
 
 /** Parse and type-check a value typed on the command line for `key`. */
 export function parseConfigValue(key, text) {

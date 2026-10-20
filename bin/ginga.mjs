@@ -15,7 +15,7 @@ Setup
   doctor [--pull|--prune [--all]]   check setup; pre-pull images, or remove stale built ones
   config [get|set|unset <key> [value]]   view or change gingaloop.json (model, budget, editor…)
   completion bash|zsh        shell completion: source <(ginga completion zsh)
-  rotation [list|set|add|remove <langs> | mode random|ordered]   the daily's languages and order
+  rotation [list|set|add|remove <langs> | mode random|ordered | anchor … | extra …]   the daily's languages, order, anchors, extras
   stack [<lang> basics|mixed|ecosystem]   standard library only, or also pinned libraries (pandas…)
   domains [list|set|add|remove <ids>]     industries your challenges are framed in (general by default)
   lang list | add <name>     list profiles / bootstrap a new language with Claude
@@ -23,7 +23,7 @@ Setup
 
 Practice
   new <lang> [--level N] [--area ID] [--stack S] [--type T] [--domain D]   generate a challenge now (N ≤ your earned level)
-  daily [--force]            today's challenge from the rotation (used by the timer)
+  daily [--force]            today's challenges from the rotation (used by the timer)
   open [id]                  open README + starter in $EDITOR, inside the challenge folder
   test [id] [--watch]        run the tests against your starter/ (sandboxed); --watch reruns on save
   pause [id] / resume [id]   pause the challenge's timer for a break, start it again
