@@ -160,17 +160,19 @@ test("ginga rotation anchor / extra keep the config consistent", () => {
     let r = run("anchor", "add", "javascript");
     assert.equal(r.status, 0, r.stderr);
     assert.deepEqual([stored().rotation, stored().daily.anchors], [["python", "c", "javascript"], ["javascript"]], "an anchor joins the rotation");
-    assert.match(r.stdout, /Anchors \(every day\): javascript/);
+    assert.match(r.stdout, /^JavaScript +anchor +every day +L1/m, "anchors first");
+    assert.match(r.stdout, /^Python +bag +in bag/m);
+    assert.match(r.stdout, /Next draw: random from Python, C \(2 languages left in the bag/);
     r = run("extra", "0.3");
     assert.equal(r.status, 0, r.stderr);
     assert.deepEqual(stored().daily, { anchors: ["javascript"], extraChance: 0.3 }, "only what differs from the defaults");
-    assert.match(r.stdout, /Extras: each day, one at 30% each/);
+    assert.match(r.stdout, /^Daily +random order · extras: 30% a day \(today: (none|1 rolled)\)/);
     assert.notEqual(run("extra", "1.5").status, 0);
     assert.notEqual(run("extra", "0.3", "0").status, 0);
     run("remove", "javascript");
     assert.deepEqual(stored().daily.anchors ?? [], [], "removing a language drops its anchor");
     run("anchor", "set", "python", "c");
-    assert.match(run().stdout, /no extras/);
+    assert.match(run().stdout, /Every rotation language is an anchor, so there are no extras/);
     run("anchor", "none");
     assert.deepEqual(stored().daily.anchors ?? [], []);
   } finally {

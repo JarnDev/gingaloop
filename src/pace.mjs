@@ -3,6 +3,8 @@
 // language once there are enough, else in all languages). A solve is then faster, on pace or
 // slower than expected within a tolerance band, and a struggle when it is far above it.
 
+import { paint } from "./view.mjs";
+
 export const PACE_DEFAULTS = Object.freeze({
   tolerance: 0.25, // ± band around the expected time that counts as "on pace"
   struggle: 0.5, // over expected by more than this → a struggle (the topic comes back as a review)
@@ -130,7 +132,9 @@ export function paceReport(p, opts = {}) {
   const line = Array(W).fill("─");
   for (const r of [1 - o.tolerance, 1 + o.tolerance]) line[cell(r)] = "┆";
   line[cell(1 + o.struggle)] = "╎";
-  line[cell(p.minutes / p.expected)] = "●";
+  const color = { faster: paint.green, "on pace": paint.green, slower: paint.yellow, struggle: paint.red }[p.band];
+  const at = cell(p.minutes / p.expected);
+  const scale = paint.dim(line.slice(0, at).join("")) + color("●") + paint.dim(line.slice(at + 1).join(""));
   const verdict = {
     faster: "faster than your usual pace",
     "on pace": "on your usual pace",
@@ -140,7 +144,7 @@ export function paceReport(p, opts = {}) {
   return [
     `  expected  ${String(p.expected).padStart(3)} min   (${why})`,
     `  took      ${String(p.minutes).padStart(3)} min   ${p.diff >= 0 ? "+" : ""}${p.diff} min (${p.pct >= 0 ? "+" : ""}${p.pct}%)`,
-    `  0 ${line.join("")} 2×   ┆ on pace ±${Math.round(o.tolerance * 100)}%  ╎ struggle ${pct(o.struggle)}`,
-    `  → ${verdict}${p.calibrated ? "" : " (time can't trigger a review until your pace is calibrated)"}`,
+    `  ${paint.dim("0")} ${scale} ${paint.dim(`2×   ┆ on pace ±${Math.round(o.tolerance * 100)}%  ╎ struggle ${pct(o.struggle)}`)}`,
+    `  → ${color(verdict)}${p.calibrated ? "" : paint.dim(" (time can't trigger a review until your pace is calibrated)")}`,
   ].join("\n");
 }

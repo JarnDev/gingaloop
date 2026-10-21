@@ -10,6 +10,7 @@ import { reviewSummary } from "./reviews.mjs";
 import { gateSummary, langLevel } from "./progression.mjs";
 import { findProfile } from "./profiles.mjs";
 import { challengeStatus, eventDate, readEvents, withoutDiscarded } from "./progress.mjs";
+import { bar } from "./view.mjs";
 import { loadConfig, today } from "./workspace.mjs";
 
 export const START = "<!-- gingaloop:start -->";
@@ -19,11 +20,6 @@ const WEEKS = 12;
 export const LOGO_URL = "https://raw.githubusercontent.com/JarnDev/gingaloop/main/docs/logo-128.png";
 
 const fmt = (n) => n.toLocaleString("en-US");
-
-function bar(done, total, width = 12) {
-  const filled = total <= 0 ? width : Math.max(0, Math.min(width, Math.round((done / total) * width)));
-  return "█".repeat(filled) + "░".repeat(width - filled);
-}
 
 function addDays(date, n) {
   const d = new Date(date + "T12:00:00Z");

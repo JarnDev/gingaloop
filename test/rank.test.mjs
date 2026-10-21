@@ -4,7 +4,8 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { stillNeeded, table } from "../src/cli.mjs";
+import { stillNeeded } from "../src/cli.mjs";
+import { table } from "../src/view.mjs";
 import { paceLabel } from "../src/pace.mjs";
 
 test("table pads columns to the widest cell and right-aligns numbers", () => {
@@ -50,11 +51,12 @@ test("ginga list: creation order, and where each challenge came from", () => {
     assert.equal(r.status, 0, r.stderr);
     const lines = r.stdout.trimEnd().split("\n");
     assert.match(lines[0], /^Created +Language +Lvl +Type +From +Status +Id$/);
-    assert.deepEqual(lines.slice(2).map((l) => l.split(/\s+/).at(-1)), ch.map((c) => c[0]), "creation order, not alphabetical");
+    assert.deepEqual(lines.slice(2, 2 + ch.length).map((l) => l.split(/\s+/).at(-1)), ch.map((c) => c[0]), "creation order, not alphabetical");
+    assert.equal(lines.at(-1), "5 challenges · 5 open · 🔁 review of that topic", "a summary under the table");
     assert.match(lines[2], / daily /);
     assert.match(lines[3], / manual /);
-    assert.match(lines[4], /🔁 review: Rotate in place/);
-    assert.match(lines[5], /🔁 review: Rotate in place/, "a review of a review names the original topic");
+    assert.match(lines[4], /🔁 Rotate in place/);
+    assert.match(lines[5], /🔁 Rotate in place/, "a review of a review names the original topic");
     const json = JSON.parse(run("--json").stdout);
     assert.deepEqual(json.map((j) => [j.source, j.reviewOf]).slice(2, 4), [["daily", "2026-10-08-c-rotate"], ["daily", "2026-10-11-c-chunks"]]);
   } finally {

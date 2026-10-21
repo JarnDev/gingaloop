@@ -80,12 +80,12 @@ test("ginga pause / resume / timer / list end to end", () => {
     writeFileSync(join(ws, "progress.jsonl"), ids.map((id) => JSON.stringify({ type: "generated", id, lang: "c", level: 1, title: id, source: "daily", date: id.slice(0, 10), ts: `${id.slice(0, 10)}T08:00:00Z` })).join("\n") + "\n");
     const run = (...a) => spawnSync(process.execPath, [join(import.meta.dirname, "..", "bin", "ginga.mjs"), ...a, "-w", ws],
       { encoding: "utf8", timeout: 20000, cwd: tmp, env: { ...process.env, XDG_CONFIG_HOME: join(tmp, "xdg") } });
-    assert.match(run("timer").stdout, /2026-10-19-c-new\nnot started/);
+    assert.match(run("timer").stdout, /^○ {2}not started .* · 2026-10-19-c-new 2026-10-19-c-new\n$/);
     assert.match(run("resume").stderr, /hasn't started/);
     assert.match(run("pause").stdout, /starts paused/);
     assert.match(run("pause").stdout, /Already paused/);
     assert.match(run("list").stdout, /open ⏸ +2026-10-19-c-new/);
-    assert.match(run("resume").stdout, /Resumed 2026-10-19-c-new/);
+    assert.match(run("resume").stdout, /Resumed "2026-10-19-c-new"/);
     assert.match(run("timer").stdout, /▶ {2}running · 0 min active/);
     assert.match(run("pause", "2026-10-18").stdout, /starts paused/, "an id picks another challenge");
     const types = readFileSync(join(ws, "progress.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l)).filter((e) => e.type !== "generated").map((e) => `${e.type}:${e.id.slice(11)}`);
