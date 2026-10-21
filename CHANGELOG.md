@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.7.0 (2026-10-21)
+
+More than one language a day, a pausable timer, notes that fill themselves in, and every view redone.
 
 - **Clearer views, in color.** Every command's output was reworked:
   - `rotation` is a table of each language's role (anchor or bag), where it stands in the cycle,
@@ -19,42 +21,43 @@
   - `test`, `done`, `hint`, `giveup`, `discard`, `doctor`, `validate`, `commit` and `learn`
     mark results with color: green for passing, red for failing, yellow for warnings, dim for details.
   Color only goes to a terminal: piped and logged output (systemd, `| less`, scripts) stays plain, and
-  `NO_COLOR` / `FORCE_COLOR` are respected. `--json` output is unchanged.
+  `NO_COLOR` / `FORCE_COLOR` are respected. `--json` output is unchanged. (#18)
 - **Anchors and extras: more than one language a day.** `ginga rotation anchor add python typescript`
   makes those languages every day, each in its own challenge, instead of the daily draw; the rest of
   the rotation stays in the shuffle bag. `ginga rotation extra 0.3 [max]` adds extras on top: each
   day, each of `max` (default 1) comes with that chance, drawn from the same bag and never a
   language already made that day. The roll depends only on the date, so rerunning `daily` doesn't
   roll again, and extras wait while a challenge from an earlier day is still open. Each slot runs
-  once a day, so a rerun retries only what failed. Without anchors or extras nothing changes.
+  once a day, so a rerun retries only what failed. Without anchors or extras nothing changes. (#17)
 - **write-the-tests: each promise needs its own test.** The starter has one file per "What to test"
   item (`item<N>` in the name), and the grader runs each hidden bug first against the file of the
   item it breaks. A bug caught only through another item's tests shows as "caught ⚠ … item N has no
   test that catches it": it still counts as caught, but the solve isn't clean (clean streak, areas,
   promotions) and the topic comes back as a review. The solve records `accidental: [N]`, and
-  NOTES.md says so. Challenges without item files are graded as before. (#12)
+  NOTES.md says so. Challenges without item files are graded as before. (#12, #15)
 - **write-the-tests: the README's examples give nothing away.** They are the starter's example
   tests, copied as they are, and the validator runs the starter against every hidden bug: an
   example that catches one is rejected, so copying the examples never catches a bug for free. The
-  built-in example's `"1h30m"` test (it caught the minutes-as-seconds bug) became `"45s"`. (#9)
+  built-in example's `"1h30m"` test (it caught the minutes-as-seconds bug) became `"45s"`. (#9, #15)
 - **Reviews of write-the-tests run the right command.** The reviewer was handed the test command
   with only `TARGET` set, so `$IMPL` and `$TESTS` were empty and the run failed. `ginga sandbox run`
   takes `--impl` and `--tests`, and the review prompt now gives the runs the grader does (your
   suite or the reference, on the correct code or a buggy version). The validator rejects a
-  `test.command` that uses a variable the runner never sets. (#8)
+  `test.command` that uses a variable the runner never sets. (#8, #14)
 - **`ginga giveup` asks what stopped you** (enter skips; `--reason R` answers it, `--yes` skips
   it). The answer fills the "What tripped me up" line of NOTES.md, is kept on the give-up event,
-  and the topic's review challenges are generated to need exactly that point.
-
+  and the topic's review challenges are generated to need exactly that point. (#13)
 - **Pause the timer:** `ginga pause` and `ginga resume` (or `ginga open` on a paused challenge) stop
   and restart it, and `ginga timer` shows it. `done` suggests active time only, so a lunch break no
   longer inflates the minutes or pushes them past the 4-hour cap. `ginga list` marks paused
-  challenges ⏸ (`--json`: `timer`).
+  challenges ⏸ (`--json`: `timer`). (#11)
 - **NOTES.md fills itself in:** `done` and `giveup` write the empty "Time spent" (minutes, where
   they came from, pauses, expected time and verdict), "Hints used" (which of how many) and a new
   "Result" line (date, points, when you opened it, whether it comes back as a review). Lines you
-  wrote are never overwritten; older notes gain the Result line. "What tripped me up" stays yours.
+  wrote are never overwritten; older notes gain the Result line. "What tripped me up" stays yours. (#11)
 - `ginga commit` no longer lists `notes(...)` for a challenge solved or given up in the same commit.
+- C and C++ profiles: clangd finds the headers in `subject/` and `tests/`, so write-the-tests
+  challenges no longer show false include errors in the editor. (#10)
 
 ## 0.6.2 (2026-10-15)
 
