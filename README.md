@@ -138,7 +138,7 @@ Levels, streak and the daily bag are all computed from `progress.jsonl`, so ther
 <sub>The workspace README after ten weeks of practice (sample data from `node scripts/sample-dashboard.mjs`).</sub>
 
 **Make it a git repo** to keep a history of your practice: `.gitignore` and `.gitattributes` are
-already set up. `ginga` never commits on its own, but `ginga commit` does it in one step with a
+already set up. `ginga` never commits on its own (unless you turn on `sync.auto`), but `ginga commit` does it in one step with a
 message built from your progress (no AI involved, so it's free), and `ginga push` publishes it:
 
 ```
@@ -161,6 +161,33 @@ you like around it.
 
 If you push the workspace to a **public** remote, remember that each README is also its challenge's
 unlock key, so anyone can read the solutions. A private repo avoids that.
+
+### Several machines
+
+The workspace repo is all the state there is, so a second machine (a laptop for a trip, say) only
+needs a clone of it. `ginga sync` keeps the two in step: it commits what's on this machine, pulls
+the other's work with a rebase and pushes. `progress.jsonl` (and LESSONS.md and IMPROVEMENTS.md)
+merge line by line, the log is read back in time order, and the dashboard and INDEX.md are rebuilt
+rather than merged. Only when both machines changed the same file you wrote (a NOTES.md, say) does
+it stop: nothing is merged and it names the file to settle by hand.
+
+```
+git clone <your workspace repo> ~/gingaloop
+ginga config set sync.auto true     # once: it's in gingaloop.json, so it travels with the repo
+```
+
+With `sync.auto`, `daily` syncs before it draws and after it generates. While you're away, the
+scheduled daily at home keeps making challenges and pushing them; on the laptop, `ginga sync` (or
+`ginga daily`, which then finds today's made) brings them in. If the machine at home is off,
+`ginga daily` on the laptop makes the day's challenge itself (it needs Claude Code there), and the
+home machine finds it on its next run instead of making another. If both run `daily` in the same
+moment, both challenges are kept and `daily` tells you which to `ginga discard`.
+
+The scheduled daily never waits for a person: git runs without prompts and with a time limit, and
+a sync that fails leaves the challenge on that machine with a notification. So the timer's commits
+must not need you. If you sign commits with a passphrase, either turn signing off for the workspace
+(`git -C ~/gingaloop config commit.gpgsign false`) or keep your key unlocked in the agent, and use
+an ssh key the agent can hand out without asking. Install the schedule on one machine only.
 
 ## A challenge
 
@@ -497,6 +524,7 @@ summary, never your code. See [CONTRIBUTING](https://github.com/JarnDev/gingaloo
 | `ginga rotation [list\|set\|add\|remove\|mode\|anchor\|extra]` | the daily's languages, order, anchors and extras, e.g. `ginga rotation add typescript cpp`, `ginga rotation mode ordered`, `ginga rotation anchor add python`, `ginga rotation extra 0.3` |
 | `ginga commit [--yes] [--push]` | commit the workspace with a structured message built from your progress (plain git, **no Claude tokens**) |
 | `ginga push` | push the workspace, setting the upstream on the first push (plain git, **no Claude tokens**) |
+| `ginga sync` | commit, pull your other machines' work, push (see [Several machines](#several-machines)) |
 | `ginga stack [<lang> basics\|mixed\|ecosystem]` | standard library only, or also the language's pinned libraries |
 | `ginga domains [list\|set\|add\|remove]` | industries your challenges are framed in (`general` by default); `ginga domains` shows yours, `list` all 40 |
 | `ginga lang list` / `ginga lang add <name>` | profiles |
@@ -536,13 +564,14 @@ elsewhere it uses your newest open challenge (`review`: your newest unlocked one
   "reviewExtendDays": 14,
   "pace": { "tolerance": 0.25, "struggle": 0.5 },
   "schedule": { "time": "08:00" },
+  "sync": { "auto": false },
   "claude": { "command": "claude", "model": null, "timeoutMinutes": 20, "retries": 1, "maxBudgetUsd": null },
   "sandbox": { "engine": "docker", "memory": "1g", "cpus": "2", "pidsLimit": 256, "timeoutSeconds": 120 }
 }
 ```
 
 `daily` holds the anchors and extras (set them with `ginga rotation anchor` and `ginga rotation
-extra`). `editor` is what `ginga open` runs (`null` → `$VISUAL`, `$EDITOR`, then `vi`). `claude.maxBudgetUsd`
+extra`). `sync.auto` makes `daily` run `ginga sync` before and after it generates. `editor` is what `ginga open` runs (`null` → `$VISUAL`, `$EDITOR`, then `vi`). `claude.maxBudgetUsd`
 caps each Claude call (a generation makes one, plus one per retry); `null` means no cap.
 
 Missing keys use their defaults, and ginga only writes the values you changed (plus your rotation,

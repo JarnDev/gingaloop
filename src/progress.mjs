@@ -26,7 +26,9 @@ export function readEvents(ws) {
       }
     }
   });
-  return events;
+  // Two machines' logs merged by git keep each side's lines together: put them back in time order.
+  // (Sorting is stable, so events within the same instant keep their file order.)
+  return events.every((e) => e.ts) ? events.sort((a, b) => (a.ts > b.ts) - (a.ts < b.ts)) : events;
 }
 
 export function appendEvent(ws, event) {

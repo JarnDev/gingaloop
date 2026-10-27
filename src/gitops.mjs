@@ -1,15 +1,32 @@
-// `ginga commit` / `ginga push` for the workspace repo. The commit message is built from the
-// facts in progress.jsonl and the changed files: deterministic, no Claude involved.
+// `ginga commit` / `ginga push` / `ginga sync` for the workspace repo. The commit message is built
+// from the facts in progress.jsonl and the changed files: deterministic, no Claude involved.
 import { spawnSync } from "node:child_process";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { END, START } from "./dashboard.mjs";
 import { levelState, pointsFor } from "./levels.mjs";
 import { eventDate } from "./progress.mjs";
 import { UserError } from "./workspace.mjs";
 
-export function git(ws, args, { inherit = false } = {}) {
-  const r = spawnSync("git", args, { cwd: ws, encoding: "utf8", stdio: inherit ? "inherit" : "pipe" });
+/**
+ * Run git in the workspace. `unattended` (the scheduled daily) never waits for a person: no
+ * password prompts, ssh in batch mode, and a time limit, so a GPG or ssh prompt nobody answers
+ * fails the step instead of hanging the job.
+ */
+export function git(ws, args, { inherit = false, unattended = false } = {}) {
+  const env = unattended
+    ? { ...process.env, GIT_TERMINAL_PROMPT: "0", GIT_SSH_COMMAND: `${process.env.GIT_SSH_COMMAND || "ssh"} -o BatchMode=yes` }
+    : process.env;
+  const r = spawnSync("git", args, {
+    cwd: ws, env, encoding: "utf8", stdio: inherit && !unattended ? "inherit" : "pipe",
+    ...(unattended ? { timeout: UNATTENDED_TIMEOUT_MS } : {}),
+  });
+  if (r.error?.code === "ETIMEDOUT") throw new UserError(`git ${args[0]} took over ${UNATTENDED_TIMEOUT_MS / 1000} s with nobody to answer a prompt (GPG passphrase? ssh key?).`);
   if (r.error) throw new UserError(`Cannot run git (${r.error.code ?? r.error.message}). Is it installed?`);
   return r;
 }
+
+const UNATTENDED_TIMEOUT_MS = 90_000;
 
 export function ensureRepo(ws) {
   const r = git(ws, ["rev-parse", "--show-toplevel"]);
@@ -151,18 +168,103 @@ export function buildCommitMessage({ allEvents, newEvents, files, leveling, toda
   return lines.length ? `${subject}\n\n${lines.join("\n")}\n` : `${subject}\n`;
 }
 
+const hasUpstream = (ws) => git(ws, ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"]).status === 0;
+
+const lastLines = (r) => `${r.stderr ?? ""}${r.stdout ?? ""}`.trim().split("\n").slice(-3).join(" / ");
+
 /** `git push`, setting the upstream on the first push. */
-export function pushWorkspace(ws) {
+export function pushWorkspace(ws, { unattended = false } = {}) {
   ensureRepo(ws);
-  const upstream = git(ws, ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"]);
   let r;
-  if (upstream.status === 0) {
-    r = git(ws, ["push"], { inherit: true });
+  if (hasUpstream(ws)) {
+    r = git(ws, ["push", "-q"], { inherit: true, unattended });
   } else {
     if (!git(ws, ["remote"]).stdout.split("\n").includes("origin")) {
       throw new UserError("The workspace repo has no `origin` remote. Add one: git remote add origin <url>");
     }
-    r = git(ws, ["push", "-u", "origin", "HEAD"], { inherit: true });
+    r = git(ws, ["push", "-q", "-u", "origin", "HEAD"], { inherit: true, unattended });
   }
-  if (r.status !== 0) throw new UserError("git push failed (see above).");
+  if (r.status !== 0) throw new UserError(`git push failed${unattended ? `: ${lastLines(r)}` : " (see above)"}.`);
+}
+
+/**
+ * Lines for .gitattributes so two machines' work merges by itself: append-only files keep both
+ * sides' lines. (The dashboard and INDEX.md are regenerated instead; see pullWorkspace.)
+ */
+export const SYNC_ATTRIBUTES = ["/progress.jsonl merge=union", "/LESSONS.md merge=union", "/IMPROVEMENTS.md merge=union"];
+
+/**
+ * Add the missing SYNC_ATTRIBUTES lines to .gitattributes (committed, for every clone) and to
+ * .git/info/attributes: a rebase reads the attributes of the tree it rebases onto, and the other
+ * machine's tree may come from an older gingaloop that didn't write them.
+ */
+export function ensureSyncAttributes(ws) {
+  const local = resolve(ws, git(ws, ["rev-parse", "--git-path", "info/attributes"]).stdout.trim());
+  for (const path of [join(ws, ".gitattributes"), local]) {
+    const current = existsSync(path) ? readFileSync(path, "utf8") : "";
+    const have = new Set(current.split(/\r?\n/).map((l) => l.trim()));
+    const missing = SYNC_ATTRIBUTES.filter((l) => !have.has(l));
+    if (!missing.length) continue;
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, current + (current && !current.endsWith("\n") ? "\n" : "") + missing.join("\n") + "\n");
+  }
+}
+
+/** README.md without the generated dashboard: the part a person writes. */
+const ownText = (readme) => {
+  const s = readme.indexOf(START);
+  const e = readme.indexOf(END);
+  return s !== -1 && e > s ? readme.slice(0, s) + readme.slice(e + END.length) : readme;
+};
+
+/**
+ * A rebase conflict ginga can settle: INDEX.md, or README.md when only its dashboard differs.
+ * Both are rebuilt from progress.jsonl after the pull, so either side will do.
+ */
+function regenerable(ws, file) {
+  if (file === "INDEX.md") return true;
+  if (file !== "README.md") return false;
+  const side = (n) => git(ws, ["show", `:${n}:README.md`]);
+  const [a, b] = [side(2), side(3)];
+  return a.status === 0 && b.status === 0 && ownText(a.stdout) === ownText(b.stdout);
+}
+
+const rebasing = (ws) => existsSync(resolve(ws, git(ws, ["rev-parse", "--git-path", "rebase-merge"]).stdout.trim()));
+
+/** The rebase stopped on a commit with nothing left once its view conflicts were settled. */
+const stoppedOnEmptyCommit = (ws) => rebasing(ws) && git(ws, ["diff", "--cached", "--quiet"]).status === 0;
+
+/**
+ * `git pull --rebase` with the work committed first (the caller's job). Conflicts in the generated
+ * views are settled (the caller rebuilds them); any other conflict aborts the rebase, leaving the
+ * repo as it was, and throws.
+ * @returns {boolean} whether anything came in
+ */
+export function pullWorkspace(ws, { unattended = false } = {}) {
+  ensureRepo(ws);
+  if (!hasUpstream(ws)) throw new UserError("The workspace has no upstream branch yet: run `ginga push` once first.");
+  const before = git(ws, ["rev-parse", "HEAD"]).stdout.trim();
+  const fetch = git(ws, ["fetch", "-q"], { unattended });
+  if (fetch.status !== 0) throw new UserError(`git fetch failed: ${lastLines(fetch)}`);
+  let r = git(ws, ["rebase", "-q", "@{u}"], { unattended });
+  for (let guard = 0; r.status !== 0 && guard < 100; guard++) {
+    const conflicts = git(ws, ["diff", "--name-only", "--diff-filter=U"]).stdout.split("\n").filter(Boolean);
+    if (!conflicts.length && stoppedOnEmptyCommit(ws)) {
+      r = git(ws, ["rebase", "--skip"], { unattended }); // a commit that only touched the views
+      continue;
+    }
+    const blocking = conflicts.filter((f) => !regenerable(ws, f));
+    if (!conflicts.length || blocking.length) {
+      git(ws, ["rebase", "--abort"]);
+      throw new UserError(
+        blocking.length
+          ? `Both machines changed ${blocking.join(", ")}: nothing was merged. Settle it by hand with \`git pull --rebase\` in ${ws}.`
+          : `git rebase failed: ${lastLines(r)}`,
+      );
+    }
+    for (const f of conflicts) git(ws, ["checkout", "--ours", "--", f]);
+    git(ws, ["add", "--", ...conflicts]);
+    r = git(ws, ["-c", "core.editor=true", "rebase", "--continue"], { unattended });
+  }
+  return git(ws, ["rev-parse", "HEAD"]).stdout.trim() !== before;
 }
