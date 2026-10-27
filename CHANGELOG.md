@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.8.0 (2026-10-27)
 
 - **Several machines on one workspace.** `ginga sync` commits what's here, pulls the other
   machines' work with a rebase and pushes. `progress.jsonl`, LESSONS.md and IMPROVEMENTS.md merge
