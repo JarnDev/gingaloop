@@ -177,6 +177,14 @@ challenges, give-ups, level-ups, notes). Plain git, no Claude. --push pushes aft
 
 Push the workspace repo, setting the upstream on the first push. Plain git.`,
 
+  sync: `ginga sync
+
+Keep several machines on one workspace: commit what's here (like \`ginga commit --yes\`), pull the
+other machines' work with a rebase, then push. progress.jsonl merges line by line and the dashboard
+and INDEX.md are rebuilt, so the usual case needs nothing from you; when both machines changed the
+same file (a NOTES.md, say), nothing is merged and ginga says which file to settle by hand.
+\`ginga config set sync.auto true\` makes \`daily\` sync before and after it generates.`,
+
   validate: `ginga validate [dir] [--examples]
 
 Check a challenge (or every built-in example with --examples): the solution passes, the starter fails,

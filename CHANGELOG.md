@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- **Several machines on one workspace.** `ginga sync` commits what's here, pulls the other
+  machines' work with a rebase and pushes. `progress.jsonl`, LESSONS.md and IMPROVEMENTS.md merge
+  line by line (`merge=union`, added to `.gitattributes` by `init` and on the first sync), the log is
+  read back in time order, and the dashboard and INDEX.md are rebuilt instead of merged. A conflict
+  in a file you wrote merges nothing and names the file. `ginga config set sync.auto true` makes
+  `daily` sync before it draws (so a challenge another machine made today isn't made again) and
+  after it generates. The scheduled run never waits for a prompt: git runs without one and with a
+  90 s limit, and a failed sync only warns and notifies. Two machines running `daily` at the same
+  moment keep both challenges, and `daily` says which to discard.
+
 ## 0.7.0 (2026-10-21)
 
 More than one language a day, a pausable timer, notes that fill themselves in, and every view redone.

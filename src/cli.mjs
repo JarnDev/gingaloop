@@ -24,7 +24,7 @@ import { STACK_MODES, hasEcosystem, pickStack, profileForStack, stackMode } from
 import { GENERAL, allDomains, configuredDomains, ecosystemShare, pickDomain, requireDomain } from "./domains.mjs";
 import { ROTATION_MODES, bagState, dailySettings, drawLangs, extrasRolled, nextOrdered } from "./rotation.mjs";
 import { installSchedule, removeSchedule, scheduleStatus } from "./schedule.mjs";
-import { buildCommitMessage, ensureRepo, git, pushWorkspace, stagedFiles, stagedNewEvents } from "./gitops.mjs";
+import { buildCommitMessage, ensureRepo, ensureSyncAttributes, git, pullWorkspace, pushWorkspace, stagedFiles, stagedNewEvents, SYNC_ATTRIBUTES } from "./gitops.mjs";
 import { VaultKeyError, readBundle } from "./vault.mjs";
 import { PACE_DEFAULTS, PACE_FOOTNOTE, isStruggle, paceFor, paceLabel, paceReport, solvePace } from "./pace.mjs";
 import { dueReview, openReview, reviewCycles, reviewOpts, reviewSummary, rootOf } from "./reviews.mjs";
@@ -129,7 +129,8 @@ export async function cmdInit(positionals, opts) {
   // Existing files are never overwritten: missing lines are appended instead.
   ensureLines(join(dir, ".gitignore"), [".staging/", ".logs/", "node_modules/"]);
   // The README is the decryption key: never let git rewrite its line endings.
-  ensureLines(join(dir, ".gitattributes"), ["challenges/**/README.md -text"]);
+  // progress.jsonl and friends merge line by line when two machines share the workspace (ginga sync).
+  ensureLines(join(dir, ".gitattributes"), ["challenges/**/README.md -text", ...SYNC_ATTRIBUTES]);
   if (!existsSync(join(dir, "README.md"))) {
     writeFileSync(
       join(dir, "README.md"),
@@ -237,8 +238,12 @@ function rotationIds(ws, config) {
  * failed; --force makes one more from the rotation.
  */
 export async function cmdDaily(_positionals, opts) {
-  const { ws, config } = ctx(opts);
+  const { ws, config: local } = ctx(opts);
   const date = today();
+  // sync.auto: see what the other machines made today before drawing, and publish what this makes.
+  const sync = local.sync.auto ? (when) => dailySync(ws, loadConfig(ws), when) : () => {};
+  sync("before");
+  const config = local.sync.auto ? loadConfig(ws) : local; // the pull may bring rotation changes
   const events = withoutDiscarded(readEvents(ws));
   const rotation = rotationIds(ws, config);
   const plan = dailyPlan(events, config, date, { force: opts.force, rotation });
@@ -259,7 +264,46 @@ export async function cmdDaily(_positionals, opts) {
   } else if (plan.waiting) {
     console.log(`\n🔁 A review of "${plan.waiting.title}" is due; it comes once you finish the open one ${paint.dim(`(${plan.openReview.title ?? plan.openReview.id})`)}.`);
   }
+  if (slots.length || plan.review) sync("after");
   if (failures.length) throw failures[0];
+}
+
+/**
+ * The daily's sync step. A failure never stops the daily: before generating it means today's draw
+ * can't see the other machines (offline?), after it the challenge stays on this machine until the
+ * next `ginga sync`.
+ */
+function dailySync(ws, config, when) {
+  try {
+    syncWorkspace(ws, config, { unattended: !isTTY() });
+  } catch (e) {
+    const what = when === "before" ? "couldn't pull first; today's draw only sees this machine" : "today's challenge is only on this machine until `ginga sync` works";
+    console.error(`${mark.warn(undefined, process.stderr)} Sync ${when} the daily failed, ${what}: ${e.message}`);
+    notify("gingaloop: sync failed", `${what}. ${e.message.split("\n")[0]}`, { urgent: when === "after" });
+    return;
+  }
+  if (when === "after") {
+    const twins = raceTwins(readEvents(ws), today());
+    if (twins.length) {
+      const list = twins.map((ids) => ids.join(" and ")).join("; ");
+      console.log(`\n${mark.warn()} Two machines made today's daily at the same time, and both are kept: ${list}. \`ginga discard <id>\` the one you don't want.`);
+    }
+  }
+}
+
+/**
+ * Two machines that ran `daily` at the same moment each made today's challenge: two rotation
+ * picks in one day (they may differ in language), or one anchor twice. Lists of ids, one per clash.
+ */
+export function raceTwins(events, date) {
+  const byKey = new Map();
+  for (const e of withoutDiscarded(events)) {
+    if (e.type !== "generated" || e.source !== "daily" || e.reviewOf || eventDate(e) !== date) continue;
+    const slot = e.slot ?? "pick";
+    const key = slot === "pick" ? "pick" : slot === "anchor" ? `anchor:${e.lang}` : null;
+    if (key) byKey.set(key, [...(byKey.get(key) ?? []), e.id]);
+  }
+  return [...byKey.values()].filter((ids) => ids.length > 1);
 }
 
 /** When everything for today exists: what it is and where each stands. */
@@ -1648,20 +1692,39 @@ export async function cmdLearn(positionals, opts) {
 
 // ---------------------------------------------------------------- workspace git
 
-export async function cmdCommit(_positionals, opts) {
-  const { ws, config } = ctx(opts);
+/** Stage everything (with an up-to-date dashboard) and describe it; null when there is nothing. */
+function stageWorkspace(ws, config) {
   ensureRepo(ws);
-  refreshViews(ws); // commit an up-to-date dashboard
+  refreshViews(ws);
   if (git(ws, ["add", "-A"]).status !== 0) throw new UserError("git add failed.");
   const files = stagedFiles(ws);
-  if (!files.length) {
-    console.log("Nothing to commit: the workspace is clean.");
-    return;
-  }
-  let message = buildCommitMessage({
+  if (!files.length) return null;
+  return buildCommitMessage({
     allEvents: readEvents(ws), newEvents: stagedNewEvents(ws), files, leveling: config.leveling, today: today(),
     levelOf: (history, lang) => langLevel(ws, config, history, lang).level,
   });
+}
+
+/** Commit what stageWorkspace staged. Unattended, it can't wait for a GPG prompt (see git()). */
+function commitStaged(ws, message, { unattended = false } = {}) {
+  const msgFile = join(makeTempDir("gingaloop-commit-"), "COMMIT_MSG");
+  writeFileSync(msgFile, message);
+  // Inherit stdio so GPG signing and hooks can talk to the user.
+  const r = git(ws, ["commit", "-q", "-F", msgFile], { inherit: true, unattended });
+  if (r.status !== 0) {
+    const why = unattended ? `: ${`${r.stderr}`.trim().split("\n").at(-1)}` : " (see above)";
+    throw new UserError(`git commit failed${why}. Your changes are still staged; fix it and run \`ginga commit\` again.`);
+  }
+  console.log(`${mark.ok()} Committed: ${paint.bold(message.split("\n")[0])}`);
+}
+
+export async function cmdCommit(_positionals, opts) {
+  const { ws, config } = ctx(opts);
+  let message = stageWorkspace(ws, config);
+  if (!message) {
+    console.log("Nothing to commit: the workspace is clean.");
+    return;
+  }
   const msgFile = join(makeTempDir("gingaloop-commit-"), "COMMIT_MSG");
   writeFileSync(msgFile, message);
   if (!opts.yes) {
@@ -1686,12 +1749,7 @@ export async function cmdCommit(_positionals, opts) {
       return;
     }
   }
-  // Inherit stdio so GPG signing and hooks can talk to the user.
-  const r = git(ws, ["commit", "-q", "-F", msgFile], { inherit: true });
-  if (r.status !== 0) {
-    throw new UserError("git commit failed (see above). Your changes are still staged; fix it and run `ginga commit` again.");
-  }
-  console.log(`${mark.ok()} Committed: ${paint.bold(message.split("\n")[0])}`);
+  commitStaged(ws, message);
   if (opts.push) pushWorkspace(ws);
 }
 
@@ -1699,5 +1757,38 @@ export async function cmdPush(_positionals, opts) {
   const { ws } = ctx(opts);
   pushWorkspace(ws);
   console.log(`${mark.ok()} Pushed.`);
+}
+
+/**
+ * Bring the workspace level with its remote: commit what's here, pull the other machines' work
+ * (rebase; progress.jsonl merges line by line, the views are rebuilt), push. A push that loses a
+ * race with another machine pulls and pushes once more.
+ */
+export function syncWorkspace(ws, config, { unattended = false } = {}) {
+  ensureRepo(ws);
+  ensureSyncAttributes(ws);
+  const commit = (fixed) => {
+    const message = stageWorkspace(ws, config);
+    if (message) commitStaged(ws, fixed ?? message, { unattended });
+  };
+  const rebuilt = "chore(workspace): rebuild the dashboard after sync\n"; // after a pull, only the views change
+  commit();
+  let pulled = pullWorkspace(ws, { unattended });
+  if (pulled) commit(rebuilt);
+  try {
+    pushWorkspace(ws, { unattended });
+  } catch (e) {
+    if (!pullWorkspace(ws, { unattended })) throw e;
+    pulled = true;
+    commit(rebuilt);
+    pushWorkspace(ws, { unattended });
+  }
+  return { pulled };
+}
+
+export async function cmdSync(_positionals, opts) {
+  const { ws, config } = ctx(opts);
+  const { pulled } = syncWorkspace(ws, config, { unattended: !isTTY() });
+  console.log(`${mark.ok()} In sync${pulled ? " (pulled the other machines' work)" : ""}.`);
 }
 

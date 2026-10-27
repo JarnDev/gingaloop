@@ -44,6 +44,8 @@ export const DEFAULT_CONFIG = Object.freeze({
   // `struggle` is a struggle, once your pace is calibrated.
   pace: { tolerance: 0.25, struggle: 0.5 },
   schedule: { time: "08:00" },
+  // auto: `daily` syncs the workspace repo before and after it generates (several machines).
+  sync: { auto: false },
   // maxBudgetUsd: spending cap per Claude call (a generation makes 1 + retries calls); null = none.
   claude: { command: "claude", model: null, timeoutMinutes: 20, retries: 1, maxBudgetUsd: null },
   sandbox: {
@@ -153,6 +155,7 @@ export function loadConfig(ws) {
     ...raw,
     leveling: { ...DEFAULT_CONFIG.leveling, ...raw.leveling },
     schedule: { ...DEFAULT_CONFIG.schedule, ...raw.schedule },
+    sync: { ...DEFAULT_CONFIG.sync, ...raw.sync },
     daily: { ...DEFAULT_CONFIG.daily, ...raw.daily },
     claude: { ...DEFAULT_CONFIG.claude, ...raw.claude },
     pace: { ...DEFAULT_CONFIG.pace, ...raw.pace },
@@ -180,6 +183,7 @@ export const CONFIG_KEYS = {
   "claude.timeoutMinutes": "number",
   "claude.retries": "integer",
   "claude.maxBudgetUsd": "number?",
+  "sync.auto": "boolean",
   "sandbox.engine": "docker|podman|none",
   "sandbox.allowUnsandboxed": "boolean",
   "sandbox.memory": "string",
