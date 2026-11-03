@@ -17,7 +17,9 @@ test("still needed: points, at most 3 areas with a count of the rest, clean stre
   const s = { needed: 330, gates: { areasMissing: ["a", "b", "c", "d"], streak: 1, streakNeeded: 3 } };
   assert.equal(stillNeeded(s), "330 pts · areas: a, b, c (+1) · clean streak 1/3");
   assert.equal(stillNeeded({ needed: 0, gates: { areasMissing: [], streak: 3, streakNeeded: 3 } }), "points done");
-  assert.match(stillNeeded({ needed: 0, gates: { promotionPending: true } }), /promotion challenge next/);
+  assert.match(stillNeeded({ needed: 0, gates: { promotionPending: true } }), /🥋 promotion comes with the next challenge/);
+  assert.match(stillNeeded({ needed: 0, gates: { promotionPending: true, promotionOpen: "2026-10-29-cpp-x" } }), /🥋 promotion open: 2026-10-29-cpp-x/);
+  assert.match(stillNeeded({ needed: 0, gates: { promotionPending: true, promotionRetryOn: "2026-11-06" } }), /🥋 promotion: next attempt from 2026-11-06/);
 });
 
 test("pace label marks the overall fallback", () => {
@@ -68,3 +70,16 @@ function mkdirP(dir) {
   mkdirSync(dir, { recursive: true });
   return dir;
 }
+
+test("openPromotion: the newest promotion still open in that language", async () => {
+  const { openPromotion } = await import("../src/progression.mjs");
+  const events = [
+    { type: "generated", id: "p-old", lang: "cpp", promotion: true },
+    { type: "gaveup", id: "p-old", lang: "cpp" },
+    { type: "generated", id: "p-new", lang: "cpp", promotion: true },
+    { type: "generated", id: "n-1", lang: "nodejs" },
+  ];
+  assert.equal(openPromotion(events, "cpp"), "p-new");
+  assert.equal(openPromotion(events, "nodejs"), null);
+  assert.equal(openPromotion([...events, { type: "solved", id: "p-new", lang: "cpp" }], "cpp"), null);
+});

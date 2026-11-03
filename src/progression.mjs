@@ -23,9 +23,18 @@ export function levelGate(ws, config, lang) {
   };
 }
 
-/** Level state for a language with the mastery gates applied. */
+/** Id of the newest promotion challenge in `lang` not yet solved, given up or discarded, else null. */
+export function openPromotion(events, lang) {
+  const closed = new Set(events.filter((e) => e.type === "solved" || e.type === "gaveup" || e.type === "discarded").map((e) => e.id));
+  const open = events.filter((e) => e.type === "generated" && e.lang === lang && e.promotion && !closed.has(e.id));
+  return open.at(-1)?.id ?? null;
+}
+
+/** Level state for a language with the mastery gates applied (and the open promotion, if any). */
 export function langLevel(ws, config, events, lang) {
-  return levelState(events, lang, config.leveling, levelGate(ws, config, lang));
+  const state = levelState(events, lang, config.leveling, levelGate(ws, config, lang));
+  if (state.gates?.promotionPending) state.gates.promotionOpen = openPromotion(events, lang);
+  return state;
 }
 
 /** "areas 3/4 (missing: hashing) · clean streak 1/3" for the next level, or "" when not blocked. */
@@ -33,7 +42,8 @@ export function gateSummary(state) {
   const g = state.gates;
   if (!g) return "";
   if (g.promotionPending) {
-    return g.promotionRetryOn ? `promotion: next attempt from ${g.promotionRetryOn}` : "promotion challenge next";
+    if (g.promotionOpen) return `🥋 promotion open: ${g.promotionOpen}`;
+    return g.promotionRetryOn ? `🥋 promotion: next attempt from ${g.promotionRetryOn}` : "🥋 promotion comes with the next challenge";
   }
   const parts = [];
   if (g.areasMissing.length) parts.push(`missing areas: ${g.areasMissing.join(", ")}`);

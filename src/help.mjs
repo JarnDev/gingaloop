@@ -110,7 +110,8 @@ and what unlocks next. --all lists every area with the level it unlocks at. Defa
   list: `ginga list [--json]
 
 Every challenge in the order it was created: date, language, level, type, where it came from
-(daily, manual, or "🔁 <topic>" for a review, named after the original challenge),
+(daily, manual, "🔁 <topic>" for a review, named after the original challenge, or
+"🥋 promotion to L<n>"),
 status (open, solved, gaveup or discarded) and the id to pass to other commands.`,
 
   rotation: `ginga rotation [list]

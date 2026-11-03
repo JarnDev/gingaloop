@@ -154,7 +154,7 @@ export function writeIndex(ws) {
     .reverse()
     .map(({ manifest: m }) => {
       const s = challengeStatus(events, m.id);
-      return `| ${m.date} | ${m.lang} | L${m.level} | [${m.title}](challenges/${m.id}/README.md) | ${m.type} | ${icon[s.status]} ${s.status} |`;
+      return `| ${m.date} | ${m.lang} | L${m.level} | [${m.title}](challenges/${m.id}/README.md)${m.promotion ? " 🥋" : ""} | ${m.type} | ${icon[s.status]} ${s.status} |`;
     });
   writeFileSync(
     join(ws, "INDEX.md"),

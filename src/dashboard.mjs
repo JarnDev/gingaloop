@@ -114,7 +114,7 @@ export function renderDashboard(ws, config, date = today()) {
     const solve = solvedEvents.find((e) => e.id === m.id);
     const time = paceCell(solve && solvePace(events, solve, config.pace)) ?? (Number.isFinite(solve?.minutes) ? `${solve.minutes} min` : "");
     const hints = s.hints ? String(s.hints) : "";
-    return `| ${m.date} | ${m.lang} | L${m.level} | [${m.title}](challenges/${m.id}/README.md) | ${statusIcon[s.status]} | ${time} | ${hints} |`;
+    return `| ${m.date} | ${m.lang} | L${m.level} | [${m.title}](challenges/${m.id}/README.md)${m.promotion ? " 🥋" : ""} | ${statusIcon[s.status]} | ${time} | ${hints} |`;
   });
 
   return [
@@ -151,7 +151,8 @@ export function renderDashboard(ws, config, date = today()) {
     "## Recent challenges",
     "",
     ...(recent.length
-      ? ["| Date | Lang | Lvl | Challenge | Status | Time vs expected | Hints |", "|---|---|---|---|---|---|---|", ...recent]
+      ? ["| Date | Lang | Lvl | Challenge | Status | Time vs expected | Hints |", "|---|---|---|---|---|---|---|", ...recent,
+        ...(challenges.slice(-10).some(({ manifest: m }) => m.promotion) ? ["", "🥋 promotion to the next level"] : [])]
       : ["No challenges yet: run `ginga new <lang>`."]),
     "",
     `Full list: [INDEX.md](INDEX.md)`,

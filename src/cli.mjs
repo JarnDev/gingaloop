@@ -325,7 +325,7 @@ function printToday(ws, events, date) {
   for (const e of todays) {
     const status = challengeStatus(events, e.id).status;
     const name = findProfile(ws, e.lang)?.name ?? e.lang;
-    console.log(`  ${statusMark(status)} ${paint.bold(e.title ?? e.id)}  ${paint.dim(`${name} · L${e.level}${e.reviewOf ? " · 🔁 review" : ""}`)}  ${statusText(status)}`);
+    console.log(`  ${statusMark(status)} ${paint.bold(e.title ?? e.id)}  ${paint.dim(`${name} · L${e.level}${e.reviewOf ? " · 🔁 review" : ""}`)}${e.promotion ? `  ${paint.magenta(`🥋 promotion to L${e.level + 1}`)}` : ""}  ${statusText(status)}`);
   }
   console.log(paint.dim("ginga daily --force makes another one."));
 }
@@ -875,15 +875,18 @@ export async function cmdList(_positionals, opts) {
     counts[status] = (counts[status] ?? 0) + 1;
     const paused = status === "open" && timerState(events, m.id).state === "paused";
     return [paint.dim(m.date ?? generated.get(m.id)?.date ?? ""), langName(m.lang), paint.cyan(`L${m.level}`), m.type ?? "implement",
-      o.reviewOf ? `🔁 ${generated.get(o.root)?.title ?? o.root}` : o.source ?? "–", statusText(status, paused ? "open ⏸" : status), m.id];
+      o.reviewOf ? `🔁 ${generated.get(o.root)?.title ?? o.root}` : m.promotion ? `🥋 promotion to L${m.level + 1}` : o.source ?? "–", statusText(status, paused ? "open ⏸" : status), m.id];
   });
   // The review topics share what the terminal has left (the id is what you copy, so it's never cut).
   const others = [0, 1, 2, 3, 5, 6].reduce((sum, i) => sum + Math.max(...rows.map((r) => displayWidth(r[i]))) + 2, 0);
   const fromWidth = Math.max(16, termWidth() - others);
-  for (const r of rows) r[4] = r[4].startsWith("🔁") ? paint.cyan(truncate(r[4], fromWidth)) : paint.dim(r[4]);
+  const legend = [rows.some((r) => r[4].startsWith("🔁")) && "🔁 review of that topic", rows.some((r) => r[4].startsWith("🥋")) && "🥋 promotion to the next level"]
+    .filter(Boolean).map((l) => paint.dim(` · ${l}`)).join("");
+  for (const r of rows) {
+    r[4] = r[4].startsWith("🔁") ? paint.cyan(truncate(r[4], fromWidth)) : r[4].startsWith("🥋") ? paint.magenta(r[4]) : paint.dim(r[4]);
+  }
   console.log(table(["Created", "Language", "Lvl", "Type", "From", "Status", "Id"], rows));
   const summary = ["solved", "open", "gaveup", "discarded"].filter((s) => counts[s]).map((s) => statusText(s, `${counts[s]} ${s === "gaveup" ? "given up" : s}`));
-  const legend = rows.some((r) => r[4].includes("🔁")) ? paint.dim(" · 🔁 review of that topic") : "";
   console.log(`\n${paint.dim(`${plural(all.length, "challenge")} ·`)} ${summary.join(paint.dim(" · "))}${legend}`);
 }
 
