@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.8.1 (2026-11-03)
+
+- **A cloned workspace becomes your default.** A workspace cloned onto another machine never ran
+  `init` there, so commands run outside it failed with "No gingaloop workspace found". Now any
+  command run inside a workspace saves it as the default when you have no valid one (an existing
+  default is never replaced), and `ginga init <dir>` on an existing workspace only registers it,
+  changing nothing in it. The error names the clone case, `--workspace DIR` and
+  `GINGALOOP_WORKSPACE`.
+- **Promotions are named and marked.** `ginga rank` no longer says "promotion challenge next" while
+  the promotion is already waiting: it names the open one (`🥋 promotion open: <id>`). Promotions
+  carry the 🥋 in `ginga list`, today's challenges, INDEX.md and the dashboard.
+
 ## 0.8.0 (2026-10-27)
 
 - **Several machines on one workspace.** `ginga sync` commits what's here, pulls the other
