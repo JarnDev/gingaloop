@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -112,6 +112,31 @@ test("domains: yours by default, the catalog with list", () => {
     // Where the name starts: after the marker, the id and its padding.
     const nameAt = new Set(list.split("\n").map((l) => /^ {2}[● ] \S+ +/.exec(l)?.[0].length).filter(Boolean));
     assert.equal(nameAt.size, 1, "names line up in one column, even the longest");
+  } finally {
+    w.done();
+  }
+});
+
+test("promotions carry the 🥋 in list, INDEX.md and the dashboard", () => {
+  const w = workspace({ rotation: ["cpp"] });
+  try {
+    const add = (id, extra) => {
+      mkdirSync(join(w.tmp, "challenges", id));
+      const m = { id, title: id, lang: "cpp", level: 1, type: "implement", date: id.slice(0, 10), ...extra };
+      writeFileSync(join(w.tmp, "challenges", id, "challenge.json"), JSON.stringify(m));
+      return { type: "generated", ts: `${m.date}T08:00:00Z`, date: m.date, source: "daily", ...m };
+    };
+    const events = [add("2026-10-28-cpp-plain", {}), add("2026-10-29-cpp-promo", { promotion: true })];
+    writeFileSync(join(w.tmp, "progress.jsonl"), events.map((e) => JSON.stringify(e)).join("\n") + "\n");
+    const list = w.run("list").stdout;
+    assert.match(list, /🥋 promotion to L2 +open +2026-10-29-cpp-promo/);
+    assert.doesNotMatch(list.split("\n").find((l) => l.includes("cpp-plain")), /🥋/);
+    assert.match(list, /🥋 promotion to the next level/);
+    w.run("rank");
+    assert.match(readFileSync(join(w.tmp, "INDEX.md"), "utf8"), /\[2026-10-29-cpp-promo\]\([^)]+\) 🥋 \|/);
+    const readme = readFileSync(join(w.tmp, "README.md"), "utf8");
+    assert.match(readme, /\[2026-10-29-cpp-promo\]\([^)]+\) 🥋 \|/);
+    assert.doesNotMatch(readme, /\[2026-10-28-cpp-plain\]\([^)]+\) 🥋/);
   } finally {
     w.done();
   }

@@ -83,6 +83,21 @@ export function writeGlobalConfig(value) {
   writeJson(join(globalConfigDir(), "config.json"), value);
 }
 
+/** The global default, if it still points at a workspace. */
+export function defaultWorkspace() {
+  const dir = readGlobalConfig().workspace;
+  return dir && existsSync(join(dir, CONFIG_FILE)) ? dir : null;
+}
+
+/** Make `dir` the default when there is no valid one yet (a cloned workspace never ran init here). */
+function adoptAsDefault(dir) {
+  try {
+    if (!defaultWorkspace()) writeGlobalConfig({ ...readGlobalConfig(), workspace: dir });
+  } catch {
+    // An unreadable or unwritable global config only costs the default; the command itself goes on.
+  }
+}
+
 /** Resolution order: --workspace, $GINGALOOP_WORKSPACE, nearest gingaloop.json upwards, global default. */
 export function findWorkspace(explicit) {
   const candidates = [];
@@ -94,14 +109,20 @@ export function findWorkspace(explicit) {
   }
   let dir = process.cwd();
   for (;;) {
-    if (existsSync(join(dir, CONFIG_FILE))) return dir;
+    if (existsSync(join(dir, CONFIG_FILE))) {
+      adoptAsDefault(dir);
+      return dir;
+    }
     const parent = dirname(dir);
     if (parent === dir) break;
     dir = parent;
   }
-  const fallback = readGlobalConfig().workspace;
-  if (fallback && existsSync(join(fallback, CONFIG_FILE))) return fallback;
-  throw new UserError("No gingaloop workspace found. Run `ginga init <dir>` to create one.");
+  const fallback = defaultWorkspace();
+  if (fallback) return fallback;
+  throw new UserError(
+    "No gingaloop workspace found. Cloned one? Run `ginga init <dir>` on it to make it your default, " +
+      "or pass `--workspace DIR` (or set GINGALOOP_WORKSPACE). New here? `ginga init <dir>` creates one.",
+  );
 }
 
 // Always written, even when equal to the default: what a reader of gingaloop.json looks for first.

@@ -82,7 +82,8 @@ changes, install from GitHub (`npm install -g github:JarnDev/gingaloop`), or clo
 `npm link` in it, so `ginga` follows your checkout.
 
 `init` never overwrites existing files (point it at an existing repo and it only adds what's
-missing), and it only becomes your default workspace if you have none yet or pass `--default`.
+missing), and it only becomes your default workspace if you have none yet or pass `--default`. On a
+folder that is already a workspace (a clone from another machine) it only makes it your default.
 It asks for your **rotation** (any languages, e.g. `python,typescript,c,rust`), the order and the
 daily time. By default the order is **random without repeats**: each cycle draws every language once
 in a shuffled order, then the bag refills. Choose `ordered` to follow your list instead
@@ -173,8 +174,12 @@ it stop: nothing is merged and it names the file to settle by hand.
 
 ```
 git clone <your workspace repo> ~/gingaloop
+ginga init ~/gingaloop              # on the new machine: makes the clone your default, changes nothing in it
 ginga config set sync.auto true     # once: it's in gingaloop.json, so it travels with the repo
 ```
+
+Any command run inside the clone also makes it your default when you have none yet; the `init` just
+saves you from having to remember that.
 
 With `sync.auto`, `daily` syncs before it draws and after it generates. While you're away, the
 scheduled daily at home keeps making challenges and pushing them; on the laptop, `ginga sync` (or
@@ -269,7 +274,9 @@ That's 6 clean solves for L2, 9 more for L3, then 15, 25, 40… L10 is a multi-y
 When the points and both gates are met, your next challenge in that language is a **🥋 promotion**:
 a slightly harder problem at your level that combines 2–3 areas you've already practiced (the least
 recently practiced first). Solve it cleanly to move up. If you give up or need 2+ hints, nothing is
-lost: regular challenges continue, and another promotion comes after 3 days.
+lost: regular challenges continue, and another promotion comes after 3 days. Promotions carry the 🥋
+everywhere they're listed (`ginga list`, the dashboard, INDEX.md), and while one is open `ginga rank`
+names it (`🥋 promotion open: <id>`) instead of making another.
 
 "Clean" is deliberately strict: points measure effort, the gates measure mastery. `ginga rank` shows
 what's still missing (`missing areas: hashing · clean streak 2/3`). Levels you reached before these

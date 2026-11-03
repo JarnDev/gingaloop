@@ -5,7 +5,9 @@ export const COMMAND_HELP = {
 
 Create a workspace (default: ~/gingaloop) and make it your default. Asks for the languages, their
 order, stacks, domains and the daily time; the flags answer those questions, --default takes every
-default. Existing files (README, .gitignore) are kept: missing lines are appended.`,
+default. Existing files (README, .gitignore) are kept: missing lines are appended.
+On a directory that already is a workspace (a clone on another machine, say), init only makes it
+your default (asks first if you have another; --default switches without asking).`,
 
   new: `ginga new <lang> [--level N] [--area ID] [--type T] [--stack basics|ecosystem] [--domain D]
 
@@ -108,7 +110,8 @@ and what unlocks next. --all lists every area with the level it unlocks at. Defa
   list: `ginga list [--json]
 
 Every challenge in the order it was created: date, language, level, type, where it came from
-(daily, manual, or "🔁 <topic>" for a review, named after the original challenge),
+(daily, manual, "🔁 <topic>" for a review, named after the original challenge, or
+"🥋 promotion to L<n>"),
 status (open, solved, gaveup or discarded) and the id to pass to other commands.`,
 
   rotation: `ginga rotation [list]
