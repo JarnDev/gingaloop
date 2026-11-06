@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.2 (2026-11-06)
+
+- **Freeze days stay on the activity grid.** A streak that broke later wiped the 🧊 of every freeze
+  used before it, so those days showed as ⬜ on the dashboard. The grid now draws from the full
+  history of freeze days; `ginga rank` still lists the current streak's, and `rank --json` gains
+  `frozeAll`.
+
 ## 0.8.1 (2026-11-03)
 
 - **A cloned workspace becomes your default.** A workspace cloned onto another machine never ran
