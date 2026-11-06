@@ -79,7 +79,7 @@ const days = (from, count) =>
   Array.from({ length: count }, (_, i) => new Date(Date.parse(from + "T12:00:00Z") + i * 86_400_000).toISOString().slice(0, 10));
 
 test("streak: consecutive solve days; today unfinished doesn't break it", () => {
-  assert.deepEqual(streakState([], "2026-10-01"), { days: 0, freezes: 0, frozeOn: [] });
+  assert.deepEqual(streakState([], "2026-10-01"), { days: 0, freezes: 0, frozeOn: [], frozeAll: [] });
   assert.equal(streakState(days("2026-09-28", 3), "2026-09-30").days, 3);
   assert.equal(streakState(days("2026-09-28", 3), "2026-10-01").days, 3);
   assert.equal(streakState(days("2026-09-28", 3), "2026-10-02").days, 0, "a missed day without a freeze breaks it");
@@ -89,9 +89,17 @@ test("streak: 7 solve days earn a freeze that covers one missed day", () => {
   const week = days("2026-09-01", 7); // 09-01 .. 09-07
   assert.equal(streakState(week, "2026-09-07").freezes, 1);
   const after = streakState([...week, "2026-09-09"], "2026-09-09"); // missed 09-08
-  assert.deepEqual(after, { days: 8, freezes: 0, frozeOn: ["2026-09-08"] });
+  assert.deepEqual(after, { days: 8, freezes: 0, frozeOn: ["2026-09-08"], frozeAll: ["2026-09-08"] });
   const twoMissed = streakState([...week, "2026-09-10"], "2026-09-10"); // missed 08 and 09, one freeze
   assert.equal(twoMissed.days, 1);
+});
+
+test("streak: a break clears the current freezes but keeps them in the history", () => {
+  const week = days("2026-09-01", 7); // earns a freeze, used on 09-08
+  const st = streakState([...week, "2026-09-09", "2026-09-12"], "2026-09-12"); // 09-10 and 09-11 missed
+  assert.equal(st.days, 1);
+  assert.deepEqual(st.frozeOn, []);
+  assert.deepEqual(st.frozeAll, ["2026-09-08"]);
 });
 
 test("streak: at most 2 freezes are held", () => {

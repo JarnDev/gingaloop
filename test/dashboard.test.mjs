@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
-import { END, START, activityGrid, writeDashboard } from "../src/dashboard.mjs";
+import { END, START, activityGrid, renderDashboard, writeDashboard } from "../src/dashboard.mjs";
 import { DEFAULT_CONFIG } from "../src/workspace.mjs";
 
 const tmp = mkdtempSync(join(tmpdir(), "gingaloop-dash-"));
@@ -44,4 +44,16 @@ test("dashboard replaces only the marked block and keeps the user's text", () =>
   assert.ok(text.indexOf(END) < text.indexOf("# My notes"));
   assert.ok(text.includes("| Python | L1 |"));
   assert.match(text, /^# <img src="https:\/\/raw\.githubusercontent\.com\/JarnDev\/gingaloop\/main\/docs\/logo-128\.png"/m, "logo in the header");
+});
+
+test("dashboard keeps the 🧊 of a freeze after the streak breaks later", () => {
+  const ws = join(tmp, "ws-freeze");
+  mkdirSync(join(ws, "challenges"), { recursive: true });
+  const dates = ["01", "02", "03", "04", "05", "06", "07", "09", "12"].map((d) => `2026-09-${d}`); // 08 frozen, 10–11 break it
+  writeFileSync(join(ws, "progress.jsonl"), dates.map((date, i) =>
+    JSON.stringify({ type: "solved", id: `c${i}`, lang: "python", level: 1, date, ts: `${date}T20:00:00Z` })).join("\n") + "\n");
+  const text = renderDashboard(ws, structuredClone({ ...DEFAULT_CONFIG, rotation: ["python"] }), "2026-09-12");
+  const tue = text.split("\n").find((l) => l.startsWith("Tue "));
+  assert.ok(tue.endsWith("🧊"), `09-08 (a Tuesday) still frozen: ${tue}`);
+  assert.match(text, /🔥 \*\*1-day streak\*\*/);
 });

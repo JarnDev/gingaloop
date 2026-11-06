@@ -808,7 +808,7 @@ function rankData(ws, config, events, langs, st) {
   const paid = events.filter((e) => e.type === "generated" && Number.isFinite(e.costUsd));
   const sum = (list) => Math.round(list.reduce((a, e) => a + e.costUsd, 0) * 100) / 100;
   return {
-    streak: { days: st.days, freezes: st.freezes, frozeOn: st.frozeOn },
+    streak: { days: st.days, freezes: st.freezes, frozeOn: st.frozeOn, frozeAll: st.frozeAll },
     languages: langs.map((lang) => {
       const s = langLevel(ws, config, events, lang);
       const solved = events.filter((e) => e.type === "solved" && e.lang === lang);

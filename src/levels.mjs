@@ -137,15 +137,18 @@ export function resolveLevel(requested, state, lang, leveling) {
  * Daily streak with Duolingo-style freezes, derived from the days with at least one solve.
  * Every 7 consecutive solve days earns a freeze (max 2 held). A missed day uses a freeze
  * instead of breaking the streak. Today without a solve yet doesn't break anything.
+ * `frozeOn` is the current streak's freeze days; `frozeAll` every freeze day ever used, which a
+ * later break doesn't erase (the activity grid shows them).
  * @param {string[]} solveDays  YYYY-MM-DD local dates (any order, duplicates ok)
  */
 export function streakState(solveDays, today, { earnEvery = 7, maxFreezes = 2 } = {}) {
   const days = new Set(solveDays);
-  if (days.size === 0) return { days: 0, freezes: 0, frozeOn: [] };
+  if (days.size === 0) return { days: 0, freezes: 0, frozeOn: [], frozeAll: [] };
   const first = [...days].sort()[0];
   let streak = 0;
   let freezes = 0;
   let frozeOn = [];
+  const frozeAll = [];
   const d = new Date(first + "T12:00:00Z");
   for (;;) {
     const day = d.toISOString().slice(0, 10);
@@ -157,6 +160,7 @@ export function streakState(solveDays, today, { earnEvery = 7, maxFreezes = 2 } 
       if (freezes > 0 && streak > 0) {
         freezes--;
         frozeOn.push(day);
+        frozeAll.push(day);
       } else {
         streak = 0;
         frozeOn = [];
@@ -164,5 +168,5 @@ export function streakState(solveDays, today, { earnEvery = 7, maxFreezes = 2 } 
     }
     d.setUTCDate(d.getUTCDate() + 1);
   }
-  return { days: streak, freezes, frozeOn };
+  return { days: streak, freezes, frozeOn, frozeAll };
 }

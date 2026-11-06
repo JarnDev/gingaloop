@@ -137,7 +137,7 @@ export function renderDashboard(ws, config, date = today()) {
     `## Activity (last ${WEEKS} weeks)`,
     "",
     "```",
-    ...activityGrid(events, date, st.frozeOn),
+    ...activityGrid(events, date, st.frozeAll),
     "```",
     "🟩 solved without hints · 🟨 solved with hints · 🟥 gave up · 🧊 streak freeze · ⬜ nothing",
     "",
