@@ -45,6 +45,7 @@ Workspace repo (plain git, no Claude tokens)
   commit [--yes] [--push]    commit the workspace with a message built from your progress
   push                       push the workspace (sets the upstream on the first push)
   sync                       commit, pull your other machines' work, push
+  repo [--print]             open the workspace repo's web page (--print: only print the address)
 
 Authoring
   validate [dir] [--examples]  solution passes, starter fails, every bug caught
@@ -57,7 +58,7 @@ const commands = {
   init: cli.cmdInit, new: cli.cmdNew, daily: cli.cmdDaily, test: cli.cmdTest, hint: cli.cmdHint,
   done: cli.cmdDone, giveup: cli.cmdGiveup, discard: cli.cmdDiscard, rank: cli.cmdRank, list: cli.cmdList,
   validate: cli.cmdValidate, sandbox: cli.cmdSandbox, lang: cli.cmdLang, rotation: cli.cmdRotation, stack: cli.cmdStack, domains: cli.cmdDomains, coverage: cli.cmdCoverage, open: cli.cmdOpen, pause: cli.cmdPause, resume: cli.cmdResume, timer: cli.cmdTimer, schedule: cli.cmdSchedule,
-  doctor: cli.cmdDoctor, review: cli.cmdReview, learn: cli.cmdLearn, commit: cli.cmdCommit, push: cli.cmdPush, sync: cli.cmdSync, config: cli.cmdConfig, completion: cli.cmdCompletion,
+  doctor: cli.cmdDoctor, review: cli.cmdReview, learn: cli.cmdLearn, commit: cli.cmdCommit, push: cli.cmdPush, sync: cli.cmdSync, repo: cli.cmdRepo, config: cli.cmdConfig, completion: cli.cmdCompletion,
 };
 
 const { values, positionals, tokens } = parseArgs({
@@ -95,6 +96,7 @@ const { values, positionals, tokens } = parseArgs({
     "profile-file": { type: "string" },
     jail: { type: "boolean" },
     push: { type: "boolean" },
+    print: { type: "boolean" },
     report: { type: "boolean" },
     default: { type: "boolean" },
     help: { type: "boolean", short: "h" },

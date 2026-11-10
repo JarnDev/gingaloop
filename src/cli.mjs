@@ -24,7 +24,7 @@ import { STACK_MODES, hasEcosystem, pickStack, profileForStack, stackMode } from
 import { GENERAL, allDomains, configuredDomains, ecosystemShare, pickDomain, requireDomain } from "./domains.mjs";
 import { ROTATION_MODES, bagState, dailySettings, drawLangs, extrasRolled, nextOrdered } from "./rotation.mjs";
 import { installSchedule, removeSchedule, scheduleStatus } from "./schedule.mjs";
-import { buildCommitMessage, ensureRepo, ensureSyncAttributes, git, pullWorkspace, pushWorkspace, stagedFiles, stagedNewEvents, SYNC_ATTRIBUTES } from "./gitops.mjs";
+import { buildCommitMessage, ensureRepo, ensureSyncAttributes, git, pullWorkspace, pushWorkspace, stagedFiles, stagedNewEvents, SYNC_ATTRIBUTES, workspaceRemote } from "./gitops.mjs";
 import { VaultKeyError, readBundle } from "./vault.mjs";
 import { PACE_DEFAULTS, PACE_FOOTNOTE, isStruggle, paceFor, paceLabel, paceReport, solvePace } from "./pace.mjs";
 import { dueReview, openReview, reviewCycles, reviewOpts, reviewSummary, rootOf } from "./reviews.mjs";
@@ -1772,6 +1772,27 @@ export async function cmdPush(_positionals, opts) {
   const { ws } = ctx(opts);
   pushWorkspace(ws);
   console.log(`${mark.ok()} Pushed.`);
+}
+
+/** The command that opens a URL in the browser here, or null when there's none (e.g. over ssh). */
+function browserOpener() {
+  if (process.platform === "darwin") return ["open"];
+  if (process.platform === "win32") return ["rundll32", "url.dll,FileProtocolHandler"];
+  if (!process.env.DISPLAY && !process.env.WAYLAND_DISPLAY) return null;
+  return hasBin("xdg-open") ? ["xdg-open"] : null;
+}
+
+export async function cmdRepo(_positionals, opts) {
+  const { ws } = ctx(opts);
+  const { remote, url } = workspaceRemote(ws);
+  if (!url) throw new UserError(`The workspace's origin (${remote}) is not a hosted repo, so it has no web page.`);
+  console.log(url);
+  if (opts.print) return;
+  const opener = browserOpener();
+  if (!opener) return console.error(paint.dim("No browser here; open the address above yourself."));
+  const child = spawn(opener[0], [...opener.slice(1), url], { detached: true, stdio: "ignore" });
+  child.on("error", () => console.error(paint.dim("Couldn't start the browser; open the address above yourself.")));
+  child.unref();
 }
 
 /**

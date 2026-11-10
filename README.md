@@ -532,6 +532,7 @@ summary, never your code. See [CONTRIBUTING](https://github.com/JarnDev/gingaloo
 | `ginga commit [--yes] [--push]` | commit the workspace with a structured message built from your progress (plain git, **no Claude tokens**) |
 | `ginga push` | push the workspace, setting the upstream on the first push (plain git, **no Claude tokens**) |
 | `ginga sync` | commit, pull your other machines' work, push (see [Several machines](#several-machines)) |
+| `ginga repo [--print]` | open the workspace repo's web page in your browser (`--print`: only print the address) |
 | `ginga stack [<lang> basics\|mixed\|ecosystem]` | standard library only, or also the language's pinned libraries |
 | `ginga domains [list\|set\|add\|remove]` | industries your challenges are framed in (`general` by default); `ginga domains` shows yours, `list` all 40 |
 | `ginga lang list` / `ginga lang add <name>` | profiles |
