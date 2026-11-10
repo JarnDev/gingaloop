@@ -188,6 +188,12 @@ and INDEX.md are rebuilt, so the usual case needs nothing from you; when both ma
 same file (a NOTES.md, say), nothing is merged and ginga says which file to settle by hand.
 \`ginga config set sync.auto true\` makes \`daily\` sync before and after it generates.`,
 
+  repo: `ginga repo [--print]
+
+Open the workspace repo's web page (GitHub, GitLab, Forgejo…) in your browser. The address comes
+from the \`origin\` remote, with any username or token removed, and is always printed; --print only
+prints it. Without a browser (over ssh, say) it prints the address for you to open.`,
+
   validate: `ginga validate [dir] [--examples]
 
 Check a challenge (or every built-in example with --examples): the solution passes, the starter fails,

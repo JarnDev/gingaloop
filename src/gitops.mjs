@@ -172,6 +172,46 @@ const hasUpstream = (ws) => git(ws, ["rev-parse", "--abbrev-ref", "--symbolic-fu
 
 const lastLines = (r) => `${r.stderr ?? ""}${r.stdout ?? ""}`.trim().split("\n").slice(-3).join(" / ");
 
+/**
+ * The web page of a git remote: scp-like (git@host:owner/repo.git), ssh://, git:// and http(s)
+ * URLs map to https://host/owner/repo, without credentials (a token in the URL is never shown).
+ * Local paths and file:// have no web page: null.
+ */
+export function remoteWebUrl(remote) {
+  const s = remote.trim();
+  let host;
+  let path;
+  const scp = /^(?:[^@/\s]+@)?([^:/\s]{2,}):(?!\/\/)(.+)$/.exec(s);
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(s)) {
+    let u;
+    try {
+      u = new URL(s);
+    } catch {
+      return null;
+    }
+    if (!["ssh:", "git:", "http:", "https:", "git+ssh:", "ssh+git:"].includes(u.protocol)) return null;
+    // The ssh/git port isn't the web port; an http(s) one is.
+    host = u.protocol.startsWith("http") ? u.host : u.hostname;
+    path = decodeURIComponent(u.pathname);
+  } else if (scp) {
+    [, host, path] = scp;
+  } else {
+    return null;
+  }
+  path = path.replace(/^\/+|\/+$/g, "").replace(/\.git$/, "");
+  if (!host || !path) return null;
+  return `https://${host}/${path}`;
+}
+
+/** The workspace repo's `origin` and its web page (url is null when the remote has none). */
+export function workspaceRemote(ws) {
+  ensureRepo(ws);
+  const r = git(ws, ["remote", "get-url", "origin"]);
+  if (r.status !== 0) throw new UserError("The workspace repo has no `origin` remote. Add one: git remote add origin <url>");
+  const remote = r.stdout.trim();
+  return { remote, url: remoteWebUrl(remote) };
+}
+
 /** `git push`, setting the upstream on the first push. */
 export function pushWorkspace(ws, { unattended = false } = {}) {
   ensureRepo(ws);
