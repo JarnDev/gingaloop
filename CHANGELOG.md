@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.0 (2026-11-10)
+
+- **`ginga repo` opens your workspace repo on the web.** The address comes from the `origin`
+  remote (scp-like, ssh, git and http(s) remotes all map to `https://host/owner/repo`, with any
+  username or token removed) and is always printed; `--print` only prints it, and without a
+  browser (over ssh, say) that's all it does. Works with GitHub, GitLab, Forgejo and Gitea.
+
 ## 0.8.2 (2026-11-06)
 
 - **Freeze days stay on the activity grid.** A streak that broke later wiped the 🧊 of every freeze
