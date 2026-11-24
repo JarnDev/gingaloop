@@ -503,6 +503,12 @@ Save which? [a]ll, [n]one, or numbers like 1,3 [a]
 - **`IMPROVEMENTS.md`** collects problems only a change to gingaloop itself would prevent, such as a
   check the validator should make.
 - Advice about **your** code stays in the review; only the generator's mistakes become lessons.
+- Some problems aren't worth a discard: README wording that made you misread the contract, a test
+  that checks less than its name says. `ginga flag [id] --reason "…"` writes them, dated, to a
+  "Flags" section of NOTES.md, at any point (even before you solve). `review` checks each one
+  against the README, tests and reference and says whether it holds, and `learn` reads your part of
+  NOTES.md (the fields, your flags, "What tripped me up") next to the review. Issues summarize your
+  notes, never quote them.
 
 Your lessons improve **your** challenges right away. To fix it for **everyone**, a rule has to go
 into gingaloop itself: `ginga learn` offers to open a pre-filled GitHub issue for each general rule
@@ -524,6 +530,7 @@ summary, never your code. See [CONTRIBUTING](https://github.com/JarnDev/gingaloo
 | `ginga done [id] [--minutes N]` | verify, record the solve, unlock the solution; suggests the timer's active minutes since your first `ginga open`, minus pauses (over 4 h it only shows them, since unpaused breaks are likely); fills the empty "Time spent", "Hints used" and "Result" lines of NOTES.md |
 | `ginga giveup [id] [--reason R]` | record a give-up, unlock the solution, fill in NOTES.md; asks what stopped you, which goes to NOTES.md and steers the topic's review challenges |
 | `ginga discard [id] [--reason R]` | drop a broken, duplicate or unwanted challenge: no penalty, no review, no reveal; its area, type and daily slot come back (the folder stays, marked ⬛) |
+| `ginga flag [id] [--reason R]` | note a problem with the challenge that isn't worth a discard (misleading wording, a weak test, a wrong hint): it goes to the Flags section of NOTES.md, which `review` checks and `learn` weighs |
 | `ginga review [id]` | Claude reviews your solution against the reference (after unlock), running the tests and its own edge-case probes in the sandbox |
 | `ginga learn [id] [--report]` | turn the review's findings about the challenge itself (wrong reference, untested promise…) into rules every future generation follows; `--report` opens a pre-filled issue to fix it for everyone |
 | `ginga rank` / `ginga list` | levels (with basics/ecosystem split), streak, weak topics, Claude cost / all challenges, in creation order, with where each came from (daily, manual or a review of which topic); `--json` for scripts |

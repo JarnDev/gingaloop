@@ -95,3 +95,37 @@ function resultLine(outcome, startedAt) {
   if (outcome.review) parts.push("comes back as a review");
   return parts.join(" · ");
 }
+
+const REVIEW_HEADING = /^## Review \(\d{4}-\d{2}-\d{2}\)[ \t]*$/m;
+const FLAGS_HEADING = "## Flags";
+
+/**
+ * Add a `- date: text` bullet to the "## Flags" section of a NOTES.md (`ginga flag`): problems you
+ * found with the challenge itself. The section sits above the reviews, never after them: a review
+ * runs to the end of the file and has its own "## " headings.
+ */
+export function addFlag(text, flag, date) {
+  const bullet = `- ${date}: ${String(flag).replace(/\s+/g, " ").trim()}`;
+  const review = text.search(REVIEW_HEADING);
+  const head = review === -1 ? text : text.slice(0, review);
+  const rest = review === -1 ? "" : text.slice(review);
+  const lines = head.replace(/\n*$/, "").split("\n");
+  const at = lines.findIndex((l) => l.trim() === FLAGS_HEADING);
+  if (at === -1) {
+    lines.push("", FLAGS_HEADING, "", bullet);
+  } else {
+    // After the section's last line with text, before the next heading.
+    let end = at + 1;
+    while (end < lines.length && !lines[end].startsWith("## ")) end++;
+    let last = end - 1;
+    while (last > at && !lines[last].trim()) last--;
+    lines.splice(last + 1, 0, ...(last === at ? ["", bullet] : [bullet]));
+  }
+  return `${lines.join("\n")}\n${rest ? `\n${rest}` : ""}`;
+}
+
+/** What you wrote in a NOTES.md: everything above the first review (fields, flags, your own notes). */
+export function userNotes(text) {
+  const review = text.search(REVIEW_HEADING);
+  return (review === -1 ? text : text.slice(0, review)).trim();
+}
