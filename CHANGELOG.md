@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.10.0 (2026-11-24)
+
+- **`ginga flag` notes a problem with a challenge that isn't worth a discard:** README wording that
+  misleads, a test weaker than its name, a hint that points the wrong way. It goes, dated, to a
+  "Flags" section of NOTES.md (above the reviews), at any status; nothing else changes.
+- **`ginga review` reads your notes.** Flags and "What tripped me up" about the challenge get a
+  verdict, checked against the README, tests and reference, in an "About the challenge" section;
+  it also reports README wording that is ambiguous or contradicts the tests.
+- **`ginga learn` weighs your notes next to the review** (it still needs a review): your part of
+  NOTES.md goes into its prompt, and misleading wording you ran into counts as a README problem.
+  Issues it pre-fills summarize your notes, never quote them.
+
 ## 0.9.0 (2026-11-10)
 
 - **`ginga repo` opens your workspace repo on the web.** The address comes from the `origin`
