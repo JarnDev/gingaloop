@@ -33,6 +33,7 @@ Practice
   done [id] [--minutes N]    verify tests pass, record the solve, unlock the solution
   giveup [id] [--reason R]   record a give-up (and what stopped you), unlock the solution
   discard [id] [--reason R]  drop a broken or unwanted challenge: no penalty, no reveal, not counted
+  flag [id] [--reason R]     note a problem with the challenge (wording, a test, a hint) for review and learn
   review [id]                ask Claude to review your solution (after unlock)
   learn [id] [--report]      turn a review's findings about the challenge into rules for future ones
 
@@ -56,7 +57,7 @@ Only daily, new, lang add, review and learn use Claude (tokens); everything else
 
 const commands = {
   init: cli.cmdInit, new: cli.cmdNew, daily: cli.cmdDaily, test: cli.cmdTest, hint: cli.cmdHint,
-  done: cli.cmdDone, giveup: cli.cmdGiveup, discard: cli.cmdDiscard, rank: cli.cmdRank, list: cli.cmdList,
+  done: cli.cmdDone, giveup: cli.cmdGiveup, discard: cli.cmdDiscard, flag: cli.cmdFlag, rank: cli.cmdRank, list: cli.cmdList,
   validate: cli.cmdValidate, sandbox: cli.cmdSandbox, lang: cli.cmdLang, rotation: cli.cmdRotation, stack: cli.cmdStack, domains: cli.cmdDomains, coverage: cli.cmdCoverage, open: cli.cmdOpen, pause: cli.cmdPause, resume: cli.cmdResume, timer: cli.cmdTimer, schedule: cli.cmdSchedule,
   doctor: cli.cmdDoctor, review: cli.cmdReview, learn: cli.cmdLearn, commit: cli.cmdCommit, push: cli.cmdPush, sync: cli.cmdSync, repo: cli.cmdRepo, config: cli.cmdConfig, completion: cli.cmdCompletion,
 };

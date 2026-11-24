@@ -78,17 +78,28 @@ Drop an open challenge that shouldn't count: broken, a near-duplicate, or not wa
 review, no reveal. Generation forgets it, so its area, type and daily slot come back
 (\`ginga daily\` makes a replacement). The folder stays, marked ⬛ discarded.`,
 
+  flag: `ginga flag [id] [--reason R]
+
+Note a problem with the challenge itself that isn't worth a discard: README wording that misleads,
+a test that checks less than it says, a hint that points the wrong way. Asks what's wrong (--reason
+answers it). It goes to a "## Flags" section of NOTES.md, dated; nothing else changes (no penalty,
+any status). \`ginga review\` checks each flag against the README, tests and reference, and
+\`ginga learn\` weighs them with the review when it writes rules for future challenges.`,
+
   review: `ginga review [id]
 
 Ask Claude (uses tokens) to review your solution against the reference, after it's unlocked. It runs
-the tests and its own edge-case probes in the sandbox and appends the review to NOTES.md.`,
+the tests and its own edge-case probes in the sandbox and appends the review to NOTES.md. It reads
+your notes too: what you flagged (\`ginga flag\`) or wrote in "What tripped me up" about the challenge
+gets a verdict in an "About the challenge" section.`,
 
   learn: `ginga learn [id] [--report] [--yes]
 
 Turn the latest review of a challenge (\`ginga review\`) into rules for the generator, so future
 challenges don't repeat its mistakes: a wrong reference, a promise no test checks, an ambiguous
-README. Advice about your own code is left out. Claude (uses tokens) proposes the rules, you pick
-which to save:
+README. Besides the review it reads your part of NOTES.md (the fields, your flags, your own notes):
+misleading wording you ran into counts. Advice about your own code is left out. Claude (uses
+tokens) proposes the rules, you pick which to save:
   LESSONS.md       rules added to every future generation prompt (all languages, or one)
   IMPROVEMENTS.md  problems only a change to gingaloop itself would prevent
 Both live in your workspace, so \`ginga commit\` versions them. Rules that could help every user can
