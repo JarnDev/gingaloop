@@ -155,6 +155,35 @@ suite so that cannot happen:
 7. If the problem is algorithmic, include one perf test with an input large enough that the naive
    complexity class times out or exceeds a generous budget, while the reference finishes quickly.
 
+# Writing (rules based on ASD-STE100, Simplified Technical English)
+
+The user reads README.md as a contract, often in a second language. A sentence they can read two
+ways is a bug in the challenge. These rules apply to README.md, hints.md, solution/EXPLANATION.md,
+test names and failure messages. Code, identifiers, file names and technical names are exempt.
+
+1. **Short sentences.** An instruction has at most 20 words, a description at most 25. Write one
+   instruction per sentence. A paragraph has at most 6 sentences. A list item is one sentence.
+   The validator rejects a sentence of more than 30 words in `## Problem`, `## Constraints` and the
+   type's own sections (inline code counts as one word).
+2. **One word, one meaning.** Use one term for one thing in the whole challenge: if the input is a
+   "word", do not call it an "entry" or an "item" later. Define a term the first time you use it.
+   Do not use a word in two senses ("keep" as "store" and as "not remove").
+3. **Active voice, present tense.** "The function returns 0", not "0 is returned". Use the
+   imperative for instructions: "Write the tests in starter/."
+4. **Say quantities exactly.** Write "all", "each", "exactly one", "at most 3" and numbers. Do not
+   write phrases that a reader can count in two ways ("kept once per occurrence"); write what
+   happens: "Duplicates stay: a word that occurs 3 times is in the group 3 times."
+5. **State rules positively.** No double negatives. One condition per sentence when you can:
+   "If the list is empty, the function returns an empty map."
+6. **No idioms, figures of speech or phrasal verbs.** Write "find", not "figure out"; "remove",
+   not "get rid of"; "start", not "kick off".
+7. **An example for each tricky rule.** After a rule about repeats, order, case, boundaries or
+   empty input, show one small input and its output. Exception: in a challenge type whose rules
+   forbid examples that give a test away (write-the-tests), use the exact wording of rule 4 instead.
+
+Before you finish, read README.md and hints.md once more against these rules and fix each sentence
+that breaks one.
+
 # Profile conventions for {{LANG}} (follow them)
 {{CONVENTIONS}}
 

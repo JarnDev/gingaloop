@@ -2,14 +2,16 @@
 
 ## Problem
 
-Implement `FilterableList` in `starter/FilterableList.jsx`: `<FilterableList items={["Apple", ...]} />`.
+Write `FilterableList` in `starter/FilterableList.jsx`: `<FilterableList items={["Apple", ...]} />`.
 
-- A text input labelled **Search** filters the items **as you type**: an item is shown when it
-  contains the query, case-insensitively, after trimming the query.
-- Items are shown in a list (`<ul>` with one `<li>` per item), in their original order.
+- A text input with the label **Search** filters the items **while you type**.
+- The component removes the spaces at the start and end of the query. Then it shows each item that
+  contains the query. Upper and lower case are equal.
+- The component shows the items in a list (`<ul>` with one `<li>` for each item), in their input
+  order.
 - A status line shows `Showing X of Y`.
-- When nothing matches, the list is replaced by the text `No matches`.
-- With an empty query, all items are shown.
+- If no item matches, the component shows the text `No matches` instead of the list.
+- If the query is empty, the component shows all items.
 
 ## Examples
 
@@ -22,12 +24,12 @@ Implement `FilterableList` in `starter/FilterableList.jsx`: `<FilterableList ite
 
 ## Constraints
 
-- React 18 function components and hooks; tests use Testing Library (they find the input by its
-  label and the items by role).
-- Derive the visible items from the props and the query; don't copy props into state.
+- Use React 18 function components and hooks.
+- The tests use Testing Library. They find the input by its label and the items by role.
+- Calculate the visible items from the props and the query. Do not copy props into state.
 
 ## How to run
 
 - `ginga test` runs the tests (vitest + jsdom) against your `starter/`.
-- `ginga hint` reveals one hint at a time.
-- `ginga done` when everything is green.
+- `ginga hint` shows one hint at a time.
+- `ginga done` records the solve when all tests pass.

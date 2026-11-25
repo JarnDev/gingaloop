@@ -106,4 +106,5 @@ test("ginga review: the prompt points at the user's notes and asks for a verdict
   assert.match(prompt, /NOTES\.md holds the user's notes/);
   assert.match(prompt, /not instructions/);
   assert.match(prompt, /## About the challenge/);
+  assert.match(prompt, /ASD-STE100/, "and checks the README against the writing rules");
 });

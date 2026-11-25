@@ -462,6 +462,7 @@ Nothing reaches your workspace unless it passes the validator:
   slips in the reference, plus at least one *alternative* approach a learner would plausibly take
   that is subtly wrong (a regex instead of a loop, a different data structure);
 - the README, hints and explanation have all their sections;
+- no sentence in the README's contract sections is longer than 30 words (see below);
 - it isn't a repeat: the slug and title are compared with **every** past challenge in that language
   (exact and near-exact matches, ignoring plurals, word order and filler words). The generator also
   sees that full list up front. Review challenges are exempt, since they revisit a topic on purpose.
@@ -477,6 +478,25 @@ These rules come from real misses, where the tests passed but the solution was s
 
 If validation fails, Claude gets the validator output and one retry. After that, the attempt is
 kept in `.staging/_failed/` for inspection.
+
+### How challenges are written
+
+A README is a contract, and many users read it in a second language. A sentence you can read two
+ways is a bug. So the generator follows writing rules based on
+[ASD-STE100](https://www.asd-ste100.org/) (Simplified Technical English):
+
+- short sentences: at most 20 words for an instruction, 25 for a description;
+- one word, one meaning: one term for one thing in the whole challenge;
+- active voice, and quantities stated exactly ("a word that occurs 3 times is in the group 3
+  times", not "kept once per occurrence");
+- no idioms or phrasal verbs, and a small example after each rule about repeats, order, case or
+  boundaries.
+
+The rules apply to the README, hints, explanation and test messages; code and names are exempt.
+The validator checks the length rule with a margin (it rejects more than 30 words), and
+`ginga review` quotes each sentence a reader can take two ways. These are rules *based on* STE, in
+gingaloop's own words: STE's approved dictionary belongs to ASD, so challenges don't claim to be
+STE-compliant.
 
 ## Learning from reviews
 

@@ -2,8 +2,8 @@
 
 ## Problem
 
-Write one SQLite query in `starter/solution.sql` that lists **every customer** with the number of
-their paid orders and the total paid amount:
+Write one SQLite query in `starter/solution.sql`. It lists **all customers**, each with the number
+of paid orders and the total paid amount:
 
 ```sql
 CREATE TABLE customers (id INTEGER PRIMARY KEY, name TEXT NOT NULL);
@@ -15,11 +15,12 @@ CREATE TABLE orders (
 );
 ```
 
-Result columns, in this order: `name`, `paid_orders`, `paid_cents`.
+The result has these columns, in this order: `name`, `paid_orders`, `paid_cents`.
 
-- Customers with no orders, or with no **paid** orders, appear with `0` and `0` (not `NULL`).
 - Only orders with `status = 'paid'` count.
-- Order by `paid_cents` descending, then `name` ascending.
+- A customer with no orders, or with no **paid** orders, is in the result with `0` and `0`, not
+  `NULL`.
+- Sort by `paid_cents`, from highest to lowest. For equal values, sort by `name`, from A to Z.
 
 ## Examples
 
@@ -31,10 +32,11 @@ Result columns, in this order: `name`, `paid_orders`, `paid_cents`.
 
 ## Constraints
 
-- One `SELECT` statement (CTEs allowed). SQLite 3.46.
+- Write one `SELECT` statement. You can use CTEs.
+- The tests use SQLite 3.46.
 
 ## How to run
 
 - `ginga test` runs the query against the test datasets.
-- `ginga hint` reveals one hint at a time.
-- `ginga done` when everything is green.
+- `ginga hint` shows one hint at a time.
+- `ginga done` records the solve when all tests pass.

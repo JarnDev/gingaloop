@@ -2,14 +2,14 @@
 
 ## Problem
 
-`starter/solution.py` has a **correct** `count_pairs(nums: list[int], target: int) -> int`: the
-number of index pairs `i < j` with `nums[i] + nums[j] == target`. It's used by a fraud-detection job
-on large batches, and it's far too slow. Make it fast enough **without changing what it returns**.
+`starter/solution.py` has a **correct** `count_pairs(nums: list[int], target: int) -> int`. It
+returns the number of index pairs `i < j` with `nums[i] + nums[j] == target`. A fraud-detection job
+uses it on large batches, and it is much too slow. Make it fast enough **and keep the same results**.
 
 ## Budget
 
-The tests time `count_pairs` on 200 000 numbers, and it must finish within **2 seconds**. The current
-code compares every pair: about 2 × 10^10 operations.
+The tests measure `count_pairs` on 200 000 numbers. It must finish in **2 seconds** or less. The
+current code compares each pair: approximately 2 × 10^10 operations.
 
 ## Examples
 
@@ -22,11 +22,13 @@ count_pairs([], 0)                 # 0
 
 ## Constraints
 
-- Standard library only. Values can be negative and repeated.
-- The correctness tests also run on their own (`GINGA_PERF=0`): the behavior must stay identical.
+- Use only the standard library.
+- Values can be negative. A value can occur more than one time.
+- The correctness tests also run without the budget test (`GINGA_PERF=0`). The results must stay
+  the same.
 
 ## How to run
 
 - `ginga test` runs the correctness tests and the budget test against your `starter/`.
-- `ginga hint` reveals one hint at a time.
-- `ginga done` when everything is green.
+- `ginga hint` shows one hint at a time.
+- `ginga done` records the solve when all tests pass.

@@ -1,10 +1,10 @@
 ## Hint 1
-There's only one piece of state here. Everything else (the visible items, the counts, the empty
-state) can be computed from it and the props on every render.
+The component needs only one state value. On each render, you can calculate all other values from
+it and the props: the visible items, the counts and the empty state.
 
 ## Hint 2
-A controlled input: `const [query, setQuery] = useState("")`, `value={query}`,
-`onChange={(e) => setQuery(e.target.value)}`, and a `<label>` tied to it. Compare lowercased strings.
+Use a controlled input: `const [query, setQuery] = useState("")`, `value={query}`,
+`onChange={(e) => setQuery(e.target.value)}`, and a `<label>` for it. Compare lowercase strings.
 
 ## Hint 3
 `const q = query.trim().toLowerCase(); const visible = items.filter((it) => it.toLowerCase().includes(q));`

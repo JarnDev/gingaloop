@@ -1,10 +1,10 @@
 ## Hint 1
-Counting `\n` bytes gives the right answer for most files. Which file shape breaks that rule?
+For most files, the number of `\n` bytes is the correct answer. For which type of file is it wrong?
 
 ## Hint 2
 `fs.createReadStream(path)` is async-iterable: `for await (const chunk of stream)` gives you
-Buffers. Count newline bytes per chunk and remember the LAST byte you saw.
+Buffers. Count the newline bytes in each chunk. Also keep the LAST byte that you read.
 
 ## Hint 3
-`count += number of 0x0a bytes in chunk` (loop with `chunk.indexOf(10, from)`); after the loop,
+`count += number of 0x0a bytes in chunk` (loop with `chunk.indexOf(10, from)`). After the loop:
 `if (sawAnyByte && lastByte !== 10) count++`.

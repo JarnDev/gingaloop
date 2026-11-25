@@ -2,9 +2,14 @@
 
 ## Problem
 
-Implement `std::string reverse_words(std::string_view s)` in `starter/solution.cpp`. It returns the
-words of `s` in reverse order, separated by exactly one space, with no leading or trailing spaces.
-Words are maximal runs of characters other than `' '`. The letters inside each word keep their order.
+Write `std::string reverse_words(std::string_view s)` in `starter/solution.cpp`. It returns the
+words of `s` in reverse order.
+
+- A word is a sequence of characters that are not `' '`, with a space or the string's start or end
+  on each side.
+- In the result, exactly one space separates two words. The result has no space at the start or
+  at the end.
+- The letters in each word stay in the same order.
 
 ## Examples
 
@@ -17,11 +22,12 @@ reverse_words("   ")               // ""
 
 ## Constraints
 
-- O(n) time.
-- C++20, standard library only, compiled with `-Wall -Wextra -Wpedantic -Werror` and sanitizers.
+- The time is O(n).
+- Use C++20 and only the standard library. The tests compile with
+  `-Wall -Wextra -Wpedantic -Werror` and sanitizers.
 
 ## How to run
 
 - `ginga test` builds and runs the tests against your `starter/`.
-- `ginga hint` reveals one hint at a time.
-- `ginga done` when everything is green.
+- `ginga hint` shows one hint at a time.
+- `ginga done` records the solve when all tests pass.

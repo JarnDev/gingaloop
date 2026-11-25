@@ -2,7 +2,7 @@
 
 ## Problem
 
-A support dashboard shows the most frequent words in customer messages. Implement
+A support dashboard shows the most frequent words in customer messages. Write
 `topWords(text, limit)` in `starter/solution.ts`:
 
 ```ts
@@ -10,10 +10,11 @@ export type WordCount = readonly [word: string, count: number];
 export function topWords(text: string, limit: number): WordCount[];
 ```
 
-- A word is a maximal run of letters `a`–`z` (ASCII) or apostrophes, compared case-insensitively
-  and returned in lowercase. Everything else (digits, punctuation, spaces) separates words.
-- Sort by count descending; ties are broken alphabetically (ascending).
-- Return at most `limit` entries; `limit` of 0 returns `[]`.
+- A word is a sequence of ASCII letters `a`–`z` and apostrophes. All other characters separate
+  words: digits, punctuation and spaces.
+- Upper and lower case are equal. The function returns each word in lowercase.
+- Sort by count, from highest to lowest. For equal counts, sort by word, from A to Z.
+- Return at most `limit` words. If `limit` is 0, return `[]`.
 
 ## Examples
 
@@ -26,11 +27,12 @@ topWords("", 5)                            // []
 
 ## Constraints
 
-- Up to 10^6 characters of text; aim for O(n + k log k) where k is the number of distinct words.
+- The text has at most 10^6 characters. Aim for O(n + k log k), where k is the number of different
+  words.
 - The code must pass `tsc --strict`.
 
 ## How to run
 
 - `ginga test` type-checks and runs the tests against your `starter/`.
-- `ginga hint` reveals one hint at a time.
-- `ginga done` when everything is green.
+- `ginga hint` shows one hint at a time.
+- `ginga done` records the solve when all tests pass.

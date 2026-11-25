@@ -2,19 +2,20 @@
 
 ## Problem
 
-The signup endpoint receives untrusted JSON. Implement `validateSignup(input)` in
-`starter/solution.mjs` with [zod](https://zod.dev) (available in this challenge). It returns
-`{ ok: true, data }` or `{ ok: false, fields }`:
+The signup endpoint receives JSON that it cannot trust. Write `validateSignup(input)` in
+`starter/solution.mjs` with [zod](https://zod.dev). This challenge has zod installed. The function
+returns `{ ok: true, data }` or `{ ok: false, fields }`.
 
-- `email`: a string; surrounding spaces are trimmed and it's lowercased **before** it's checked as an
-  email address.
-- `password`: a string of at least 8 characters containing at least one digit.
-- `age`: optional; when present, a **whole** number from 13 up.
-- `newsletter`: optional boolean, `false` when missing.
-- **Any other field is an error.**
+- `email`: a string. The function removes the spaces at its start and end and makes it lowercase.
+  It does this **before** it checks the email address.
+- `password`: a string of at least 8 characters, with at least one digit.
+- `age`: optional. If it is present, it is a **whole** number, 13 or more.
+- `newsletter`: an optional boolean. If it is missing, its value is `false`.
+- **Each other field is an error.**
 
-`data` is the normalized object. `fields` is the sorted, de-duplicated list of the top-level field
-names that are invalid or unknown; when the input isn't an object at all, it's `["(input)"]`.
+`data` is the normalized object. `fields` lists the names of the top-level fields that are invalid
+or unknown. The list is sorted, and each name occurs one time. If the input is not an object,
+`fields` is `["(input)"]`.
 
 ## Examples
 
@@ -29,11 +30,11 @@ validateSignup("nope")
 
 ## Constraints
 
-- Use zod for the validation; no hand-written type checks.
-- Libraries available: zod 3.23, vitest 2.1 (tests).
+- Use zod for the validation. Do not write type checks yourself.
+- The available libraries are zod 3.23 and vitest 2.1 (for the tests).
 
 ## How to run
 
 - `ginga test` runs the tests (vitest) against your `starter/`.
-- `ginga hint` reveals one hint at a time.
-- `ginga done` when everything is green.
+- `ginga hint` shows one hint at a time.
+- `ginga done` records the solve when all tests pass.

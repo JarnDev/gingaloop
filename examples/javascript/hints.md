@@ -1,10 +1,10 @@
 ## Hint 1
-How many chunks are there for `n` items? What happens to the leftover items when `n` is not a
-multiple of `size`?
+How many chunks do `n` items make? When `n` is not a multiple of `size`, where do the remaining
+items go?
 
 ## Hint 2
-Step through the array `size` items at a time and copy each window into a new array. Check the
-`size` argument before doing anything else.
+Go through the array in steps of `size` items. Copy each step's items into a new array. Check the
+`size` argument first, before all other work.
 
 ## Hint 3
 `for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));`

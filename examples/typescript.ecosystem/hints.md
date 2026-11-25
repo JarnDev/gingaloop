@@ -1,11 +1,11 @@
 ## Hint 1
-Two things can go wrong per line: the text isn't JSON at all, or the JSON isn't a valid event. Only
-one of them makes `JSON.parse` throw.
+Each line can fail in two ways: the text is not JSON, or the JSON is not a valid event. Only one of
+the two makes `JSON.parse` throw.
 
 ## Hint 2
-Model each variant as a `z.object`, then combine them with `z.discriminatedUnion("type", [...])`.
-`safeParse` tells you valid vs invalid without throwing.
+Write each form as a `z.object`. Then combine them with `z.discriminatedUnion("type", [...])`.
+`safeParse` tells you if a value is valid, and it does not throw.
 
 ## Hint 3
-`export type Event = z.infer<typeof EventSchema>`. Loop with the index: try/catch around
-`JSON.parse`, then `EventSchema.safeParse(value)`; push `result.data` or the index.
+`export type Event = z.infer<typeof EventSchema>`. Loop with the index. Put a try/catch around
+`JSON.parse`, then call `EventSchema.safeParse(value)`. Push `result.data` or the index.
