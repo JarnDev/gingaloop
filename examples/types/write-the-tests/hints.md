@@ -1,12 +1,12 @@
 ## Hint 1
-A hidden bug only gets caught if some test feeds the code an input where the buggy behavior differs
-from the contract. Go through the contract line by line: each line is at least one test.
+A test catches a hidden bug only if its input makes the buggy result different from the contract.
+Read the contract one line at a time. Each line needs at least one test.
 
 ## Hint 2
-Cover each class separately: each unit alone (so a wrong weight shows up), combinations, and each
-invalid kind (empty, unknown unit, out of order, repeated, spaces, missing number). Check the error
-message, not only the exception type.
+Test each input class on its own. Test each unit alone, so that a wrong weight shows. Then test
+combinations. Then test each kind of invalid text: empty, unknown unit, out of order, repeated,
+with a space, with a missing number. Check the error message, not only the exception type.
 
 ## Hint 3
-Tests like `parse_duration("30m1h")`, `parse_duration("1h2h")` and `parse_duration("")` must raise;
-`parse_duration("1m") == 60` and `parse_duration("1s") == 1` pin down the weights.
+`parse_duration("30m1h")`, `parse_duration("1h2h")` and `parse_duration("")` must raise.
+`parse_duration("1m") == 60` and `parse_duration("1s") == 1` check the weights.

@@ -181,6 +181,32 @@ function hasHeadings(text, headings) {
   return headings.filter((h) => !new RegExp(`^##\\s+${h}`, "im").test(text));
 }
 
+/** Longest sentence the validator accepts in README.md's contract sections (the prompt asks for 20–25 words). */
+export const MAX_SENTENCE_WORDS = 30;
+
+/**
+ * Sentences longer than `max` words in the given "## " sections of a README. Code blocks are
+ * skipped, inline code counts as one word, and each list item, table row or paragraph is split on
+ * ". ", "! " and "? " (so an abbreviation only makes a sentence shorter).
+ */
+export function longSentences(readmeText, sections, max = MAX_SENTENCE_WORDS) {
+  const out = [];
+  const parts = readmeText.replace(/^```[\s\S]*?^```[ \t]*$/gm, "").split(/^(?=## )/m);
+  for (const part of parts) {
+    const name = /^## +(.+?)\s*$/m.exec(part)?.[1];
+    if (!name || !sections.some((s) => name.toLowerCase().startsWith(s.toLowerCase()))) continue;
+    const blocks = part.split("\n").slice(1).join("\n").split(/\n\s*\n|\n(?=\s*(?:[-*+]|\d+[.)])\s)|\n(?=\|)/);
+    for (const block of blocks) {
+      const text = block.replace(/`[^`\n]*`/g, "CODE").replace(/^\s*(?:[-*+]|\d+[.)])\s+/, "").replace(/\s+/g, " ").trim();
+      for (const sentence of text.split(/(?<=[.!?])\s+/)) {
+        const words = sentence.split(" ").filter((w) => /[\p{L}\p{N}]/u.test(w)).length;
+        if (words > max) out.push({ section: name, words, sentence });
+      }
+    }
+  }
+  return out;
+}
+
 /** Type-specific static requirements (extra dirs and challenge.json fields). */
 function typeProblems(dir, m) {
   const out = [];
@@ -383,8 +409,13 @@ export function staticProblems(dir) {
   if (!existsSync(readme)) problems.push("README.md is missing");
   else {
     const required = ["Problem", "Examples?", "Constraints", ...typeInfo(m.type).readme];
-    for (const h of hasHeadings(readFileSync(readme, "utf8"), required)) {
+    const readmeText = readFileSync(readme, "utf8");
+    for (const h of hasHeadings(readmeText, required)) {
       problems.push(`README.md: missing "## ${h.replace("?", "")}" section`);
+    }
+    for (const l of longSentences(readmeText, ["Problem", "Constraints", ...typeInfo(m.type).readme])) {
+      const start = l.sentence.length > 70 ? `${l.sentence.slice(0, 69)}…` : l.sentence;
+      problems.push(`README.md, "## ${l.section}": a sentence of ${l.words} words (at most ${MAX_SENTENCE_WORDS}; aim for 20–25): split it ("${start}")`);
     }
   }
   problems.push(...typeProblems(dir, m));

@@ -2,9 +2,11 @@
 
 ## Problem
 
-Implement `buildApp()` in `starter/solution.mjs`. It returns a **new** [fastify](https://fastify.dev)
-instance (not listening) with these routes, each instance keeping its own in-memory store, with ids
-starting at 1:
+Write `buildApp()` in `starter/solution.mjs`. It returns a **new** [fastify](https://fastify.dev)
+instance that does not listen. The instance has the routes below.
+
+- Each instance has its own store in memory.
+- In each instance, the ids start at 1.
 
 | Route | Body | Success | Errors |
 |---|---|---|---|
@@ -12,8 +14,11 @@ starting at 1:
 | `GET /todos/:id` | | `200` the todo | `404` `{ "error": "not found" }` |
 | `PATCH /todos/:id` | `{ "done": boolean }` | `200` the updated todo | `400` invalid body · `404` unknown id |
 
-A valid title is a string that is non-empty **after trimming**, at most 100 characters (after
-trimming); it's stored trimmed. Any id that doesn't match a todo (including `abc`) is a `404`.
+- The API removes the spaces at the start and end of a title (it **trims** it). It checks and
+  stores the trimmed title.
+- A valid title is a string. After trimming, it has 1 to 100 characters.
+- Each id that does not match a todo gives a `404`. This includes ids that are not numbers, such
+  as `abc`.
 
 ## Examples
 
@@ -31,11 +36,11 @@ await app.inject({ method: "POST", url: "/todos", payload: { title: "   " } });
 
 ## Constraints
 
-- Don't call `listen`: tests use `app.inject()` (the sandbox has no network).
-- Libraries available: fastify 5.2, zod 3.23, vitest 2.1 (tests).
+- Do not call `listen`. The tests use `app.inject()`, because the sandbox has no network.
+- The available libraries are fastify 5.2, zod 3.23 and vitest 2.1 (for the tests).
 
 ## How to run
 
 - `ginga test` runs the tests (vitest) against your `starter/`.
-- `ginga hint` reveals one hint at a time.
-- `ginga done` when everything is green.
+- `ginga hint` shows one hint at a time.
+- `ginga done` records the solve when all tests pass.

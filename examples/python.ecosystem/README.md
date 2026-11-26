@@ -2,20 +2,25 @@
 
 ## Problem
 
-The finance team exports orders as a pandas DataFrame with the columns `customer` (str), `amount`
-(float, possibly missing) and `status` (`"paid"` or `"refunded"`). Implement
-`top_spenders(orders: pd.DataFrame, n: int) -> list[tuple[str, float]]` in `starter/solution.py`:
+The finance team exports orders as a pandas DataFrame. It has three columns: `customer` (str),
+`amount` (float, can be missing) and `status` (`"paid"` or `"refunded"`). Write
+`top_spenders(orders: pd.DataFrame, n: int) -> list[tuple[str, float]]` in `starter/solution.py`.
 
-- A customer's total is the sum of the `amount` of their **paid** orders. Refunded orders don't
-  count, and missing amounts are ignored (not treated as zero errors, just skipped).
-- Customers whose total is `0` (or who have no paid orders) are left out.
-- Return the top `n` as `(customer, total)` tuples, the total rounded to 2 decimals, ordered by total
-  descending; ties are ordered by customer name ascending.
-- `n` larger than the number of customers returns all of them; `n == 0` returns `[]`.
-- A negative `n` raises `ValueError("n must be >= 0, got -1")`; a missing column raises
-  `ValueError("missing column: status")` (naming the first missing one in the order
-  customer, amount, status).
-- The input DataFrame must not be modified.
+- The total of a customer is the sum of the `amount` of the customer's **paid** orders.
+- Refunded orders do not count. The function skips missing amounts. A missing amount is not an
+  error.
+- The result does not include customers with a total of 0 or less. This includes customers with no
+  paid orders.
+- The function returns the top `n` customers as `(customer, total)` tuples. It rounds each total to
+  2 decimals.
+- The order is by total, from highest to lowest. For equal totals, the order is by customer name,
+  from A to Z.
+- If `n` is larger than the number of customers, the function returns all of them. If `n == 0`, it
+  returns `[]`.
+- For a negative `n`, it raises `ValueError("n must be >= 0, got -1")`.
+- For a missing column, it raises `ValueError("missing column: status")`. The message names the
+  first missing column in this order: customer, amount, status.
+- The function must not change the input DataFrame.
 
 ## Examples
 
@@ -38,12 +43,12 @@ ValueError: missing column: status
 
 ## Constraints
 
-- Use pandas the way you would at work: no Python loops over rows.
-- Up to 10^6 orders.
-- Available: numpy 2.1, pandas 2.2 (nothing else).
+- Use pandas as you would at work. Do not use Python loops over rows.
+- The input has at most 10^6 orders.
+- The available libraries are numpy 2.1 and pandas 2.2. No other libraries are available.
 
 ## How to run
 
 - `ginga test` runs the tests (pytest) against your `starter/`.
-- `ginga hint` reveals one hint at a time.
-- `ginga done` when everything is green.
+- `ginga hint` shows one hint at a time.
+- `ginga done` records the solve when all tests pass.

@@ -2,22 +2,25 @@
 
 ## Problem
 
-An analytics collector receives one JSON event per line. Implement in `starter/solution.ts`:
+An analytics collector receives one JSON event on each line. Write this in `starter/solution.ts`:
 
 ```ts
 export type Event = /* derived from your zod schema with z.infer */;
 export function parseEvents(lines: string[]): { events: Event[]; rejected: number[] };
 ```
 
-An event is one of:
+An event has one of these two forms:
 
-- `{ "type": "click", "x": number, "y": number }`: coordinates are finite numbers.
-- `{ "type": "purchase", "sku": string, "cents": number }`: `sku` is a non-empty string, `cents` a
-  positive whole number.
+- `{ "type": "click", "x": number, "y": number }`: the coordinates are finite numbers.
+- `{ "type": "purchase", "sku": string, "cents": number }`: `sku` is a string that is not empty.
+  `cents` is a positive whole number.
 
-Extra fields are ignored (dropped from the output). `events` keeps the valid events in input order;
-`rejected` lists the **0-based indexes** of lines that are not valid JSON or not a valid event. The
-function never throws.
+The function removes extra fields from the output. They do not make an event invalid.
+
+- `events` contains the valid events, in their input order.
+- `rejected` contains the **0-based indexes** of the lines that are not valid JSON or not a valid
+  event.
+- The function never throws.
 
 ## Examples
 
@@ -34,11 +37,12 @@ parseEvents([
 
 ## Constraints
 
-- The `Event` type must come from the schema (`z.infer`), not be written by hand.
-- Libraries available: zod 3.23, vitest 2.1 (tests). The code must pass `tsc --strict`.
+- Get the `Event` type from the schema with `z.infer`. Do not write the type yourself.
+- The available libraries are zod 3.23 and vitest 2.1 (for the tests).
+- The code must pass `tsc --strict`.
 
 ## How to run
 
 - `ginga test` type-checks and runs the tests (vitest) against your `starter/`.
-- `ginga hint` reveals one hint at a time.
-- `ginga done` when everything is green.
+- `ginga hint` shows one hint at a time.
+- `ginga done` records the solve when all tests pass.

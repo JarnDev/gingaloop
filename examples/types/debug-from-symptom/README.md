@@ -2,17 +2,22 @@
 
 ## Problem
 
-`starter/solution.mjs` has `summarizeLog(lines)`, used by the on-call dashboard to count log lines
-per level. A line is `LEVEL message`: an uppercase level (`ERROR`, `WARN`, `AUDIT`…), one space, and
-a non-empty message. Malformed lines are skipped. It returns an object `{ LEVEL: count }`, and calling
-it again must give the same result for the same input.
+`starter/solution.mjs` has `summarizeLog(lines)`. The on-call dashboard uses it to count the log
+lines of each level.
 
-It's buggy. Find the cause and fix it so the whole contract holds, not just the case below.
+- A line is `LEVEL message`: an uppercase level (`ERROR`, `WARN`, `AUDIT`…), one space, and a
+  message that is not empty.
+- The function skips each line that does not have this format.
+- It returns an object `{ LEVEL: count }`.
+- The same input always gives the same result, also when you call the function again.
+
+The code has a bug. Find the cause and fix it. All of the contract must hold, not only the case
+below.
 
 ## Symptom
 
-During an incident the disk filled up and the service logged four errors in a row, but the dashboard
-showed half of them. Calling it directly with those four lines prints:
+During an incident, the disk became full. The service logged four errors in sequence, but the
+dashboard showed only two. A direct call with those four lines prints:
 
 ```
 {"ERROR":2}
@@ -27,10 +32,11 @@ summarizeLog(["AUDIT login ok", "garbage", "ERROR"])                  // { AUDIT
 
 ## Constraints
 
-- Node.js standard library only. Fix the cause; special-casing the symptom won't pass the tests.
+- Use only the Node.js standard library.
+- Fix the cause. A special case for the symptom does not pass the tests.
 
 ## How to run
 
 - `ginga test` runs the tests against your `starter/`.
-- `ginga hint` reveals one hint at a time.
-- `ginga done` when everything is green.
+- `ginga hint` shows one hint at a time.
+- `ginga done` records the solve when all tests pass.

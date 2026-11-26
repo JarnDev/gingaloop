@@ -1,12 +1,12 @@
 ## Hint 1
-"Every customer, even without orders" is a sentence about which join keeps rows from one side even
-when there's no match.
+"All customers, also customers without orders": which join keeps the rows of one side when the
+other side has no match?
 
 ## Hint 2
-`LEFT JOIN` customers to orders, then aggregate per customer. Be careful *where* you filter on
-`status`: a condition in `WHERE` on the right-hand table runs after the join and throws away the
-unmatched customers again.
+Use a `LEFT JOIN` from customers to orders. Then aggregate for each customer. Be careful *where*
+you filter on `status`. A `WHERE` condition on the right-hand table runs after the join. It removes
+the customers without a match again.
 
 ## Hint 3
-Put `o.status = 'paid'` in the `ON` clause, count `o.id` (not `*`), and wrap the sum in
-`COALESCE(..., 0)`. `GROUP BY c.id, c.name`.
+Put `o.status = 'paid'` in the `ON` clause. Count `o.id`, not `*`. Put the sum in
+`COALESCE(..., 0)`. Use `GROUP BY c.id, c.name`.

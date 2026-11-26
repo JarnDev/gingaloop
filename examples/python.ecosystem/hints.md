@@ -1,10 +1,10 @@
 ## Hint 1
-Three steps: keep only the rows that count, add them up per customer, then rank. Which pandas
-operation already skips missing values when summing?
+Do three steps. Keep only the rows that count. Add them up for each customer. Then rank the
+customers. Which pandas operation skips missing values when it adds them?
 
 ## Hint 2
-Filter with a boolean mask on `status`, then `groupby("customer")["amount"].sum()` (it skips NaN by
-default). Drop totals that are not positive. For the ranking, sort by two keys at once.
+Filter with a boolean mask on `status`. Then use `groupby("customer")["amount"].sum()`, which skips
+NaN by default. Remove the totals that are 0 or less. To rank, sort by two keys in one call.
 
 ## Hint 3
 `totals.reset_index().sort_values(["amount", "customer"], ascending=[False, True], kind="stable")`,

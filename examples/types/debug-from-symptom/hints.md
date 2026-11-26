@@ -1,12 +1,12 @@
 ## Hint 1
-It loses exactly every other line, even though each line is valid on its own. Something must
-survive from one line to the next. What state could that be?
+The function loses exactly one line in two, but each line is valid. So some state stays from one
+line to the next. Which state can that be?
 
 ## Hint 2
-Look for anything defined *outside* the function that the loop keeps reusing, and read the
-documentation of how it behaves when it's reused.
+Find each value that is defined *outside* the function and that the loop uses again and again.
+Then read the documentation: how does that value behave when you use it again?
 
 ## Hint 3
-`LINE` is a regex with the `g` flag. `RegExp.prototype.exec` with `g` starts searching at
-`LINE.lastIndex` and updates it after each match, so the next string is searched from the wrong
-position.
+`LINE` is a regex with the `g` flag. With `g`, `RegExp.prototype.exec` starts its search at
+`LINE.lastIndex` and changes `lastIndex` after each match. So the search in the next string starts
+at the wrong position.

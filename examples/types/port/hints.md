@@ -1,10 +1,10 @@
 ## Hint 1
-Python's `//` and JavaScript's division with `Math.trunc` agree for positive numbers. Try `-1 // 10`
-in your head for each.
+For positive numbers, Python's `//` and JavaScript's division with `Math.trunc` give the same
+result. Calculate `-1 // 10` with each of them.
 
 ## Hint 2
-Use `Math.floor(v / size)` for floor division. For counting, a `Map<number, number>` keeps numeric
-keys numeric, whereas object keys are strings and sort as strings.
+Use `Math.floor(v / size)` for floor division. To count, use a `Map<number, number>`: its keys stay
+numbers. Object keys are strings, and they sort as strings.
 
 ## Hint 3
 `const counts = new Map<number, number>(); for (const v of values) { const b = Math.floor(v / size); counts.set(b, (counts.get(b) ?? 0) + 1); }`

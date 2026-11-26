@@ -1,10 +1,11 @@
 ## Hint 1
-If the intervals were sorted by start, you'd only ever need to compare each interval with the last
-one you kept.
+Sort the intervals by start. Then you compare each interval only with the last interval that you
+kept.
 
 ## Hint 2
-Validate first (and throw), drop empties, sort by `start`, then sweep: extend the last kept interval
-when the next one starts at or before its end, otherwise start a new one.
+First check each interval, and throw for an invalid one. Then remove the empty intervals and sort by
+`start`. Then go through the list. If the next interval starts at or before the end of the last kept
+interval, extend the last kept interval. If not, keep the next interval as a new one.
 
 ## Hint 3
 `std::ranges::sort(v, {}, &Interval::start);` then

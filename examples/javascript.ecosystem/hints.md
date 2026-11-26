@@ -1,11 +1,12 @@
 ## Hint 1
-Describe the whole object as one schema and let zod do the checking; `safeParse` gives you either the
-data or a list of issues, without throwing.
+Write one schema for the whole object, and let zod do the checks. `safeParse` does not throw. It
+gives you the data or a list of issues.
 
 ## Hint 2
-String schemas can normalize (`.trim()`, `.toLowerCase()`) before later checks such as `.email()`.
-`z.object({...})` silently drops unknown keys by default: something has to make it complain instead.
+A string schema can normalize the value (`.trim()`, `.toLowerCase()`) before later checks such as
+`.email()`. By default, `z.object({...})` removes unknown keys and reports no error. You must change
+this, so that unknown keys give an error.
 
 ## Hint 3
-`z.object({ ... }).strict()`, then map `result.error.issues`: an issue with a path names a field
-(`path[0]`), and an "unrecognized keys" issue carries the unknown names in `keys`.
+Use `z.object({ ... }).strict()`. Then map `result.error.issues`. An issue with a path names a field
+(`path[0]`). An "unrecognized keys" issue has the unknown names in `keys`.
